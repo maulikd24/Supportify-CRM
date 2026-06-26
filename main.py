@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -11,7 +13,8 @@ from app.routers import sops, reviews, ui, dsat
 from app.routers import auth as auth_router
 from app.routers import admin as admin_router
 
-templates = Jinja2Templates(directory="templates")
+BASE_DIR = Path(__file__).parent
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
 @asynccontextmanager
@@ -26,7 +29,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="QA Sentinel", lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+_static_dir = BASE_DIR / "static"
+_static_dir.mkdir(exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
 
 @app.exception_handler(RequestValidationError)
