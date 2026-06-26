@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}Team Report — QA Sentinel{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1><span class="gradient-text">Team Report</span></h1>
+  <a href="/reviews/download" class="btn btn-success">⬇ Download CSV</a>
+</div>
+
+<!-- ── KPI Cards ─────────────────────────────────────────────────────────── -->
+<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;margin-bottom:1.75rem;">
+  <div class="card stat-card" style="border-top:3px solid var(--primary);">
+    <span class="stat-icon">📋</span>
+    <div class="value gradient-text">{{ team_stats.total_reviews or 0 }}</div>
+    <div class="label">Total Reviews</div>
+  </div>
+  {% set avg = team_stats.avg_score or 0 %}
+  <div class="card stat-card" style="border-top:3px solid {% if avg>=75 %}var(--success){% elif avg>=60 %}var(--warning){% else %}var(--danger){% endif %};">
+    <span class="stat-icon">🎯</span>
+    <div class="value" style="color:{% if avg>=75 %}var(--success-text){% elif avg>=60 %}var(--warning-text){% else %}var(--danger-text){% endif %}">
+      {{ team_stats.avg_score or '—' }}
+    </div>
+    <div class="label">Team Avg Score</div>
+  </div>
+  <div class="card stat-card" style="border-top:3px solid var(--success);">
+    <span class="stat-icon">✅</span>
+    <div class="value" style="color:var(--success-text);">{{ team_stats.passing or 0 }}</div>
+    <div class="label">Passing (≥75)</div>
+  </div>
+  <div class="card stat-card" style="border-top:3px solid var(--danger);">
+    <span class="stat-icon">⚠️</span>
+    <div class="value" style="color:var(--danger-text);">{{ team_stats.failing or 0 }}</div>
+    <div class="label">Failing (&lt;60)</div>
+  </div>
+  <div class="card stat-card" style="border-top:3px solid var(--primary);">
+    <span class="stat-icon">💳</span>
+    <div class="value gradient-text">${{ "%.4f"|format(team_stats.total_cost_usd or 0) }}</div>
+    <div class="label">Credits Spent</div>
+    <div style="font-size:.7rem;color:var(--muted-light);margin-top:.2rem;">
+      {{ "{:,}".format((team_stats.total_tokens or 0)|int) }} tokens
+    </div>
+  </div>
+</div>
+
+<div class="grid2" style="margin-bottom:1.5rem;">
+  <!-- ── Score distribution ─────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>Score Distribution</h2>
+    {% set buckets = [
+      ('Excellent', '90–100', distribution.excellent, 'var(--success)'),
+      ('Good',      '75–89',  distribution.good,      '#34d399'),
+      ('Acceptable','60–74',  distribution.acceptable,'var(--warning)'),
+      ('Below Std', '40–59',  distribution.below,     '#f97316'),
+      ('Poor',      '0–39',   distribution.poor,      'var(--danger)'),
+    ] %}
+    {% set total = (distribution.excellent or 0) + (distribution.good or 0) + (distribution.acceptable or 0) + (distribution.below or 0) + (distribution.poor or 0) %}
+    <div style="display:grid;gap:.9rem;">
+      {% for label, range_, count, color in buckets %}
+      {% set pct = ((count or 0) / total * 100)|int if total > 0 else 0 %}
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:.38rem;">
+          <span style="font-weight:600;color:var(--text-2);">{{ label }} <span style="color:var(--muted-light);font-weight:400;">{{ range_ }}</span></span>
+          <span style="font-weight:600;">{{ count or 0 }} <span style="color:var(--muted-light);font-weight:400;">({{ pct }}%)</span></span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-bar-fill" style="width:{{ pct }}%;background:{{ color }};"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ── Sentiment summary ──────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>Overall Sentiment</h2>
+    {% set sent_total = (sentiments.positive or 0) + (sentiments.neutral or 0) + (sentiments.negative or 0) %}
+    {% if sent_total > 0 %}
+    {% set sent_buckets = [
+      ('😊 Positive', sentiments.positive or 0, 'var(--success)'),
+      ('😐 Neutral',  sentiments.neutral  or 0, 'var(--muted)'),
+      ('😟 Negative', sentiments.negative or 0, 'var(--danger)'),
+    ] %}
+    <div style="display:grid;gap:.9rem;">
+      {% for label, count, color in sent_buckets %}
+      {% set pct = (count / sent_total * 100)|int %}
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:.84rem;margin-bottom:.38rem;">
+          <span style="font-weight:600;color:var(--text-2);">{{ label }}</span>
+          <span style="font-weight:600;">{{ count }} <span style="color:var(--muted-light);font-weight:400;">({{ pct }}%)</span></span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-bar-fill" style="width:{{ pct }}%;background:{{ color }};"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:2.5rem;color:var(--muted-light);">
+      <div style="font-size:2rem;margin-bottom:.5rem;">📊</div>
+      No sentiment data yet — run a review to populate.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── Agent leaderboard ─────────────────────────────────────────────────── -->
+<div class="card" style="margin-bottom:1.5rem;">
+  <h2>Agent Leaderboard</h2>
+  {% if agents %}
+  <table>
+    <thead>
+      <tr><th>Rank</th><th>Agent</th><th>Reviews</th><th>Avg Score</th><th>Min</th><th>Max</th><th>Credits Spent</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for a in agents %}
+      <tr>
+        <td style="font-size:1.2rem;width:48px;text-align:center;">
+          {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}<span style="color:var(--muted-light);font-weight:700;">{{ loop.index }}</span>{% endif %}
+        </td>
+        <td>
+          <div style="font-weight:700;">{{ a.agent_name or '—' }}</div>
+          {% if a.agent_email %}<div style="font-size:.75rem;color:var(--muted-light);">{{ a.agent_email }}</div>{% endif %}
+        </td>
+        <td><span class="badge badge-purple">{{ a.total }}</span></td>
+        <td>
+          {% set sc = a.avg_score or 0 %}
+          <span class="badge {% if sc>=75 %}badge-green{% elif sc>=60 %}badge-yellow{% else %}badge-red{% endif %}">{{ a.avg_score }}</span>
+        </td>
+        <td style="color:var(--muted);">{{ a.min_score }}</td>
+        <td style="color:var(--muted);">{{ a.max_score }}</td>
+        <td style="font-size:.8rem;color:var(--muted);">
+          {% if a.total_cost_usd %} ${{ "%.4f"|format(a.total_cost_usd) }}{% else %}—{% endif %}
+        </td>
+        <td><a href="/agents/{{ a.agent_email or a.agent_name }}" class="btn btn-sm btn-primary">View →</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="text-align:center;padding:2rem;color:var(--muted-light);">No agent data yet.</div>
+  {% endif %}
+</div>
+
+<!-- ── SOP performance ───────────────────────────────────────────────────── -->
+<div class="card">
+  <h2>SOP Performance</h2>
+  <p class="text-sm text-muted" style="margin-bottom:1rem;">Average agent score per SOP — lower scores indicate harder SOPs or training gaps.</p>
+  {% if sop_stats %}
+  <table>
+    <thead>
+      <tr><th>SOP</th><th>Reviews</th><th>Avg Score</th><th>Health</th></tr>
+    </thead>
+    <tbody>
+      {% for s in sop_stats %}
+      {% set sc = s.avg_score or 0 %}
+      <tr>
+        <td style="font-weight:600;color:var(--text-2);">{{ s.sop_name }}</td>
+        <td style="color:var(--muted);">{{ s.total }}</td>
+        <td>
+          <span class="badge {% if sc>=75 %}badge-green{% elif sc>=60 %}badge-yellow{% else %}badge-red{% endif %}">{{ s.avg_score }}</span>
+        </td>
+        <td>
+          <div class="feedback-item {% if sc >= 75 %}feedback-good{% elif sc >= 60 %}feedback-warn{% else %}feedback-bad{% endif %}" style="margin:0;padding:.35rem .65rem;font-size:.78rem;">
+            {% if sc >= 75 %}✅ Good compliance{% elif sc >= 60 %}⚠️ Needs attention{% else %}🚨 Training gap{% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="text-align:center;padding:1.5rem;color:var(--muted-light);">No SOP data yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

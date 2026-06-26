@@ -1,0 +1,446 @@
+{% extends "base.html" %}
+{% block title %}Review #{{ review.id }} — QA Sentinel{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="breadcrumb"><a href="/">Dashboard</a> › Review #{{ review.id }}</div>
+    <h1><span class="gradient-text">Review #{{ review.id }}</span></h1>
+  </div>
+  <a href="/" class="btn btn-ghost">← Back</a>
+</div>
+
+<!-- ── Token usage banner ─────────────────────────────────────────────────── -->
+{% if review.tokens_input %}
+<div class="card" style="margin-bottom:1.5rem;padding:.9rem 1.25rem;">
+  <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;justify-content:space-between;">
+    <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;">⚡ Token Usage</div>
+    <div style="display:flex;gap:2rem;flex-wrap:wrap;">
+      <div style="text-align:center;">
+        <div style="font-size:1.05rem;font-weight:800;color:var(--primary);">{{ "{:,}".format(review.tokens_input) }}</div>
+        <div style="font-size:.7rem;color:var(--muted-light);">Input</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:1.05rem;font-weight:800;color:var(--accent);">{{ "{:,}".format(review.tokens_output) }}</div>
+        <div style="font-size:.7rem;color:var(--muted-light);">Output</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:1.05rem;font-weight:800;color:var(--text);">{{ "{:,}".format(review.tokens_input + review.tokens_output) }}</div>
+        <div style="font-size:.7rem;color:var(--muted-light);">Total</div>
+      </div>
+      {% if review.tokens_cost_usd %}
+      <div style="text-align:center;">
+        <div style="font-size:1.05rem;font-weight:800;color:var(--success-text);">${{ "%.4f"|format(review.tokens_cost_usd) }}</div>
+        <div style="font-size:.7rem;color:var(--muted-light);">Est. Cost</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Score + Ticket info ────────────────────────────────────────────────── -->
+<div class="grid2" style="margin-bottom:1.5rem;">
+  <div class="card" style="display:flex;align-items:center;gap:1.75rem;">
+    {% set s = review.overall_score %}
+    <div class="score-ring {% if s >= 75 %}good{% elif s >= 60 %}ok{% else %}bad{% endif %}" style="width:88px;height:88px;font-size:1.5rem;">{{ s }}</div>
+    <div>
+      <div style="font-weight:800;font-size:1.15rem;color:var(--text);letter-spacing:-.3px;">
+        {% if s >= 90 %}🌟 Excellent{% elif s >= 75 %}✅ Good{% elif s >= 60 %}⚠️ Acceptable{% elif s >= 40 %}📉 Below Standard{% else %}🚨 Poor{% endif %}
+      </div>
+      <div style="color:var(--muted);font-size:.82rem;margin-top:.3rem;">Ticket #{{ review.ticket_id }}</div>
+      <div style="color:var(--muted-light);font-size:.8rem;">{{ review.agent_name }} &nbsp;·&nbsp; {{ review.created_at[:10] }}</div>
+      {% if review.sop_names %}
+      <div style="margin-top:.55rem;display:flex;flex-wrap:wrap;gap:.3rem;">
+        {% for name in review.sop_names %}
+        <span class="badge badge-purple">{{ name }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <!-- View mode -->
+    <div id="ticket-info-view">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+        <h2 style="margin:0;">Ticket Info</h2>
+        <button type="button" onclick="toggleTicketEdit(true)"
+          class="btn btn-secondary btn-sm">✏️ Edit Info</button>
+      </div>
+      <table style="font-size:.84rem;">
+        <tr><td style="color:var(--muted-light);padding:.3rem .65rem .3rem 0;font-weight:600;white-space:nowrap;">Ticket ID</td>
+            <td style="color:var(--text-2);">{{ review.ticket_id }}</td></tr>
+        <tr><td style="color:var(--muted-light);padding:.3rem .65rem .3rem 0;font-weight:600;white-space:nowrap;">Subject</td>
+            <td style="color:var(--text-2);">{{ review.ticket_subject or '—' }}</td></tr>
+        <tr><td style="color:var(--muted-light);padding:.3rem .65rem .3rem 0;font-weight:600;white-space:nowrap;">Agent</td>
+            <td>{{ review.agent_name or '—' }}{% if review.agent_email %} <span style="color:var(--muted-light);">({{ review.agent_email }})</span>{% endif %}</td></tr>
+        <tr><td style="color:var(--muted-light);padding:.3rem .65rem .3rem 0;font-weight:600;white-space:nowrap;">SOP(s)</td>
+            <td>{% for n in (review.sop_names if review.sop_names else [review.sop_name]) %}{{ n }}{% if not loop.last %}, {% endif %}{% endfor %}</td></tr>
+      </table>
+    </div>
+
+    <!-- Edit mode -->
+    <div id="ticket-info-edit" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;">
+        <h2 style="margin:0;">Edit Ticket Info</h2>
+        <button type="button" onclick="toggleTicketEdit(false)"
+          class="btn btn-ghost btn-sm">✕ Cancel</button>
+      </div>
+      <form method="post" action="/review/{{ review.id }}/edit-info">
+        <div class="form-group">
+          <label>Ticket ID</label>
+          <input type="text" name="ticket_id" value="{{ review.ticket_id }}" required />
+        </div>
+        <div class="form-group">
+          <label>Subject</label>
+          <input type="text" name="ticket_subject" value="{{ review.ticket_subject or '' }}" placeholder="e.g. Billing overcharge" />
+        </div>
+        <div class="grid2" style="gap:.75rem;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label>Agent Name</label>
+            <input type="text" name="agent_name" value="{{ review.agent_name or '' }}" placeholder="e.g. Sarah Johnson" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>Agent Email</label>
+            <input type="text" name="agent_email" value="{{ review.agent_email or '' }}" placeholder="e.g. sarah@company.com" />
+          </div>
+        </div>
+        <div style="display:flex;gap:.6rem;margin-top:1rem;">
+          <button type="submit" class="btn btn-primary btn-sm">💾 Save Changes</button>
+          <button type="button" onclick="toggleTicketEdit(false)" class="btn btn-ghost btn-sm">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── Criteria scores ────────────────────────────────────────────────────── -->
+<div class="card" style="margin-bottom:1.5rem;">
+  <div style="margin-bottom:.9rem;">
+    <h2 style="margin:0;">Criteria Scores</h2>
+    {% if review.score_edited_at %}
+    <div style="font-size:.72rem;color:var(--success-text);margin-top:.2rem;">
+      ✓ Revised after violation dismissal · {{ review.score_edited_at[:10] }}
+    </div>
+    {% endif %}
+  </div>
+
+  <div style="display:grid;gap:1rem;">
+    {% set icons = {'sop_adherence':'📋','tone_and_empathy':'💬','accuracy':'🎯','resolution_quality':'✅','response_completeness':'📝'} %}
+    {% for key, label in all_criteria %}
+    {% if key in review.excluded_criteria %}
+    <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem .75rem;background:var(--bg);border-radius:var(--radius-sm);border:1.5px dashed var(--border);">
+      <span style="font-size:.84rem;font-weight:600;color:var(--muted-light);">{{ icons[key] }} {{ label }}</span>
+      <span class="badge badge-yellow" style="margin-left:auto;font-size:.68rem;">Excluded</span>
+    </div>
+    {% else %}
+    {% set val = review.criteria_scores.get(key, 0) %}
+    <div>
+      <div style="display:flex;justify-content:space-between;font-size:.84rem;margin-bottom:.4rem;align-items:center;">
+        <span style="font-weight:600;color:var(--text-2);">{{ icons[key] }} {{ label }}</span>
+        <span class="badge {% if val>=75 %}badge-green{% elif val>=60 %}badge-yellow{% else %}badge-red{% endif %}">{{ val }}</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-bar-fill" style="width:{{ val }}%;background:{% if val>=75 %}var(--success){% elif val>=60 %}var(--warning){% else %}var(--danger){% endif %};"></div>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border-light);display:flex;align-items:center;justify-content:space-between;">
+    <span style="font-size:.84rem;font-weight:700;color:var(--text-2);">Overall Score</span>
+    <span class="badge {% if review.overall_score>=75 %}badge-green{% elif review.overall_score>=60 %}badge-yellow{% else %}badge-red{% endif %}" style="font-size:.85rem;padding:.3rem .8rem;">{{ review.overall_score }}</span>
+  </div>
+</div>
+
+<!-- ── Sentiment analysis ─────────────────────────────────────────────────── -->
+{% set sent = review.sentiment %}
+{% if sent %}
+<div class="card" style="margin-bottom:1.5rem;">
+  <h2>Sentiment Analysis</h2>
+  <div class="grid3" style="margin-bottom:1.25rem;gap:1rem;">
+    {% for tile_label, tile_val, tile_sub in [
+        ('Overall',  sent.get('overall','neutral'),           'score: ' ~ (sent.get('score','—')|string)),
+        ('Customer', sent.get('customer_sentiment','neutral'), 'Customer feeling'),
+        ('Agent',    sent.get('agent_sentiment','neutral'),    'Agent tone'),
+    ] %}
+    {% set k = tile_val|lower %}
+    {% set em = {'positive':'😊','neutral':'😐','negative':'😟'} %}
+    {% set sc = {'positive':'var(--success-text)','neutral':'var(--muted)','negative':'var(--danger-text)'} %}
+    {% set sb = {'positive':'var(--success-bg)','neutral':'var(--bg2)','negative':'var(--danger-bg)'} %}
+    {% set bdr = {'positive':'var(--success-border)','neutral':'var(--border)','negative':'var(--danger-border)'} %}
+    <div style="text-align:center;padding:1.1rem;background:{{ sb.get(k,'var(--bg2)') }};border-radius:var(--radius-sm);
+                border-left:4px solid {{ bdr.get(k,'var(--border)') }};">
+      <div style="font-size:1.75rem;margin-bottom:.3rem;">{{ em.get(k,'😐') }}</div>
+      <div style="font-size:.95rem;font-weight:700;color:{{ sc.get(k,'var(--muted)') }};">{{ tile_val|title }}</div>
+      <div style="font-size:.72rem;color:var(--muted-light);margin-top:.15rem;">{{ tile_label }} · {{ tile_sub }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if sent.get('tone_shift') and sent.get('tone_shift') != 'none' %}
+  <div class="alert alert-warn" style="margin-bottom:1rem;">
+    <span>🔄</span><span><strong>Tone shift:</strong> {{ sent.get('tone_shift') }}</span>
+  </div>
+  {% endif %}
+
+  {% if sent.get('turns') %}
+  <div class="section-label">Turn-by-turn sentiment</div>
+  <div style="display:grid;gap:.4rem;">
+    {% for turn in sent.get('turns',[]) %}
+    <div style="display:flex;align-items:center;gap:.6rem;font-size:.82rem;">
+      <span class="badge {% if turn.role=='agent' %}badge-blue{% else %}badge-purple{% endif %}" style="font-size:.68rem;flex-shrink:0;">{{ turn.role|upper }}</span>
+      <span class="badge {% if turn.sentiment=='positive' %}badge-green{% elif turn.sentiment=='negative' %}badge-red{% else %}badge-yellow{% endif %}" style="font-size:.68rem;flex-shrink:0;">{{ turn.sentiment }}</span>
+      <span style="color:var(--muted);">{{ turn.note }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- ── Summary + Strengths + Improvements ────────────────────────────────── -->
+<div class="grid2" style="margin-bottom:1.5rem;">
+  <div class="card">
+    <h2>Assessment Summary</h2>
+    <p style="font-size:.875rem;line-height:1.75;color:var(--text-2);margin-bottom:1.25rem;">{{ review.summary }}</p>
+
+    {% if review.strengths %}
+    <h2>💪 Strengths</h2>
+    {% for item in review.strengths %}
+    <div class="feedback-item feedback-good">✓ {{ item }}</div>
+    {% endfor %}
+    {% endif %}
+  </div>
+
+  <div class="card">
+    {% if review.improvements %}
+    <h2>📈 Areas for Improvement</h2>
+    {% for item in review.improvements %}
+    <div class="feedback-item feedback-warn">⚠ {{ item }}</div>
+    {% endfor %}
+    {% endif %}
+
+    {% if review.sop_violations %}
+    <div style="margin-top:1.25rem;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem;">
+        <h2 style="margin:0;">🚨 SOP Violations</h2>
+        {% if review.dismissed_violations %}
+        <span class="badge badge-yellow" style="font-size:.7rem;">
+          {{ review.dismissed_violations|length }}/{{ review.sop_violations|length }} dismissed
+        </span>
+        {% endif %}
+      </div>
+      <form method="post" action="/review/{{ review.id }}/dismiss-violations">
+        <div style="display:grid;gap:.45rem;margin-bottom:.75rem;">
+          {% for v in review.sop_violations %}
+          {% set is_dismissed = v in review.dismissed_violations %}
+          <label style="display:flex;align-items:flex-start;gap:.75rem;padding:.6rem .85rem;
+                         border-radius:var(--radius-sm);border:1.5px solid {% if is_dismissed %}var(--border-light){% else %}var(--danger-border,#fca5a5){% endif %};
+                         cursor:pointer;background:{% if is_dismissed %}var(--bg){% else %}var(--danger-bg,#fff5f5){% endif %};"
+                 onmouseenter="this.style.filter='brightness(.97)'" onmouseleave="this.style.filter=''">
+            <input type="checkbox" name="dismissed" value="{{ v }}"
+                   {% if is_dismissed %}checked{% endif %}
+                   onchange="recalcViolations()"
+                   style="margin-top:.18rem;flex-shrink:0;accent-color:var(--success);width:15px;height:15px;cursor:pointer;" />
+            <span style="font-size:.84rem;line-height:1.55;
+                         {% if is_dismissed %}text-decoration:line-through;color:var(--muted-light);{% else %}color:var(--danger-text,#b91c1c);{% endif %}">
+              {{ v }}
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+
+        <div id="revised-score-preview" style="display:{% if review.dismissed_violations %}block{% else %}none{% endif %};
+             padding:.6rem .9rem;border-radius:var(--radius-sm);font-size:.84rem;margin-bottom:.75rem;
+             background:rgba(99,102,241,.06);border:1.5px solid var(--primary);">
+          Revised SOP Adherence: <strong id="preview-sop">{{ review.criteria_scores.get('sop_adherence', 0) }}</strong>
+          &nbsp;·&nbsp; Overall: <strong id="preview-overall">{{ review.overall_score }}</strong>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+          <button type="submit" class="btn btn-primary btn-sm">💾 Save &amp; Recalculate</button>
+          {% if review.dismissed_violations %}
+          <span style="font-size:.72rem;color:var(--muted-light);">
+            Score revised {{ review.score_edited_at[:10] if review.score_edited_at else '' }}
+          </span>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── Conversation ───────────────────────────────────────────────────────── -->
+<div class="card" style="margin-bottom:1.5rem;">
+  <h2>💬 Ticket Conversation</h2>
+  <div style="display:grid;gap:.9rem;max-height:480px;overflow-y:auto;padding-right:.4rem;">
+    {% for msg in review.raw_conversation %}
+    <div style="display:flex;gap:.85rem;align-items:flex-start;">
+      <span class="badge {% if msg.role=='agent' %}badge-blue{% else %}badge-purple{% endif %}" style="flex-shrink:0;margin-top:.1rem;font-size:.68rem;">
+        {{ msg.role|upper }}
+      </span>
+      <div style="font-size:.86rem;line-height:1.7;white-space:pre-wrap;color:var(--text-2);flex:1;
+                  padding:.7rem .95rem;border-radius:{% if msg.role=='agent' %}2px 10px 10px 10px{% else %}10px 2px 10px 10px{% endif %};
+                  background:{% if msg.role=='agent' %}rgba(14,165,233,.07){% else %}var(--primary-light){% endif %};
+                  border-left:{% if msg.role=='agent' %}3px solid var(--info){% else %}3px solid var(--primary){% endif %};">{{ msg.body }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ── Re-run Audit ───────────────────────────────────────────────────────── -->
+<div class="card" style="margin-bottom:1.5rem;border-top:3px solid var(--primary);">
+  <h2>🔄 Re-run Audit</h2>
+  <p class="text-sm text-muted" style="margin-bottom:1rem;">
+    Re-score this conversation against the same or different SOPs — useful after updating an SOP or testing multiple combinations.
+  </p>
+  <form method="post" action="/review/{{ review.id }}/rerun">
+    <div style="margin-bottom:.75rem;">
+      <div style="font-size:.8rem;font-weight:600;color:var(--text-2);margin-bottom:.4rem;">SOPs</div>
+      <div style="border:1.5px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;max-height:190px;overflow-y:auto;background:#fff;">
+        {% set current_ids = review.sop_ids if review.sop_ids else ([review.sop_id] if review.sop_id else []) %}
+        {% set ns2 = namespace(last_cat='') %}
+        {% for sop in all_sops %}
+        {% if sop.category != ns2.last_cat %}
+        {% set ns2.last_cat = sop.category %}
+        <div style="padding:.3rem .9rem;background:var(--bg);font-size:.68rem;font-weight:700;
+                    text-transform:uppercase;letter-spacing:.09em;color:var(--primary);border-bottom:1px solid var(--border-light);">{{ sop.category }}</div>
+        {% endif %}
+        <label style="display:flex;align-items:center;gap:.75rem;padding:.6rem .9rem;cursor:pointer;
+                       border-bottom:1px solid var(--border-light);font-size:.875rem;font-weight:400;">
+          <input type="checkbox" name="sop_ids" value="{{ sop.id }}"
+                 {% if sop.id in current_ids %}checked{% endif %}
+                 style="width:15px;height:15px;cursor:pointer;accent-color:var(--primary);" />
+          {{ sop.name }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div style="margin-bottom:1rem;">
+      <div style="font-size:.8rem;font-weight:600;color:var(--text-2);margin-bottom:.4rem;">
+        Scoring Criteria
+        <span style="font-weight:400;color:var(--muted-light);margin-left:.35rem;">— check to exclude from re-run</span>
+      </div>
+      <div style="border:1.5px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;background:#fff;">
+        {% set icons = {'sop_adherence':'📋','tone_and_empathy':'💬','accuracy':'🎯','resolution_quality':'✅','response_completeness':'📝'} %}
+        {% for key, label in all_criteria %}
+        <label style="display:flex;align-items:center;gap:.75rem;padding:.5rem .9rem;cursor:pointer;
+                       border-bottom:1px solid var(--border-light);font-size:.84rem;font-weight:400;">
+          <input type="checkbox" name="excluded_criteria" value="{{ key }}"
+                 {% if key in review.excluded_criteria %}checked{% endif %}
+                 style="width:14px;height:14px;cursor:pointer;accent-color:var(--danger);" />
+          {{ icons[key] }} {{ label }}
+          {% if key in review.excluded_criteria %}
+          <span class="badge badge-yellow" style="font-size:.66rem;margin-left:auto;">currently excluded</span>
+          {% endif %}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary" onclick="return checkRerunSops(this.form)">
+      🔄 Re-run Assessment
+    </button>
+  </form>
+</div>
+
+<!-- ── Auditor Comment ────────────────────────────────────────────────────── -->
+<div class="card" style="margin-bottom:1.5rem;border-top:3px solid var(--accent);">
+  <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.85rem;">
+    <span style="font-size:1.1rem;">💬</span>
+    <h2 style="margin:0;">Auditor Comment</h2>
+    {% if review.auditor_updated_at %}
+    <span style="font-size:.75rem;color:var(--muted-light);margin-left:auto;">
+      Last saved {{ review.auditor_updated_at[:10] }}
+    </span>
+    {% endif %}
+  </div>
+  <form method="post" action="/review/{{ review.id }}/comment" id="comment-form">
+    <textarea name="auditor_comment" id="auditor-comment-field"
+      style="width:100%;min-height:130px;resize:vertical;"
+      placeholder="Add your observations, coaching notes, or escalation details here…">{{ review.auditor_comment or '' }}</textarea>
+    <div style="display:flex;gap:.6rem;align-items:center;margin-top:.65rem;flex-wrap:wrap;">
+      <button type="submit" class="btn btn-sm"
+        style="background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;box-shadow:0 2px 6px rgba(236,72,153,.3);">
+        💾 Save Comment
+      </button>
+      {% if review.auditor_comment %}
+      <button type="button" onclick="clearComment()" class="btn btn-ghost btn-sm">🗑 Clear</button>
+      {% endif %}
+      <span id="comment-saved-msg" style="font-size:.78rem;color:var(--success-text);display:none;">✓ Saved</span>
+    </div>
+  </form>
+</div>
+
+<!-- ── SOP reference ─────────────────────────────────────────────────────── -->
+{% for sop in sops_content %}
+<details class="card" style="margin-bottom:.75rem;">
+  <summary style="cursor:pointer;font-weight:600;font-size:.88rem;list-style:none;display:flex;align-items:center;gap:.5rem;color:var(--text-2);">
+    <span style="color:var(--primary);">▶</span> 📋 SOP: {{ sop.name }}
+  </summary>
+  <pre style="margin-top:1rem;white-space:pre-wrap;font-size:.8rem;line-height:1.7;
+              color:var(--text-2);font-family:inherit;background:var(--bg);padding:.9rem;border-radius:var(--radius-sm);border:1px solid var(--border);">{{ sop.content }}</pre>
+  <a href="/sops/{{ sop.id }}/edit" class="btn btn-secondary btn-sm" style="margin-top:.65rem;">✏️ Edit this SOP</a>
+</details>
+{% endfor %}
+
+<script>
+function checkRerunSops(form) {
+  const checked = form.querySelectorAll('input[name="sop_ids"]:checked');
+  if (checked.length === 0) { alert('Select at least one SOP to re-run.'); return false; }
+  return true;
+}
+
+function toggleTicketEdit(show) {
+  document.getElementById('ticket-info-view').style.display = show ? 'none'  : 'block';
+  document.getElementById('ticket-info-edit').style.display = show ? 'block' : 'none';
+}
+
+const VIOLATION_TOTAL    = {{ review.sop_violations | length }};
+const ORIG_SOP           = {{ review.criteria_scores.get('sop_adherence', 0) }};
+const ORIG_OVERALL       = {{ review.overall_score }};
+const NUM_CRITERIA       = {{ review.criteria_scores | length or 1 }};
+
+function recalcViolations() {
+  const dismissed = document.querySelectorAll('input[name="dismissed"]:checked').length;
+  const preview = document.getElementById('revised-score-preview');
+
+  // Update visual strike-through immediately
+  document.querySelectorAll('input[name="dismissed"]').forEach(cb => {
+    const label = cb.closest('label');
+    const span  = label.querySelector('span');
+    if (cb.checked) {
+      span.style.textDecoration = 'line-through';
+      span.style.color = 'var(--muted-light)';
+      label.style.background = 'var(--bg)';
+      label.style.borderColor = 'var(--border-light)';
+    } else {
+      span.style.textDecoration = '';
+      span.style.color = 'var(--danger-text, #b91c1c)';
+      label.style.background = 'var(--danger-bg, #fff5f5)';
+      label.style.borderColor = 'var(--danger-border, #fca5a5)';
+    }
+  });
+
+  if (VIOLATION_TOTAL === 0) return;
+
+  const revisedSop     = Math.min(100, Math.round(ORIG_SOP + (dismissed / VIOLATION_TOTAL) * (100 - ORIG_SOP)));
+  const sopDelta       = revisedSop - ORIG_SOP;
+  const revisedOverall = Math.min(100, Math.round(ORIG_OVERALL + sopDelta / NUM_CRITERIA));
+
+  document.getElementById('preview-sop').textContent     = revisedSop;
+  document.getElementById('preview-overall').textContent = revisedOverall;
+  preview.style.display = dismissed > 0 ? 'block' : 'none';
+}
+
+function clearComment() {
+  if (!confirm('Clear the auditor comment?')) return;
+  document.getElementById('auditor-comment-field').value = '';
+  document.getElementById('comment-form').submit();
+}
+</script>
+{% endblock %}

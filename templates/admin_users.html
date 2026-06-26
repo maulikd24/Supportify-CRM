@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Team Members — QA Sentinel{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1><span class="gradient-text">Team Members</span></h1>
+</div>
+
+{% if msg %}
+{% set msg_type = msg.split(':')[0] %}
+{% set msg_text = msg[msg_text|length + 1:] if false else msg.split(':', 1)[1] %}
+<div style="margin-bottom:1.25rem;padding:.75rem 1rem;border-radius:8px;font-size:.875rem;
+  {% if msg_type == 'ok' %}background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);color:#6ee7b7;
+  {% else %}background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#fca5a5;{% endif %}">
+  {{ msg_text }}
+</div>
+{% endif %}
+
+<!-- ── User table ───────────────────────────────────────────────────────── -->
+<div class="card" style="margin-bottom:1.5rem;">
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Role</th>
+        <th>Status</th>
+        <th>Joined</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td style="font-weight:600;">{{ u.name }}</td>
+        <td style="color:var(--muted);">{{ u.email }}</td>
+        <td>
+          <span class="badge {% if u.role == 'admin' %}badge-purple{% else %}badge-blue{% endif %}">
+            {{ u.role }}
+          </span>
+        </td>
+        <td>
+          <span class="badge {% if u.is_active %}badge-green{% else %}badge-red{% endif %}">
+            {% if u.is_active %}Active{% else %}Inactive{% endif %}
+          </span>
+        </td>
+        <td style="color:var(--muted);font-size:.8rem;">{{ (u.created_at or '')[:10] }}</td>
+        <td style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+          {% if u.id != current_user.id %}
+          <form method="post" action="/admin/users/{{ u.id }}/toggle" style="margin:0;">
+            <button type="submit" class="btn btn-sm {% if u.is_active %}btn-secondary{% else %}btn-success{% endif %}">
+              {% if u.is_active %}Deactivate{% else %}Activate{% endif %}
+            </button>
+          </form>
+          {% endif %}
+          <!-- Reset password (inline toggle) -->
+          <button class="btn btn-sm btn-ghost"
+            onclick="this.closest('td').querySelector('.reset-form').classList.toggle('hidden')"
+            style="font-size:.75rem;">
+            Reset PW
+          </button>
+          <form method="post" action="/admin/users/{{ u.id }}/reset-password"
+            class="reset-form hidden"
+            style="display:flex;gap:.35rem;align-items:center;margin:0;width:100%;">
+            <input type="password" name="new_password" placeholder="New password (8+ chars)"
+              minlength="8" required
+              style="padding:.35rem .6rem;font-size:.78rem;border-radius:6px;
+                     border:1px solid var(--border);background:var(--surface-2);
+                     color:var(--text-1);width:180px;">
+            <button type="submit" class="btn btn-sm btn-primary" style="font-size:.75rem;">Save</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- ── Add team member ──────────────────────────────────────────────────── -->
+<div class="card">
+  <h2 style="margin-bottom:1.25rem;">Add Team Member</h2>
+  <form method="post" action="/admin/users/new"
+    style="display:grid;grid-template-columns:1fr 1fr 1fr auto auto;gap:.75rem;align-items:end;">
+    <div>
+      <label class="form-label">Full Name</label>
+      <input type="text" name="name" class="form-input" placeholder="Jane Smith" required>
+    </div>
+    <div>
+      <label class="form-label">Email</label>
+      <input type="email" name="email" class="form-input" placeholder="jane@company.com" required>
+    </div>
+    <div>
+      <label class="form-label">Password</label>
+      <input type="password" name="password" class="form-input" placeholder="Min. 8 chars" minlength="8" required>
+    </div>
+    <div>
+      <label class="form-label">Role</label>
+      <select name="role" class="form-input" style="height:2.55rem;">
+        <option value="member">Member</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div style="padding-bottom:.05rem;">
+      <button type="submit" class="btn btn-primary">Add Member</button>
+    </div>
+  </form>
+</div>
+
+<style>
+  .hidden { display: none !important; }
+  .badge-blue { background: rgba(59,130,246,.15); color: #93c5fd; }
+</style>
+{% endblock %}

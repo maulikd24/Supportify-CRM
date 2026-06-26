@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Setup & Health — QA Sentinel{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1><span class="gradient-text">Setup & Health</span></h1>
+</div>
+
+<div style="max-width:640px;">
+
+  <!-- ── Config table ──────────────────────────────────────────────────── -->
+  <div class="card" style="margin-bottom:1.25rem;border-top:3px solid var(--primary);">
+    <h2>Configuration</h2>
+    <table style="font-size:.84rem;">
+      <thead>
+        <tr><th>Variable</th><th>Status</th><th>Notes</th></tr>
+      </thead>
+      <tbody>
+        {% for item in config_items %}
+        <tr>
+          <td>
+            <code>{{ item.key }}</code>
+            {% if not item.required %}
+            <span style="font-size:.68rem;color:var(--muted-light);font-weight:500;margin-left:.3rem;">optional</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if item.set %}
+            <span class="badge badge-green">✓ Set</span>
+            {% elif item.required %}
+            <span class="badge badge-red">✗ Required</span>
+            {% else %}
+            <span class="badge badge-yellow">— Not set</span>
+            {% endif %}
+          </td>
+          <td style="color:var(--muted);font-size:.81rem;">{{ item.hint }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Missing vars action ───────────────────────────────────────────── -->
+  {% if missing %}
+  <div class="card" style="margin-bottom:1.25rem;border-left:4px solid var(--danger);background:var(--danger-bg);">
+    <h2 style="color:var(--danger-text);">⚠️ Action Required</h2>
+    <p style="font-size:.875rem;color:var(--danger-text);margin-bottom:1rem;line-height:1.65;">
+      The following <strong>required</strong> variables are missing.
+      You can still use <strong>Paste Conversation</strong> reviews in the meantime,
+      but the Anthropic key is needed to run any assessment.
+    </p>
+    <ol style="font-size:.875rem;color:var(--danger-text);padding-left:1.3rem;line-height:2.2;">
+      <li>Copy <code>.env.example</code> to <code>.env</code> in the project folder</li>
+      <li>Fill in the missing values shown below</li>
+      <li>Restart the server</li>
+    </ol>
+    <div style="margin-top:1rem;background:#fff;border:1px solid #fca5a5;border-radius:var(--radius-sm);
+                padding:1rem;font-family:'SF Mono','Consolas',monospace;font-size:.82rem;line-height:2;">
+      {% for item in config_items %}
+      {% if not item.set %}
+      <div><span style="color:var(--danger-text);font-weight:600;">{{ item.key }}</span>=<span style="color:var(--muted);">your_value_here</span></div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Status banner ────────────────────────────────────────────────── -->
+  {% set zendesk_configured = config_items[1].set and config_items[2].set and config_items[3].set %}
+  {% if zendesk_configured %}
+  <div class="card" style="margin-bottom:1.25rem;border-left:4px solid var(--success);background:var(--success-bg);">
+    <div style="display:flex;align-items:center;gap:.9rem;">
+      <span style="font-size:1.75rem;">✅</span>
+      <div>
+        <div style="font-weight:700;color:var(--success-text);font-size:.95rem;">All credentials configured</div>
+        <div style="font-size:.84rem;color:var(--success-text);margin-top:.2rem;opacity:.85;">Both Zendesk and manual review modes are ready to use.</div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="card" style="margin-bottom:1.25rem;border-left:4px solid var(--info);background:var(--info-bg);">
+    <div style="display:flex;align-items:flex-start;gap:.9rem;">
+      <span style="font-size:1.4rem;margin-top:.1rem;">ℹ️</span>
+      <div>
+        <div style="font-weight:700;color:var(--info-text);font-size:.9rem;">Zendesk not configured — that's OK</div>
+        <div style="font-size:.84rem;color:var(--info-text);margin-top:.35rem;line-height:1.65;opacity:.9;">
+          The <strong>Paste Conversation</strong> tab works fully without Zendesk.<br>
+          Add the three Zendesk variables to <code>.env</code> only when you want to pull tickets directly.
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Where to find credentials ────────────────────────────────────── -->
+  <div class="card">
+    <h2>Where to find credentials</h2>
+    <table style="font-size:.83rem;">
+      <tr>
+        <td style="padding:.45rem .75rem .45rem 0;font-weight:600;white-space:nowrap;color:var(--text-2);">Zendesk subdomain</td>
+        <td style="color:var(--muted);">The part before <code>.zendesk.com</code> in your Zendesk URL</td>
+      </tr>
+      <tr>
+        <td style="padding:.45rem .75rem .45rem 0;font-weight:600;white-space:nowrap;color:var(--text-2);">Zendesk email</td>
+        <td style="color:var(--muted);">The email address of the admin/agent account</td>
+      </tr>
+      <tr>
+        <td style="padding:.45rem .75rem .45rem 0;font-weight:600;white-space:nowrap;color:var(--text-2);">Zendesk API token</td>
+        <td style="color:var(--muted);">Admin → Apps &amp; Integrations → Zendesk API → API token</td>
+      </tr>
+      <tr>
+        <td style="padding:.45rem .75rem .45rem 0;font-weight:600;white-space:nowrap;color:var(--text-2);">Anthropic API key</td>
+        <td style="color:var(--muted);">console.anthropic.com/settings/keys</td>
+      </tr>
+    </table>
+  </div>
+
+</div>
+{% endblock %}

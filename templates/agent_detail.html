@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}{{ agent_name }} — QA Sentinel{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="breadcrumb"><a href="/agents">Agents</a> › {{ agent_name }}</div>
+    <h1><span class="gradient-text">{{ agent_name }}</span></h1>
+  </div>
+  <a href="/review/new" class="btn btn-primary">+ New Review</a>
+</div>
+
+<!-- ── Stats ──────────────────────────────────────────────────────────────── -->
+<div class="grid3" style="margin-bottom:1.75rem;">
+  <div class="card stat-card" style="border-top:3px solid var(--primary);">
+    <span class="stat-icon">📋</span>
+    <div class="value gradient-text">{{ stats.total_reviews or 0 }}</div>
+    <div class="label">Total Reviews</div>
+  </div>
+  {% set avg = stats.avg_score or 0 %}
+  <div class="card stat-card" style="border-top:3px solid {% if avg >= 75 %}var(--success){% elif avg >= 60 %}var(--warning){% else %}var(--danger){% endif %};">
+    <span class="stat-icon">🎯</span>
+    <div class="value" style="color:{% if avg >= 75 %}var(--success-text){% elif avg >= 60 %}var(--warning-text){% else %}var(--danger-text){% endif %}">
+      {{ stats.avg_score or '—' }}
+    </div>
+    <div class="label">Avg Score</div>
+  </div>
+  <div class="card stat-card" style="border-top:3px solid var(--info);">
+    <span class="stat-icon">📊</span>
+    <div class="value" style="font-size:1.5rem;color:var(--info-text);">
+      {{ stats.min_score }} / {{ stats.max_score }}
+    </div>
+    <div class="label">Min / Max</div>
+  </div>
+</div>
+
+<!-- ── Score trend ────────────────────────────────────────────────────────── -->
+{% if trend|length > 1 %}
+<div class="card" style="margin-bottom:1.5rem;">
+  <h2>Score Trend (last {{ trend|length }} reviews)</h2>
+  <div style="display:flex;align-items:flex-end;gap:6px;height:90px;padding-top:.5rem;">
+    {% for t in trend %}
+    {% set h = ((t.score / 100) * 80)|int %}
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+      <span style="font-size:.64rem;color:var(--muted);font-weight:700;">{{ t.score }}</span>
+      <div title="{{ t.score }}" style="width:100%;height:{{ h }}px;border-radius:4px 4px 0 0;
+           background:{% if t.score>=75 %}var(--success){% elif t.score>=60 %}var(--warning){% else %}var(--danger){% endif %};
+           box-shadow:0 -2px 6px rgba(0,0,0,.08);transition:opacity .2s;"
+           onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'"></div>
+      <span style="font-size:.59rem;color:var(--muted-light);white-space:nowrap;">{{ t.date[5:] }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Reviews list ───────────────────────────────────────────────────────── -->
+<div class="card">
+  <h2 style="margin-bottom:1rem;">All Reviews</h2>
+  {% if reviews %}
+  <table>
+    <thead>
+      <tr><th>Ticket</th><th>Subject</th><th>SOP(s)</th><th>Score</th><th>Sentiment</th><th>Date</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for r in reviews %}
+      <tr>
+        <td><code>#{{ r.ticket_id }}</code></td>
+        <td style="font-size:.84rem;color:var(--text-2);">{{ r.ticket_subject or '—' }}</td>
+        <td style="font-size:.78rem;color:var(--muted-light);">
+          {% for n in (r.sop_names if r.sop_names else [r.sop_name]) %}
+          <span>{{ n }}</span>{% if not loop.last %}<br/>{% endif %}
+          {% endfor %}
+        </td>
+        <td>
+          {% set sc = r.overall_score %}
+          <span class="badge {% if sc>=75 %}badge-green{% elif sc>=60 %}badge-yellow{% else %}badge-red{% endif %}">{{ sc }}</span>
+        </td>
+        <td>
+          {% set ov = r.sentiment.get('overall','') if r.sentiment else '' %}
+          {% if ov %}
+          <span class="badge {% if ov=='positive' %}badge-green{% elif ov=='negative' %}badge-red{% else %}badge-yellow{% endif %}" style="font-size:.7rem;">
+            {% if ov=='positive' %}😊{% elif ov=='negative' %}😟{% else %}😐{% endif %} {{ ov|title }}
+          </span>
+          {% else %}<span style="color:var(--muted-light);">—</span>{% endif %}
+        </td>
+        <td style="color:var(--muted-light);font-size:.8rem;">{{ r.created_at[:10] }}</td>
+        <td><a href="/review/{{ r.id }}" class="btn btn-sm btn-primary">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="text-align:center;padding:2.5rem;color:var(--muted-light);">No reviews for this agent yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

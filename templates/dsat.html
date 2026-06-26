@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+{% block title %}DSAT Analyser — QA Tool{% endblock %}
+{% block content %}
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
+  <div>
+    <h1 style="margin-bottom:.25rem;">DSAT Analyser</h1>
+    <p style="color:#6b7280;font-size:.875rem;margin:0;">Identify what went wrong and get a recovery plan to turn a DSAT into a CSAT.</p>
+  </div>
+</div>
+
+{% if error %}
+<div class="alert" style="background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;margin-bottom:1.5rem;">
+  <strong>Error:</strong> {{ error }}
+</div>
+{% endif %}
+
+<div style="display:grid;grid-template-columns:1fr 380px;gap:1.5rem;align-items:start;">
+
+  <!-- ── Form ──────────────────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>Analyse a DSAT Ticket</h2>
+    <form method="post" action="/dsat" id="dsat-form">
+      <input type="hidden" name="input_mode" id="input_mode" value="manual" />
+
+      <!-- Tab switcher -->
+      <div style="display:flex;gap:0;margin-bottom:1.25rem;border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+        <button type="button" id="tab-zendesk"
+          {% if zendesk_configured %}onclick="switchTab('zendesk')"
+          {% else %}disabled title="Add Zendesk credentials to .env to enable"{% endif %}
+          style="flex:1;padding:.55rem 1rem;font-size:.875rem;font-weight:600;border:none;border-radius:0;
+                 {% if zendesk_configured %}cursor:pointer;background:#f1f5f9;color:#374151;
+                 {% else %}cursor:not-allowed;background:#f1f5f9;color:#9ca3af;{% endif %}">
+          🔗 Zendesk Ticket ID
+          {% if not zendesk_configured %}<span style="font-size:.7rem;font-weight:400;display:block;">not configured</span>{% endif %}
+        </button>
+        <button type="button" id="tab-manual" onclick="switchTab('manual')"
+          style="flex:1;padding:.55rem 1rem;font-size:.875rem;font-weight:600;border:none;cursor:pointer;
+                 background:#dc2626;color:#fff;border-radius:0;">
+          📋 Paste Conversation
+        </button>
+      </div>
+
+      <!-- Zendesk panel -->
+      <div id="panel-zendesk" style="display:none;">
+        <div class="form-group">
+          <label>Zendesk Ticket ID</label>
+          <input type="text" name="ticket_id" value="{{ prefill.ticket_id if prefill else '' }}" placeholder="e.g. 12345" />
+        </div>
+      </div>
+
+      <!-- Manual panel -->
+      <div id="panel-manual">
+        <div class="form-group">
+          <label>Ticket Subject <span style="color:#9ca3af;font-weight:400;">(optional)</span></label>
+          <input type="text" name="manual_subject" value="{{ prefill.manual_subject if prefill else '' }}" placeholder="e.g. Billing overcharge — still unresolved" />
+        </div>
+        <div class="form-group">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem;">
+            <label style="margin:0;">Paste Conversation</label>
+            <button type="button" onclick="showCleanPreview()"
+              style="font-size:.75rem;font-weight:600;padding:.25rem .65rem;border-radius:6px;
+                     border:1px solid #d1d5db;background:#f9fafb;color:#374151;cursor:pointer;">
+              🔍 Detect &amp; Clean
+            </button>
+          </div>
+          <textarea id="conv-ta" name="manual_conversation" style="min-height:240px;"
+            placeholder="[CUSTOMER]: I've been waiting 3 days and nobody has helped me...&#10;[AGENT]: I apologize for the delay. Let me check on this.&#10;[CUSTOMER]: This is unacceptable. I want a refund.&#10;&#10;— Use [CUSTOMER]: / [AGENT]: labels for best results —"
+            oninput="hideClean()">{{ prefill.manual_conversation if prefill else '' }}</textarea>
+          <p style="font-size:.75rem;color:#9ca3af;margin-top:.3rem;">
+            Use <code>[CUSTOMER]:</code> / <code>[AGENT]:</code> labels for best accuracy.
+            Click <strong>Detect &amp; Clean</strong> to find and strip content that breaks the analyser.
+          </p>
+        </div>
+
+        <!-- ── Clean preview panel ────────────────────────────────────────── -->
+        <div id="clean-panel" style="display:none;margin-bottom:1rem;">
+          <div style="background:#1e293b;color:#e2e8f0;font-size:.72rem;font-weight:600;
+                      padding:.45rem .75rem;border-radius:6px 6px 0 0;
+                      display:flex;align-items:center;justify-content:space-between;">
+            <span>PREVIEW — <span style="color:#fca5a5;">highlighted blocks break the analyser</span> — click any block to remove it</span>
+            <span id="noise-count" style="background:#dc2626;color:#fff;padding:.15rem .55rem;border-radius:99px;"></span>
+          </div>
+          <div id="clean-preview"
+               style="border:1px solid #334155;border-top:none;border-radius:0 0 6px 6px;
+                      padding:.85rem;background:#f8fafc;max-height:360px;overflow-y:auto;
+                      font-size:.82rem;line-height:1.75;font-family:'SF Mono','Consolas',monospace;
+                      white-space:pre-wrap;word-break:break-word;"></div>
+          <div style="display:flex;gap:.6rem;margin-top:.65rem;flex-wrap:wrap;">
+            <button type="button" onclick="removeAllNoise()"
+              style="font-size:.8rem;font-weight:600;padding:.35rem .85rem;border-radius:6px;
+                     border:none;background:#dc2626;color:#fff;cursor:pointer;">
+              Remove all highlighted
+            </button>
+            <button type="button" onclick="applyClean()"
+              style="font-size:.8rem;font-weight:600;padding:.35rem .85rem;border-radius:6px;
+                     border:none;background:#16a34a;color:#fff;cursor:pointer;">
+              ✓ Apply &amp; use cleaned version
+            </button>
+            <button type="button" onclick="hideClean()"
+              style="font-size:.8rem;padding:.35rem .85rem;border-radius:6px;
+                     border:1px solid #d1d5db;background:#fff;color:#6b7280;cursor:pointer;">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shared fields -->
+      <div class="grid2" style="gap:1rem;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Agent Name <span style="color:#9ca3af;font-weight:400;">(optional)</span></label>
+          <input type="text" name="agent_name" value="{{ prefill.agent_name if prefill else '' }}" placeholder="e.g. Sarah Johnson" />
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Customer Name <span style="color:#9ca3af;font-weight:400;">(optional)</span></label>
+          <input type="text" name="customer_name" value="{{ prefill.customer_name if prefill else '' }}" placeholder="e.g. John Smith" />
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:1rem;">
+        <label>Additional Context <span style="color:#9ca3af;font-weight:400;">(optional)</span></label>
+        <input type="text" name="context" value="{{ prefill.context if prefill else '' }}" placeholder="e.g. VIP customer, 3rd contact on same issue" style="width:100%;" />
+      </div>
+
+      <div style="display:flex;gap:.75rem;align-items:center;margin-top:1.25rem;">
+        <button type="submit" class="btn btn-primary" style="background:#dc2626;" id="submit-btn">
+          Analyse DSAT
+        </button>
+        <span id="loading-msg" style="display:none;font-size:.85rem;color:#6b7280;">Analysing… this may take a few seconds.</span>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Side panel ─────────────────────────────────────────────────────── -->
+  <div style="display:grid;gap:1rem;">
+    <div class="card" style="background:#fff7ed;border-color:#fed7aa;">
+      <h2 style="color:#c2410c;font-size:.9rem;margin-bottom:.6rem;">What you'll get</h2>
+      <ul style="padding-left:1.2rem;font-size:.83rem;color:#7c2d12;line-height:2.1;">
+        <li>Root cause breakdown of why the ticket went wrong</li>
+        <li>Narrative summary of the customer's experience</li>
+        <li>Prioritised actions to recover the CSAT</li>
+        <li>Ready-to-send follow-up message for the customer</li>
+        <li>Prevention tips for the team</li>
+        <li>Recovery probability assessment</li>
+      </ul>
+    </div>
+
+    {% if history %}
+    <div class="card">
+      <h2 style="font-size:.9rem;margin-bottom:.75rem;">Recent Analyses</h2>
+      <div style="display:grid;gap:.5rem;">
+        {% for h in history %}
+        <a href="/dsat/{{ h.id }}" style="display:block;padding:.6rem .75rem;border:1px solid var(--border);
+            border-radius:6px;text-decoration:none;color:inherit;font-size:.82rem;
+            background:#fafafa;transition:background .1s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fafafa'">
+          <div style="font-weight:600;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            {{ h.ticket_subject or ('Ticket #' + h.ticket_id) if (h.ticket_subject or h.ticket_id) else 'Manual entry' }}
+          </div>
+          <div style="display:flex;align-items:center;gap:.5rem;margin-top:.25rem;">
+            {% set prob = h.recovery_probability %}
+            <span style="font-size:.7rem;font-weight:600;padding:.1rem .4rem;border-radius:99px;
+              background:{% if prob=='high' %}#dcfce7{% elif prob=='medium' %}#fef9c3{% else %}#fee2e2{% endif %};
+              color:{% if prob=='high' %}#166534{% elif prob=='medium' %}#854d0e{% else %}#991b1b{% endif %};">
+              {{ prob|title if prob else '?' }} recovery
+            </span>
+            <span style="color:#9ca3af;font-size:.72rem;">{{ h.created_at[:10] }}</span>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+const zendeskConfigured = {{ 'true' if zendesk_configured else 'false' }};
+
+function switchTab(mode) {
+  const isZendesk = mode === 'zendesk';
+  document.getElementById('input_mode').value = mode;
+  document.getElementById('panel-zendesk').style.display = isZendesk ? 'block' : 'none';
+  document.getElementById('panel-manual').style.display  = isZendesk ? 'none'  : 'block';
+  if (zendeskConfigured) {
+    document.getElementById('tab-zendesk').style.background = isZendesk ? '#dc2626' : '#f1f5f9';
+    document.getElementById('tab-zendesk').style.color      = isZendesk ? '#fff'    : '#374151';
+  }
+  document.getElementById('tab-manual').style.background = isZendesk ? '#f1f5f9' : '#dc2626';
+  document.getElementById('tab-manual').style.color      = isZendesk ? '#374151' : '#fff';
+}
+
+document.getElementById('dsat-form').addEventListener('submit', function() {
+  document.getElementById('submit-btn').disabled = true;
+  document.getElementById('submit-btn').textContent = 'Analysing…';
+  document.getElementById('loading-msg').style.display = 'inline';
+});
+
+// ── Noise patterns that break / confuse the LLM analyser ─────────────────
+const NOISE_PATTERNS = [
+  // HTML tags & entities
+  { re: /<[a-zA-Z\/][^>]{0,400}>/g,                       label: 'HTML tag' },
+  { re: /&(?:#\d+|#x[\da-fA-F]+|[a-zA-Z]{2,8});/g,       label: 'HTML entity' },
+  // Base64 / encoded blobs (20+ consecutive base64 chars)
+  { re: /[A-Za-z0-9+\/]{40,}={0,2}/g,                     label: 'Encoded data' },
+  // Raw URLs (long or containing query strings)
+  { re: /https?:\/\/\S{60,}/g,                             label: 'Long URL' },
+  { re: /https?:\/\/\S+[?&]\S+/g,                         label: 'URL with params' },
+  // Email thread headers (From / To / Sent / Date / CC / Subject lines)
+  { re: /^[ \t]*(From|To|Cc|Bcc|Sent|Date|Reply-To|Subject)\s*:[ \t]*.+$/gim, label: 'Email header' },
+  // Quoted reply lines (> or >> prefix)
+  { re: /^>+.*/gm,                                         label: 'Quoted reply' },
+  // Zendesk / ticketing system noise
+  { re: /##-.*-##/g,                                       label: 'System marker' },
+  { re: /\[Ticket #\d+\]/gi,                               label: 'Ticket tag' },
+  { re: /This email is a service from .+/gi,               label: 'System footer' },
+  { re: /Please type your repl(y|ies) above this line.*/gi,label: 'System marker' },
+  // Disclaimer / confidentiality boilerplate (≥ 40 chars on a line)
+  { re: /^.*(confidential|disclaimer|intended recipient|privileged|do not (forward|reply|distribute)).{10,}$/gim, label: 'Disclaimer' },
+  // Long unbroken token strings (likely dumps / stack traces / IDs)
+  { re: /\S{120,}/g,                                       label: 'Long token' },
+  // JSON / code fragments
+  { re: /\{[\s\S]{80,}?\}/g,                               label: 'JSON block' },
+  { re: /\[[\s\S]{80,}?\]/g,                               label: 'Data block' },
+  // Image / attachment placeholders
+  { re: /\[(?:image|attachment|cid):[^\]]*\]/gi,           label: 'Attachment ref' },
+  // Repeating separator lines (---, ___, ===, *** with 4+ chars)
+  { re: /^[-_=*]{4,}\s*$/gm,                               label: 'Separator' },
+];
+
+// Segments flagged for removal; each: { start, end, label }
+let noiseSegments = [];
+// Working copy of text (may differ from textarea after individual removes)
+let workingText = '';
+
+function detectNoise(text) {
+  const hits = [];
+  NOISE_PATTERNS.forEach(({ re, label }) => {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      // skip very short matches that are probably false positives
+      if (m[0].trim().length < 4) continue;
+      hits.push({ start: m.index, end: m.index + m[0].length, label, text: m[0] });
+    }
+  });
+  // Sort & merge overlapping ranges
+  hits.sort((a, b) => a.start - b.start);
+  const merged = [];
+  for (const h of hits) {
+    if (merged.length && h.start <= merged[merged.length - 1].end) {
+      merged[merged.length - 1].end   = Math.max(merged[merged.length - 1].end, h.end);
+      merged[merged.length - 1].label = merged[merged.length - 1].label; // keep first label
+    } else {
+      merged.push({ ...h });
+    }
+  }
+  return merged;
+}
+
+function renderPreview(text, segments) {
+  const panel   = document.getElementById('clean-preview');
+  const counter = document.getElementById('noise-count');
+  counter.textContent = segments.length
+    ? `${segments.length} issue${segments.length > 1 ? 's' : ''} found`
+    : '✓ No issues found';
+
+  if (segments.length === 0) {
+    panel.innerHTML = escHtml(text);
+    return;
+  }
+
+  let html = '';
+  let cursor = 0;
+  segments.forEach((seg, idx) => {
+    html += escHtml(text.slice(cursor, seg.start));
+    const preview = escHtml(seg.text.slice(0, 60)) + (seg.text.length > 60 ? '…' : '');
+    html += '<mark onclick="removeSegment(' + idx + ')"'
+          + ' title="Click to remove: ' + escHtml(seg.label) + '"'
+          + ' style="background:#fef08a;color:#713f12;border:1.5px solid #ca8a04;border-radius:4px;'
+          + 'padding:.05rem .25rem;cursor:pointer;text-decoration:line-through wavy #dc2626;font-weight:600;">'
+          + '[' + escHtml(seg.label) + ': ' + preview + ']'
+          + '<span style="margin-left:.3rem;font-size:.7rem;background:#dc2626;color:#fff;'
+          + 'border-radius:99px;padding:.05rem .35rem;">✕</span>'
+          + '</mark>';
+    cursor = seg.end;
+  });
+  html += escHtml(text.slice(cursor));
+  panel.innerHTML = html;
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showCleanPreview() {
+  workingText   = document.getElementById('conv-ta').value;
+  noiseSegments = detectNoise(workingText);
+  renderPreview(workingText, noiseSegments);
+  document.getElementById('clean-panel').style.display = 'block';
+  document.getElementById('clean-panel').scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function hideClean() {
+  document.getElementById('clean-panel').style.display = 'none';
+}
+
+function removeSegment(idx) {
+  const seg  = noiseSegments[idx];
+  workingText = workingText.slice(0, seg.start) + workingText.slice(seg.end);
+  // Shift all subsequent segment positions
+  const removed = seg.end - seg.start;
+  noiseSegments.splice(idx, 1);
+  noiseSegments.forEach((s, i) => { if (i >= idx) { s.start -= removed; s.end -= removed; } });
+  renderPreview(workingText, noiseSegments);
+}
+
+function removeAllNoise() {
+  // Remove from end to start so positions stay valid
+  const sorted = [...noiseSegments].sort((a, b) => b.start - a.start);
+  let text = workingText;
+  sorted.forEach(s => { text = text.slice(0, s.start) + text.slice(s.end); });
+  workingText   = text;
+  noiseSegments = [];
+  renderPreview(workingText, noiseSegments);
+}
+
+function applyClean() {
+  document.getElementById('conv-ta').value = workingText;
+  hideClean();
+}
+</script>
+{% endblock %}
