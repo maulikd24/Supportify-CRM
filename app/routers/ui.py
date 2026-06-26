@@ -1,6 +1,7 @@
 import csv
 import io
 import json
+from pathlib import Path
 from typing import Optional, List
 import aiosqlite
 from fastapi import APIRouter, Depends, Request, Form, HTTPException, Query
@@ -12,7 +13,7 @@ from app.assessor import assess_ticket, parse_manual_conversation, ALL_CRITERIA
 from app.auth import require_user
 
 router = APIRouter(tags=["UI"])
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / "templates"))
 
 
 # ── helpers ────────────────────────────────────────────────────────────────

@@ -1,3 +1,4 @@
+from pathlib import Path
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -5,7 +6,7 @@ from app.database import get_db
 from app.auth import hash_password, verify_password
 
 router = APIRouter(tags=["Auth"])
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / "templates"))
 
 
 @router.get("/login", response_class=HTMLResponse)

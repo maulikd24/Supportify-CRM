@@ -1,6 +1,7 @@
 import csv
 import io
 import json
+from pathlib import Path
 import aiosqlite
 from collections import Counter, defaultdict
 from fastapi import APIRouter, Depends, Request, Form, Query
@@ -12,7 +13,7 @@ from app.zendesk_client import ZendeskClient
 from app.auth import require_user
 
 router = APIRouter(tags=["DSAT"])
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / "templates"))
 
 
 # ── helpers ────────────────────────────────────────────────────────────────
