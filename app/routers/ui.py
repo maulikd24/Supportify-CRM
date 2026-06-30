@@ -29,6 +29,7 @@ def _parse_review(row) -> dict:
     d["sentiment"]          = json.loads(d.get("sentiment")          or "{}")
     d["excluded_criteria"]    = json.loads(d.get("excluded_criteria")    or "[]")
     d["dismissed_violations"] = json.loads(d.get("dismissed_violations") or "[]")
+    d["accuracy_detail"]      = json.loads(d.get("accuracy_detail")      or "{}")
     return d
 
 
@@ -59,6 +60,7 @@ async def _run_and_save_review(
         json.dumps(sop_names),
         json.dumps(result.get("sentiment", {})),
         json.dumps(result.get("sop_violations", [])),
+        json.dumps(result.get("accuracy_detail", {})),
         json.dumps(excluded_criteria or []),
         usage.get("input_tokens", 0),
         usage.get("output_tokens", 0),
@@ -72,7 +74,7 @@ async def _run_and_save_review(
               sop_id=?, sop_name=?,
               overall_score=?, criteria_scores=?, summary=?, strengths=?, improvements=?,
               raw_conversation=?, sop_ids=?, sop_names=?, sentiment=?, sop_violations=?,
-              excluded_criteria=?, tokens_input=?, tokens_output=?, tokens_cost_usd=?,
+              accuracy_detail=?, excluded_criteria=?, tokens_input=?, tokens_output=?, tokens_cost_usd=?,
               created_at=CURRENT_TIMESTAMP
             WHERE id=?
         """, (*row_data, existing_id))
@@ -84,9 +86,9 @@ async def _run_and_save_review(
               (ticket_id, ticket_subject, agent_name, agent_email,
                sop_id, sop_name, overall_score, criteria_scores, summary,
                strengths, improvements, raw_conversation,
-               sop_ids, sop_names, sentiment, sop_violations, excluded_criteria,
+               sop_ids, sop_names, sentiment, sop_violations, accuracy_detail, excluded_criteria,
                tokens_input, tokens_output, tokens_cost_usd)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, row_data)
         await db.commit()
         cursor = await db.execute("SELECT last_insert_rowid()")

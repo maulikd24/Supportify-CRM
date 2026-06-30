@@ -243,6 +243,7 @@ async def init_db():
             "ALTER TABLE qa_reviews ADD COLUMN tokens_output INTEGER",
             "ALTER TABLE qa_reviews ADD COLUMN tokens_cost_usd REAL",
             "ALTER TABLE qa_reviews ADD COLUMN dismissed_violations TEXT",
+            "ALTER TABLE qa_reviews ADD COLUMN accuracy_detail TEXT",
         ]:
             try:
                 await db.execute(sql)

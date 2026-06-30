@@ -52,6 +52,11 @@ ASSESSMENT_TEMPLATE = """Review this support ticket and evaluate the agent again
   "summary":    "<2-3 sentence overall assessment>",
   "strengths":  ["<strength 1>", "<strength 2>"],
   "improvements": ["<improvement 1>", "<improvement 2>"],
+  "accuracy_detail": {{{{
+    "accurate_items":          ["<specific fact, info, or step the agent got right>"],
+    "inaccurate_items":        ["<specific incorrect info, wrong answer, or mistake — empty array if none>"],
+    "improvement_suggestions": ["<concrete action the agent can take to be more accurate>"]
+  }}}},
   "sop_violations": ["<SOP step missed/violated — empty array if none>"],
   "sentiment": {{{{
     "overall":   "<positive|neutral|negative>",

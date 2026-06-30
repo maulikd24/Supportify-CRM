@@ -154,6 +154,52 @@
   </div>
 </div>
 
+<!-- ── Accuracy Breakdown ────────────────────────────────────────────────── -->
+{% set ad = review.accuracy_detail %}
+{% if ad %}
+<div class="card" style="margin-bottom:1.5rem;">
+  <h2>🎯 Accuracy Breakdown</h2>
+  <div class="grid3" style="gap:1rem;align-items:start;">
+
+    <div>
+      <div class="section-label" style="color:var(--success-text);margin-bottom:.5rem;">✅ What Was Accurate</div>
+      {% if ad.get('accurate_items') %}
+        {% for item in ad['accurate_items'] %}
+        <div class="feedback-item feedback-good" style="margin-bottom:.4rem;">✓ {{ item }}</div>
+        {% endfor %}
+      {% else %}
+        <div style="font-size:.82rem;color:var(--muted-light);">Nothing noted.</div>
+      {% endif %}
+    </div>
+
+    <div>
+      <div class="section-label" style="color:var(--danger-text,#b91c1c);margin-bottom:.5rem;">❌ What Was Inaccurate</div>
+      {% if ad.get('inaccurate_items') %}
+        {% for item in ad['inaccurate_items'] %}
+        <div class="feedback-item feedback-warn" style="margin-bottom:.4rem;">✗ {{ item }}</div>
+        {% endfor %}
+      {% else %}
+        <div style="font-size:.82rem;color:var(--success-text);">No inaccuracies found.</div>
+      {% endif %}
+    </div>
+
+    <div>
+      <div class="section-label" style="color:var(--primary);margin-bottom:.5rem;">💡 How to Improve</div>
+      {% if ad.get('improvement_suggestions') %}
+        {% for item in ad['improvement_suggestions'] %}
+        <div style="font-size:.84rem;line-height:1.55;padding:.45rem .75rem;border-left:3px solid var(--primary);
+                    background:rgba(99,102,241,.05);border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+                    margin-bottom:.4rem;color:var(--text-2);">{{ item }}</div>
+        {% endfor %}
+      {% else %}
+        <div style="font-size:.82rem;color:var(--muted-light);">No suggestions.</div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endif %}
+
 <!-- ── Sentiment analysis ─────────────────────────────────────────────────── -->
 {% set sent = review.sentiment %}
 {% if sent %}
