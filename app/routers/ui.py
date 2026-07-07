@@ -511,7 +511,6 @@ async def sops_page(
 async def create_sop_ui(
     request: Request,
     name: str = Form(...),
-    category: str = Form("general"),
     content: str = Form(...),
     current_user=Depends(require_user),
     db=Depends(get_db),
@@ -520,7 +519,7 @@ async def create_sop_ui(
     try:
         await db.execute(
             "INSERT INTO sops (name, category, content) VALUES (?, ?, ?)",
-            (name, category, content),
+            (name, "general", content),
         )
         await db.commit()
     except Exception:
@@ -549,15 +548,14 @@ async def update_sop_ui(
     sop_id: int,
     request: Request,
     name: str = Form(...),
-    category: str = Form("general"),
     content: str = Form(...),
     current_user=Depends(require_user),
     db=Depends(get_db),
 ):
     if isinstance(current_user, RedirectResponse): return current_user
     await db.execute(
-        "UPDATE sops SET name=?, category=?, content=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-        (name, category, content, sop_id),
+        "UPDATE sops SET name=?, content=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+        (name, content, sop_id),
     )
     await db.commit()
     return RedirectResponse("/sops", status_code=303)
