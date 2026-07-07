@@ -45,13 +45,13 @@ class _TursoConnection:
         args = []
         for p in params:
             if p is None:
-                args.append({"type": "null", "value": None})
+                args.append({"type": "null"})
             elif isinstance(p, bool):
                 args.append({"type": "integer", "value": str(int(p))})
             elif isinstance(p, int):
                 args.append({"type": "integer", "value": str(p)})
             elif isinstance(p, float):
-                args.append({"type": "float", "value": str(p)})
+                args.append({"type": "real", "value": str(p)})
             else:
                 args.append({"type": "text", "value": str(p)})
         return {"sql": sql, "args": args}
