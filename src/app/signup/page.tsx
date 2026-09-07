@@ -73,6 +73,17 @@ export default function SignupPage() {
               Sign in
             </Link>
           </p>
+          <p className="mt-2 text-center text-xs text-muted-foreground">
+            By signing up, you agree to our{" "}
+            <Link href="/terms" className="underline underline-offset-4">
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="underline underline-offset-4">
+              Privacy Policy
+            </Link>
+            .
+          </p>
         </CardContent>
       </Card>
     </div>
