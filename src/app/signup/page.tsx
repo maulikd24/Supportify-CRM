@@ -18,7 +18,9 @@ export default function SignupPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-10">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Create your Supportify account</CardTitle>
+          <CardTitle>
+            Create your Supportify <span className="font-serif-accent italic">account</span>
+          </CardTitle>
           <CardDescription>Start a 14-day free trial — no card required</CardDescription>
         </CardHeader>
         <CardContent>

@@ -27,7 +27,9 @@ export default async function ProductBillingPage({ params }: { params: Promise<{
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-10">
       <div>
-        <h1 className="text-xl font-semibold">{PRODUCT_LABELS[product]} plans</h1>
+        <h1 className="text-xl font-semibold">
+          {PRODUCT_LABELS[product]} <span className="font-serif-accent italic">plans</span>
+        </h1>
         {subscription?.status === "TRIALING" && subscription.trialEndsAt && (
           <p className="text-sm text-muted-foreground">
             Your trial ends {subscription.trialEndsAt.toLocaleDateString()}.
