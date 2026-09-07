@@ -31,6 +31,7 @@ async function main() {
     throw new Error("Run the default seed first (npm run db:seed or prisma migrate dev) so stages/RMs exist.");
   }
 
+  const organizationId = users[0].organizationId;
   const startNumber = lastClient ? (parseInt(lastClient.clientCode.replace("CL-", ""), 10) || 0) + 1 : 1;
 
   console.log(`Generating ${CLIENT_COUNT} synthetic clients starting at CL-${String(startNumber).padStart(5, "0")}...`);
@@ -46,6 +47,7 @@ async function main() {
 
       return prisma.client.create({
         data: {
+          organizationId,
           clientCode,
           name,
           mobile: randomMobile(),
@@ -55,6 +57,7 @@ async function main() {
           assignedToId: assignedTo.id,
           activities: {
             create: Array.from({ length: 10 }, (_, a) => ({
+              organizationId,
               type: "NOTE" as const,
               userId: assignedTo.id,
               payload: { message: `Synthetic activity ${a + 1}` },
@@ -62,6 +65,7 @@ async function main() {
           },
           tasks: {
             create: Array.from({ length: 5 }, (_, t) => ({
+              organizationId,
               title: `Synthetic task ${t + 1}`,
               assignedToId: assignedTo.id,
               dueAt: new Date(Date.now() + t * 24 * 60 * 60 * 1000),

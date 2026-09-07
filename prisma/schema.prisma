@@ -11,6 +11,183 @@ datasource db {
 }
 
 // ---------------------------------------------------------------------------
+// Supportify platform: multi-tenant organizations
+//
+// Every User and every piece of tenant data belongs to exactly one
+// Organization. This is the paying-customer boundary for the whole app —
+// both the CRM product below and the QA product (see qa.prisma-equivalent
+// section further down) are scoped by organizationId.
+// ---------------------------------------------------------------------------
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+// The two independently-purchasable products on the platform. Each
+// (Organization, Product) pair has its own ProductSubscription — an org can
+// be trialing/paying for one without the other.
+enum Product {
+  QA_SENTINEL
+  CRM
+}
+
+model Organization {
+  id                   String   @id @default(cuid())
+  name                 String
+  slug                 String   @unique
+  stripeCustomerId     String?  @unique // one Stripe Customer per org; subscriptions live per-product below
+  // Set once an admin starts SSO setup (see src/lib/sso/workos.ts). The actual
+  // SAML/OIDC connection + domain(s) are configured by the customer's own IT
+  // admin in WorkOS's hosted Admin Portal — we never touch SAML XML directly.
+  workosOrganizationId String?  @unique
+  // Email domain (e.g. "acme.com") routed to this org's SSO connection at
+  // login. Set by the org admin in Settings > SSO — WorkOS itself only knows
+  // about domains once the customer's IT admin configures them on the
+  // connection, which happens later and separately in the Admin Portal, so we
+  // keep our own copy to route the initial "sign in with SSO" redirect.
+  ssoDomain            String?  @unique
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  members                User[]
+  subscriptions          ProductSubscription[]
+  clients                Client[]
+  stages                 Stage[]
+  customFieldDefinitions CustomFieldDefinition[]
+  tasks                  Task[]
+  activities             Activity[]
+  journeys               Journey[]
+  journeyRuns            JourneyRun[]
+  documents              Document[]
+  exceptions             Exception[]
+  messages               Message[]
+  messageTemplates       MessageTemplate[]
+  notifications          Notification[]
+  auditLogs              AuditLog[]
+  integrationConfigs     IntegrationConfig[]
+
+  zendeskConnection ZendeskConnection?
+  sopDocuments      SopDocument[]
+  ticketReviews     TicketReview[]
+  dsatAnalyses      DsatAnalysis[]
+
+  apiKeys             ApiKey[]
+  webhookEndpoints    WebhookEndpoint[]
+  calibrationSessions CalibrationSession[]
+}
+
+// ---------------------------------------------------------------------------
+// Public API access & outgoing webhooks
+// ---------------------------------------------------------------------------
+
+model ApiKey {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  // First few characters of the raw key, shown in the UI so a customer can
+  // tell keys apart without ever seeing the full secret again after creation.
+  keyPrefix      String
+  // SHA-256 of the raw key (not bcrypt) — API keys are high-entropy random
+  // tokens, not passwords, so a fast deterministic hash is safe and lets a
+  // request authenticate with a single indexed lookup instead of scanning
+  // every key with a slow per-row bcrypt.compare.
+  hashedKey      String       @unique
+  createdById    String
+  createdBy      User         @relation(fields: [createdById], references: [id])
+  lastUsedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+model WebhookEndpoint {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  url             String
+  // AES-256-GCM encrypted (see src/lib/security/crypto.ts) — unlike the API
+  // key hash above, this must be recoverable in plaintext to HMAC-sign each
+  // outgoing delivery.
+  encryptedSecret String
+  events          Json // string[] of subscribed event types, e.g. ["client.created"]
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+
+  deliveries WebhookDelivery[]
+
+  @@index([organizationId])
+}
+
+model WebhookDelivery {
+  id                String          @id @default(cuid())
+  webhookEndpointId String
+  webhookEndpoint   WebhookEndpoint @relation(fields: [webhookEndpointId], references: [id], onDelete: Cascade)
+  event             String
+  statusCode        Int?
+  success           Boolean
+  error             String?
+  createdAt         DateTime        @default(now())
+
+  @@index([webhookEndpointId, createdAt])
+}
+
+model ProductSubscription {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product        Product
+
+  planId               String? // "starter" | "growth" | "enterprise" — see src/lib/billing/plans.ts
+  status               SubscriptionStatus @default(TRIALING)
+  stripeSubscriptionId String?            @unique
+  stripePriceId        String?
+
+  seats                 Int? // CRM plans: purchased seat count
+  reviewQuota           Int? // QA Sentinel plans: reviews allowed per billing period
+  reviewsUsedThisPeriod Int  @default(0)
+
+  currentPeriodEnd DateTime?
+  trialEndsAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([organizationId, product])
+}
+
+enum VerificationTokenPurpose {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+  // Short-lived, single-use bridge between the WorkOS SSO callback (which runs
+  // in a plain Route Handler) and NextAuth's Credentials provider (which is
+  // what actually establishes the session) — see src/lib/auth/config.ts.
+  SSO_LOGIN
+}
+
+model VerificationToken {
+  id        String                   @id @default(cuid())
+  token     String                   @unique
+  userId    String
+  user      User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   VerificationTokenPurpose
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime                 @default(now())
+
+  @@index([userId, purpose])
+}
+
+// ---------------------------------------------------------------------------
 // Identity & RBAC
 // ---------------------------------------------------------------------------
 
@@ -22,27 +199,56 @@ enum Role {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         Role     @default(RM)
-  isActive     Boolean  @default(true)
-  capacity     Int? // max active clients this RM should carry (reporting only, not enforced)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String    @id @default(cuid())
+  name            String
+  email           String    @unique
+  passwordHash    String
+  emailVerifiedAt DateTime?
+  // Supportify staff only — never settable via any customer-reachable UI.
+  // Grants access to /admin (cross-org aggregate metrics + subscription
+  // adjustments), never direct browsing of another org's customer data.
+  isPlatformAdmin Boolean   @default(false)
+  role            Role      @default(RM)
+  isActive        Boolean   @default(true)
+
+  // TOTP two-factor auth. Secret is AES-256-GCM encrypted at rest (see
+  // src/lib/security/crypto.ts) — never stored or logged in plaintext.
+  // twoFactorSecret is set as soon as setup starts but twoFactorEnabled only
+  // flips to true once the user proves possession with a valid code, so an
+  // abandoned setup never silently locks anyone out.
+  twoFactorSecret        String?
+  twoFactorEnabled       Boolean  @default(false)
+  twoFactorRecoveryCodes Json? // array of bcrypt hashes; each is deleted on use
+  capacity               Int? // max active clients this RM should carry (reporting only, not enforced)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  // Supportify tenancy: every user belongs to exactly one Organization.
+  // `role` above is the existing CRM-specific hierarchy (ADMIN/MANAGER/RM/
+  // DEALER) and stays as a finer-grained layer *within* an org; `orgRole` is
+  // the org-membership level (billing/ownership/invite management).
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  orgRole        OrgRole      @default(MEMBER)
 
   managerId String?
   manager   User?   @relation("TeamHierarchy", fields: [managerId], references: [id])
   reports   User[]  @relation("TeamHierarchy")
 
-  assignedClients Client[]       @relation("AssignedRM")
-  tasks           Task[]
-  activities      Activity[]
-  notifications   Notification[]
-  createdJourneys Journey[]
-  stageChanges    StageHistory[]
-  auditLogs       AuditLog[]
+  assignedClients    Client[]            @relation("AssignedRM")
+  tasks              Task[]
+  activities         Activity[]
+  notifications      Notification[]
+  createdJourneys    Journey[]
+  stageChanges       StageHistory[]
+  auditLogs          AuditLog[]
+  verificationTokens VerificationToken[]
+  apiKeys            ApiKey[]
+
+  createdCalibrationSessions CalibrationSession[]
+  calibrationEntries         CalibrationEntry[]
+
+  @@index([organizationId])
 }
 
 // ---------------------------------------------------------------------------
@@ -63,44 +269,45 @@ enum Priority {
 }
 
 model Client {
-  id                 String       @id @default(cuid())
-  clientCode         String       @unique // generated "CL-00001"
-  name               String
-  mobile             String
-  email              String?
-  city               String?
-  state              String?
-  clientType         String?
-  leadSource         String?
-  productInterest    String?
-  existingBroker     String?
-  tradingExperience  String?
-  expectedInvestment Decimal?
-  referralSource     String?
-  notes              String?
-  priority           Priority     @default(MEDIUM)
-  status             ClientStatus @default(ACTIVE)
-  currentStageId     String
-  currentStage       Stage        @relation(fields: [currentStageId], references: [id])
-  stageEnteredAt     DateTime     @default(now())
-  assignedToId       String?
-  assignedTo         User?        @relation("AssignedRM", fields: [assignedToId], references: [id])
-  mergedIntoId       String?
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
-  completedAt        DateTime?
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  clientCode     String       @unique // generated "CL-00001"
+  name           String
+  mobile         String
+  email          String?
+  city           String?
+  state          String?
+  clientType     String?
+  leadSource     String?
+  referralSource String?
+  notes          String?
+  // Generic deal value, replacing the old finance-vertical "expectedInvestment" —
+  // works for any sales pipeline (deal size, contract value, MRR, etc).
+  dealValue      Decimal?
+  // Org-defined extra fields (see CustomFieldDefinition), keyed by that model's `key`.
+  customFields   Json?
+  priority       Priority     @default(MEDIUM)
+  status         ClientStatus @default(ACTIVE)
+  currentStageId String
+  currentStage   Stage        @relation(fields: [currentStageId], references: [id])
+  stageEnteredAt DateTime     @default(now())
+  assignedToId   String?
+  assignedTo     User?        @relation("AssignedRM", fields: [assignedToId], references: [id])
+  mergedIntoId   String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  completedAt    DateTime?
 
-  activities         Activity[]
-  tasks              Task[]
-  journeyRuns        JourneyRun[]
-  messages           Message[]
-  documents          Document[]
-  stageHistory       StageHistory[]
-  kycRecord          KycRecord?
-  fundingRecord      FundingRecord?
-  dealerIntroduction DealerIntroduction?
-  exceptions         Exception[]
+  activities   Activity[]
+  tasks        Task[]
+  journeyRuns  JourneyRun[]
+  messages     Message[]
+  documents    Document[]
+  stageHistory StageHistory[]
+  exceptions   Exception[]
 
+  @@index([organizationId])
   @@index([assignedToId])
   @@index([status])
   @@index([currentStageId])
@@ -112,16 +319,51 @@ model Client {
 }
 
 model Stage {
-  id       String  @id @default(cuid())
-  name     String  @unique
-  sequence Int     @unique
-  slaHours Int
-  isActive Boolean @default(true)
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  sequence       Int
+  slaHours       Int
+  isActive       Boolean      @default(true)
+  // Reaching this stage automatically marks the client COMPLETED — replaces the
+  // old hardcoded KYC+funding+dealer-intro completion check with an org-configurable rule.
+  isTerminal     Boolean      @default(false)
 
   clients          Client[]
   stageHistoryTo   StageHistory[] @relation("ToStage")
   stageHistoryFrom StageHistory[] @relation("FromStage")
   exceptions       Exception[]
+
+  @@unique([organizationId, name])
+  @@unique([organizationId, sequence])
+}
+
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  DATE
+  BOOLEAN
+  SELECT
+}
+
+// Per-org configurable extra fields for Client, so the CRM isn't hardcoded to
+// any one vertical's data model. Values live in Client.customFields, keyed by `key`.
+model CustomFieldDefinition {
+  id             String          @id @default(cuid())
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  key            String // stable identifier used as the JSON key in Client.customFields
+  label          String
+  fieldType      CustomFieldType @default(TEXT)
+  options        Json? // string[] choices, only for SELECT
+  required       Boolean         @default(false)
+  sortOrder      Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([organizationId, key])
+  @@index([organizationId, sortOrder])
 }
 
 model StageHistory {
@@ -148,6 +390,8 @@ enum DocumentStatus {
 
 model Document {
   id              String         @id @default(cuid())
+  organizationId  String
+  organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   clientId        String
   client          Client         @relation(fields: [clientId], references: [id])
   documentType    String
@@ -159,68 +403,8 @@ model Document {
   remarks         String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
-}
 
-enum KycStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  ADDITIONAL_INFO_REQUIRED
-}
-
-model KycRecord {
-  id               String    @id @default(cuid())
-  clientId         String    @unique
-  client           Client    @relation(fields: [clientId], references: [id])
-  referenceNumber  String?
-  status           KycStatus @default(PENDING)
-  submissionDate   DateTime?
-  submissionMethod String?
-  submittedBy      String?
-  completionDate   DateTime?
-  rejectionReason  String?
-  remarks          String?
-  updatedAt        DateTime  @updatedAt
-}
-
-enum FundingStatus {
-  PENDING
-  PARTIALLY_FUNDED
-  FULLY_FUNDED
-  NOT_PROCEEDING
-}
-
-model FundingRecord {
-  id              String        @id @default(cuid())
-  clientId        String        @unique
-  client          Client        @relation(fields: [clientId], references: [id])
-  status          FundingStatus @default(PENDING)
-  amount          Decimal?
-  fundingDate     DateTime?
-  fundingMethod   String?
-  referenceNumber String?
-  remarks         String?
-  updatedAt       DateTime      @updatedAt
-}
-
-enum DealerIntroStatus {
-  PENDING
-  SCHEDULED
-  COMPLETED
-}
-
-model DealerIntroduction {
-  id                 String            @id @default(cuid())
-  clientId           String            @unique
-  client             Client            @relation(fields: [clientId], references: [id])
-  dealerId           String?
-  dealerName         String?
-  introductionMethod String? // Phone | WhatsApp | In-person | Video Call | Other
-  scheduledDate      DateTime?
-  completedDate      DateTime?
-  status             DealerIntroStatus @default(PENDING)
-  remarks            String?
-  updatedAt          DateTime          @updatedAt
+  @@index([organizationId])
 }
 
 enum ExceptionStatus {
@@ -230,6 +414,8 @@ enum ExceptionStatus {
 
 model Exception {
   id                 String          @id @default(cuid())
+  organizationId     String
+  organization       Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   clientId           String
   client             Client          @relation(fields: [clientId], references: [id])
   stageId            String
@@ -239,21 +425,26 @@ model Exception {
   expectedResumeDate DateTime?
   status             ExceptionStatus @default(OPEN)
   createdAt          DateTime        @default(now())
-  resolvedAt          DateTime?
+  resolvedAt         DateTime?
+
+  @@index([organizationId])
 }
 
 model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  entity    String // "Client" | "Document" | "KycRecord" | "FundingRecord" | "DealerIntroduction" | "Exception"
-  entityId  String
-  action    String // "stage_changed" | "stage_corrected" | "document_verified" | "hold_started" | "reopened" | ...
-  oldValue  Json?
-  newValue  Json?
-  reason    String?
-  timestamp DateTime @default(now())
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  entity         String // "Client" | "Document" | "KycRecord" | "FundingRecord" | "DealerIntroduction" | "Exception" | "TicketReview" | "SopDocument" | "ZendeskConnection"
+  entityId       String
+  action         String // "stage_changed" | "stage_corrected" | "document_verified" | "hold_started" | "reopened" | ...
+  oldValue       Json?
+  newValue       Json?
+  reason         String?
+  timestamp      DateTime     @default(now())
 
+  @@index([organizationId, timestamp])
   @@index([entity, entityId])
 }
 
@@ -269,9 +460,11 @@ enum TaskStatus {
 }
 
 model Task {
-  id       String @id @default(cuid())
-  clientId String
-  client   Client @relation(fields: [clientId], references: [id])
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  clientId       String
+  client         Client       @relation(fields: [clientId], references: [id])
 
   assignedToId String
   assignedTo   User   @relation(fields: [assignedToId], references: [id])
@@ -284,6 +477,7 @@ model Task {
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
+  @@index([organizationId])
   @@index([assignedToId, status])
   @@index([dueAt, status])
 }
@@ -300,9 +494,11 @@ enum ActivityType {
 }
 
 model Activity {
-  id       String @id @default(cuid())
-  clientId String
-  client   Client @relation(fields: [clientId], references: [id])
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  clientId       String
+  client         Client       @relation(fields: [clientId], references: [id])
 
   userId String?
   user   User?   @relation(fields: [userId], references: [id])
@@ -311,6 +507,7 @@ model Activity {
   payload   Json
   createdAt DateTime     @default(now())
 
+  @@index([organizationId])
   @@index([clientId, createdAt])
 }
 
@@ -319,19 +516,23 @@ model Activity {
 // ---------------------------------------------------------------------------
 
 model Journey {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  isActive    Boolean  @default(false)
-  version     Int      @default(1)
-  definition  Json // React Flow graph: { nodes: [...], edges: [...] }
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  isActive       Boolean      @default(false)
+  version        Int          @default(1)
+  definition     Json // React Flow graph: { nodes: [...], edges: [...] }
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   createdById String
   createdBy   User   @relation(fields: [createdById], references: [id])
 
   runs JourneyRun[]
+
+  @@index([organizationId])
 }
 
 enum JourneyRunStatus {
@@ -343,19 +544,22 @@ enum JourneyRunStatus {
 }
 
 model JourneyRun {
-  id            String           @id @default(cuid())
-  journeyId     String
-  journey       Journey          @relation(fields: [journeyId], references: [id])
-  clientId      String
-  client        Client           @relation(fields: [clientId], references: [id])
-  currentNodeId String?
-  status        JourneyRunStatus @default(RUNNING)
-  context       Json             @default("{}")
-  startedAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  id             String           @id @default(cuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  journeyId      String
+  journey        Journey          @relation(fields: [journeyId], references: [id])
+  clientId       String
+  client         Client           @relation(fields: [clientId], references: [id])
+  currentNodeId  String?
+  status         JourneyRunStatus @default(RUNNING)
+  context        Json             @default("{}")
+  startedAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   steps JourneyRunStep[]
 
+  @@index([organizationId])
   @@index([journeyId, clientId])
   @@index([status])
 }
@@ -380,13 +584,17 @@ model JourneyRunStep {
 // ---------------------------------------------------------------------------
 
 model IntegrationConfig {
-  id          String   @id @default(cuid())
-  provider    String   @unique // "clevertap" | "exotel" | "freshdesk" | "whatsapp_meta" | "sms_exotel" | ...
-  mode        String   @default("mock") // "mock" | "live"
-  credentials Json? // encrypted JSON blob (AES-256-GCM) — see src/lib/security/crypto.ts
-  settings    Json?
-  isEnabled   Boolean  @default(false)
-  updatedAt   DateTime @updatedAt
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider       String // "clevertap" | "exotel" | "freshdesk" | "whatsapp_meta" | "sms_exotel" | ...
+  mode           String       @default("mock") // "mock" | "live"
+  credentials    Json? // encrypted JSON blob (AES-256-GCM) — see src/lib/security/crypto.ts
+  settings       Json?
+  isEnabled      Boolean      @default(false)
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, provider])
 }
 
 // ---------------------------------------------------------------------------
@@ -394,18 +602,22 @@ model IntegrationConfig {
 // ---------------------------------------------------------------------------
 
 model MessageTemplate {
-  id         String   @id @default(cuid())
-  channel    String // "whatsapp" | "sms"
-  provider   String // "meta_cloud" | "gupshup" | "exotel" | ...
-  name       String
-  externalId String? // provider-registered template id/name
-  body       String
-  variables  Json?
-  approved   Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  channel        String // "whatsapp" | "sms"
+  provider       String // "meta_cloud" | "gupshup" | "exotel" | ...
+  name           String
+  externalId     String? // provider-registered template id/name
+  body           String
+  variables      Json?
+  approved       Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   messages Message[]
+
+  @@index([organizationId])
 }
 
 enum MessageDirection {
@@ -422,9 +634,11 @@ enum MessageStatus {
 }
 
 model Message {
-  id       String @id @default(cuid())
-  clientId String
-  client   Client @relation(fields: [clientId], references: [id])
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  clientId       String
+  client         Client       @relation(fields: [clientId], references: [id])
 
   channel    String
   provider   String
@@ -437,6 +651,7 @@ model Message {
   metadata   Json?
   createdAt  DateTime         @default(now())
 
+  @@index([organizationId])
   @@index([clientId, createdAt])
 }
 
@@ -445,13 +660,171 @@ model Message {
 // ---------------------------------------------------------------------------
 
 model Notification {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id])
-  type      String // "stage_sla_breach" | "document_rejected" | "kyc_update" | "funding_pending" | "dealer_intro_pending" | "new_assignment" | "hold_started" | "client_reopened" | "task_overdue" | "task_overdue_escalation" | "inbound_message" | ...
-  payload   Json
-  readAt    DateTime?
-  createdAt DateTime  @default(now())
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  type           String // "stage_sla_breach" | "document_rejected" | "kyc_update" | "funding_pending" | "dealer_intro_pending" | "new_assignment" | "hold_started" | "client_reopened" | "task_overdue" | "task_overdue_escalation" | "inbound_message" | ...
+  payload        Json
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
 
+  @@index([organizationId])
   @@index([userId, readAt])
+}
+
+// ---------------------------------------------------------------------------
+// Supportify platform: QA product (v1, ported from the standalone QA_Tool
+// prototype — Python/FastAPI + SQLite/Turso, see qa-tool-reference/app in the
+// sibling clone — onto this app's Postgres/Prisma stack, scoped per
+// Organization instead of QA_Tool's single shared DB).
+// ---------------------------------------------------------------------------
+
+model ZendeskConnection {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subdomain      String
+  email          String
+  encryptedToken String // AES-256-GCM via src/lib/security/crypto.ts (same pattern as IntegrationConfig.credentials)
+  isValid        Boolean      @default(false)
+  lastCheckedAt  DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model SopDocument {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  category       String       @default("general")
+  content        String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  primaryForReviews TicketReview[] @relation("PrimarySop")
+
+  @@unique([organizationId, name])
+  @@index([organizationId, category])
+}
+
+model TicketReview {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  ticketId      String
+  ticketSubject String?
+  agentName     String?
+  agentEmail    String?
+
+  // qa_reviews originally supported grading against multiple SOPs at once
+  // (sop_ids/sop_names) in addition to a single primary sop_id/sop_name.
+  primarySopId String?
+  primarySop   SopDocument? @relation("PrimarySop", fields: [primarySopId], references: [id])
+  sopIds       Json?
+  sopNames     Json?
+
+  overallScore        Int?
+  criteriaScores      Json?
+  sentiment           String?
+  summary             String?
+  strengths           Json?
+  improvements        Json?
+  sopViolations       Json?
+  excludedCriteria    Json?
+  dismissedViolations Json?
+  accuracyDetail      Json?
+
+  rawConversation String? // full ticket transcript snapshot at review time
+
+  auditorComment   String?
+  auditorUpdatedAt DateTime?
+  scoreEditedAt    DateTime?
+
+  tokensInput   Int?
+  tokensOutput  Int?
+  tokensCostUsd Decimal?
+
+  createdAt DateTime @default(now())
+
+  calibrationSessions CalibrationSession[]
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, ticketId])
+  @@index([organizationId, agentEmail])
+}
+
+// ---------------------------------------------------------------------------
+// QA calibration: multiple human reviewers independently score the same
+// ticket (blind to each other's scores until they submit, or until the
+// session is closed) to check how consistently the team applies the SOP —
+// the AI's own review is shown as one more entry, not a privileged baseline.
+// ---------------------------------------------------------------------------
+
+enum CalibrationStatus {
+  OPEN
+  CLOSED
+}
+
+model CalibrationSession {
+  id             String            @id @default(cuid())
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reviewId       String
+  review         TicketReview      @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      User              @relation(fields: [createdById], references: [id])
+  status         CalibrationStatus @default(OPEN)
+  createdAt      DateTime          @default(now())
+  closedAt       DateTime?
+
+  entries CalibrationEntry[]
+
+  @@index([organizationId, createdAt])
+}
+
+model CalibrationEntry {
+  id             String             @id @default(cuid())
+  sessionId      String
+  session        CalibrationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  reviewerId     String
+  reviewer       User               @relation(fields: [reviewerId], references: [id])
+  overallScore   Int?
+  criteriaScores Json?
+  notes          String?
+  submittedAt    DateTime?
+  createdAt      DateTime           @default(now())
+
+  @@unique([sessionId, reviewerId])
+}
+
+model DsatAnalysis {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  ticketId        String?
+  ticketSubject   String?
+  customerName    String?
+  agentName       String?
+  context         String?
+  rawConversation String?
+
+  whatWentWrong               String?
+  rootCauses                  Json?
+  customerImpact              String?
+  csatRecoveryRecommendations Json?
+  followUpResponse            Json?
+  preventionTips              Json?
+  recoveryProbability         String?
+  recoveryRationale           String?
+  improvementsComment         String?
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId, ticketId])
+  @@index([organizationId, createdAt])
 }

@@ -15,6 +15,7 @@ import {
   LogOut,
   KeyRound,
   Sparkles,
+  CreditCard,
 } from "lucide-react";
 
 import {
@@ -51,6 +52,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/settings/templates", label: "Templates", icon: MessageSquareText, roles: ["ADMIN"] },
   { href: "/settings/users", label: "Users", icon: UserCog, roles: ["ADMIN"] },
   { href: "/settings/integrations", label: "Settings", icon: Settings, roles: ["ADMIN"] },
+  { href: "/billing/CRM", label: "Billing", icon: CreditCard, roles: ["ADMIN"] },
   { href: "/settings/account", label: "Account", icon: KeyRound, roles: ["ADMIN", "MANAGER", "RM"] },
 ];
 
