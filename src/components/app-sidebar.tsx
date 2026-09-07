@@ -17,6 +17,9 @@ import {
   Sparkles,
   CreditCard,
   ListPlus,
+  History,
+  Download,
+  Webhook,
 } from "lucide-react";
 
 import {
@@ -51,9 +54,12 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/reports", label: "Reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
   { href: "/settings/stages", label: "Stages", icon: SlidersHorizontal, roles: ["ADMIN"] },
   { href: "/settings/custom-fields", label: "Custom Fields", icon: ListPlus, roles: ["ADMIN"] },
+  { href: "/settings/audit-log", label: "Audit Log", icon: History, roles: ["ADMIN"] },
+  { href: "/settings/data", label: "Data & Privacy", icon: Download, roles: ["ADMIN"] },
   { href: "/settings/templates", label: "Templates", icon: MessageSquareText, roles: ["ADMIN"] },
   { href: "/settings/users", label: "Users", icon: UserCog, roles: ["ADMIN"] },
   { href: "/settings/integrations", label: "Settings", icon: Settings, roles: ["ADMIN"] },
+  { href: "/settings/developers", label: "Developers", icon: Webhook, roles: ["ADMIN"] },
   { href: "/billing/CRM", label: "Billing", icon: CreditCard, roles: ["ADMIN"] },
   { href: "/settings/account", label: "Account", icon: KeyRound, roles: ["ADMIN", "MANAGER", "RM"] },
 ];
