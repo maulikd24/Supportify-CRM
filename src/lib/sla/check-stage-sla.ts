@@ -38,6 +38,7 @@ export async function checkStageSla() {
     if (client.assignedToId) {
       await prisma.notification.create({
         data: {
+          organizationId: client.organizationId,
           userId: client.assignedToId,
           type: "stage_sla_breach",
           payload: { clientId: client.id, clientName: client.name, stage: client.currentStage.name },
@@ -47,6 +48,7 @@ export async function checkStageSla() {
       if (client.priority === "HIGH" && client.assignedTo?.managerId) {
         await prisma.notification.create({
           data: {
+            organizationId: client.organizationId,
             userId: client.assignedTo.managerId,
             type: "stage_sla_breach",
             payload: {

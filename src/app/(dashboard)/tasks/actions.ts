@@ -16,7 +16,7 @@ const taskSchema = z.object({
 });
 
 export async function createTaskAction(formData: FormData) {
-  await requireUser();
+  const session = await requireUser();
 
   const parsed = taskSchema.parse({
     clientId: formData.get("clientId"),
@@ -26,8 +26,16 @@ export async function createTaskAction(formData: FormData) {
     source: formData.get("source") || undefined,
   });
 
+  const [client, assignee] = await Promise.all([
+    prisma.client.findFirst({ where: { id: parsed.clientId, organizationId: session.user.organizationId }, select: { id: true } }),
+    prisma.user.findFirst({ where: { id: parsed.assignedToId, organizationId: session.user.organizationId }, select: { id: true } }),
+  ]);
+  if (!client) throw new Error("Client not found");
+  if (!assignee) throw new Error("Assignee not found");
+
   const task = await prisma.task.create({
     data: {
+      organizationId: session.user.organizationId,
       clientId: parsed.clientId,
       title: parsed.title,
       dueAt: new Date(parsed.dueAt),
@@ -46,7 +54,7 @@ export async function completeTaskAction(taskId: string) {
   const session = await requireUser();
 
   const task = await prisma.task.update({
-    where: { id: taskId },
+    where: { id: taskId, organizationId: session.user.organizationId },
     data: { status: "DONE" },
   });
 

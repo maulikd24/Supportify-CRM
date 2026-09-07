@@ -14,7 +14,7 @@ const templateSchema = z.object({
 });
 
 export async function createTemplateAction(formData: FormData) {
-  await requireRole(["ADMIN"]);
+  const session = await requireRole(["ADMIN"]);
 
   const parsed = templateSchema.parse({
     channel: formData.get("channel"),
@@ -27,6 +27,7 @@ export async function createTemplateAction(formData: FormData) {
 
   await prisma.messageTemplate.create({
     data: {
+      organizationId: session.user.organizationId,
       channel: parsed.channel,
       provider: parsed.channel === "whatsapp" ? "whatsapp_meta" : "sms_exotel",
       name: parsed.name,
@@ -41,17 +42,20 @@ export async function createTemplateAction(formData: FormData) {
 }
 
 export async function setTemplateApprovedAction(templateId: string, approved: boolean) {
-  await requireRole(["ADMIN"]);
+  const session = await requireRole(["ADMIN"]);
 
-  await prisma.messageTemplate.update({ where: { id: templateId }, data: { approved } });
+  await prisma.messageTemplate.update({
+    where: { id: templateId, organizationId: session.user.organizationId },
+    data: { approved },
+  });
 
   revalidatePath("/settings/templates");
 }
 
 export async function deleteTemplateAction(templateId: string) {
-  await requireRole(["ADMIN"]);
+  const session = await requireRole(["ADMIN"]);
 
-  await prisma.messageTemplate.delete({ where: { id: templateId } });
+  await prisma.messageTemplate.delete({ where: { id: templateId, organizationId: session.user.organizationId } });
 
   revalidatePath("/settings/templates");
 }

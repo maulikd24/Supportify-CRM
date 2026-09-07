@@ -16,19 +16,18 @@ function Kpi({ label, value, tone }: { label: string; value: number; tone?: "def
 
 export function CopilotSummary({ summary }: { summary: WorklistSummary }) {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className="grid grid-cols-3 gap-3">
       <Kpi label="Critical" value={summary.critical} tone="destructive" />
       <Kpi label="At Risk" value={summary.atRisk} tone="warning" />
       <Kpi label="Disengaged" value={summary.disengaged} tone="warning" />
-      <Kpi label="Cross-sell Candidates" value={summary.crossSellCandidates} />
     </div>
   );
 }
 
 export function CopilotSummarySkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {Array.from({ length: 4 }).map((_, i) => (
+    <div className="grid grid-cols-3 gap-3">
+      {Array.from({ length: 3 }).map((_, i) => (
         <Card key={i} size="sm">
           <CardContent className="flex flex-col gap-2 px-4">
             <div className="h-3 w-20 animate-pulse rounded-md bg-muted" />

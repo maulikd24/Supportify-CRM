@@ -1,18 +1,16 @@
 import { prisma } from "@/lib/db/prisma";
 import { logActivity } from "@/lib/activities/log-activity";
 import { onEvent } from "@/lib/journeys/dispatch";
-import { getStageByName } from "./stages";
-import type { KycStatus, FundingStatus, DealerIntroStatus, Role } from "@/generated/prisma/client";
+import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
+import type { Prisma } from "@/generated/prisma/client";
 
-const DEFAULT_DOCUMENT_TYPES = [
-  { documentType: "PAN", mandatory: true },
-  { documentType: "Address Proof", mandatory: true },
-  { documentType: "Bank Proof", mandatory: true },
-  { documentType: "Photograph", mandatory: true },
-  { documentType: "Signature", mandatory: true },
-  { documentType: "Income Proof", mandatory: false },
-];
-
+/**
+ * Core stage-move primitive: records history + an audit log entry, updates
+ * the client's current stage, and auto-completes the client if the target
+ * stage is marked `isTerminal` (see Stage.isTerminal in schema.prisma) —
+ * this replaces the old hardcoded KYC+funding+dealer-intro completion check
+ * with a generic, per-org-configurable rule.
+ */
 async function advanceStage(
   clientId: string,
   toStageId: string,
@@ -24,7 +22,10 @@ async function advanceStage(
     where: { id: clientId },
     include: { currentStage: true },
   });
-  const toStage = await prisma.stage.findUniqueOrThrow({ where: { id: toStageId } });
+  // Scoped by the client's own org — a stage ID from another tenant must never be reachable here.
+  const toStage = await prisma.stage.findUniqueOrThrow({
+    where: { id: toStageId, organizationId: client.organizationId },
+  });
 
   await prisma.$transaction([
     prisma.stageHistory.create({
@@ -32,6 +33,7 @@ async function advanceStage(
     }),
     prisma.auditLog.create({
       data: {
+        organizationId: client.organizationId,
         userId: actorId,
         entity: "Client",
         entityId: clientId,
@@ -43,7 +45,11 @@ async function advanceStage(
     }),
     prisma.client.update({
       where: { id: clientId },
-      data: { currentStageId: toStageId, stageEnteredAt: new Date() },
+      data: {
+        currentStageId: toStageId,
+        stageEnteredAt: new Date(),
+        ...(toStage.isTerminal ? { status: "COMPLETED" as const, completedAt: new Date() } : {}),
+      },
     }),
   ]);
 
@@ -60,33 +66,66 @@ async function advanceStage(
 
   await onEvent("stage_changed", clientId);
 
+  void dispatchWebhookEvent(client.organizationId, "client.stage_changed", {
+    clientId,
+    fromStage: client.currentStage.name,
+    toStage: toStage.name,
+    reason: reason ?? null,
+  });
+
   return toStage;
 }
 
-/** Called right after a Client row is created with currentStageId already set to "New Lead". */
+/** Manual move to any active stage in the org's pipeline — the generic replacement for the old per-stage submit/complete actions. */
+export async function moveToStage(clientId: string, toStageId: string, actorId: string, reason?: string) {
+  return advanceStage(clientId, toStageId, actorId, reason);
+}
+
+/** Manager/Admin-only: move a client to any stage with a mandatory reason (bypasses normal flow, e.g. correcting a mistake). */
+export async function correctStage(clientId: string, toStageId: string, reason: string, actorId: string) {
+  if (!reason) throw new Error("A reason is required for a manual stage correction");
+  return advanceStage(clientId, toStageId, actorId, reason, "stage_corrected");
+}
+
+/** Called right after a Client row is created with currentStageId already set to the org's first stage. */
 export async function initializeClient(clientId: string, actorId: string) {
-  const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
-  const stage1 = await getStageByName("New Lead");
+  const client = await prisma.client.findUniqueOrThrow({
+    where: { id: clientId },
+    include: { currentStage: true },
+  });
 
   await prisma.stageHistory.create({
-    data: { clientId, fromStageId: null, toStageId: stage1.id, changedById: actorId, reason: "Client created" },
+    data: { clientId, fromStageId: null, toStageId: client.currentStageId, changedById: actorId, reason: "Client created" },
   });
   await prisma.auditLog.create({
-    data: { userId: actorId, entity: "Client", entityId: clientId, action: "created", newValue: { stage: stage1.name } },
+    data: {
+      organizationId: client.organizationId,
+      userId: actorId,
+      entity: "Client",
+      entityId: clientId,
+      action: "created",
+      newValue: { stage: client.currentStage.name },
+    },
   });
 
   if (client.assignedToId) {
     await prisma.task.create({
       data: {
+        organizationId: client.organizationId,
         clientId,
         assignedToId: client.assignedToId,
         title: "Contact Client",
-        dueAt: new Date(Date.now() + stage1.slaHours * 60 * 60 * 1000),
+        dueAt: new Date(Date.now() + client.currentStage.slaHours * 60 * 60 * 1000),
         source: "stage-engine",
       },
     });
     await prisma.notification.create({
-      data: { userId: client.assignedToId, type: "new_assignment", payload: { clientId, clientName: client.name } },
+      data: {
+        organizationId: client.organizationId,
+        userId: client.assignedToId,
+        type: "new_assignment",
+        payload: { clientId, clientName: client.name },
+      },
     });
   }
 
@@ -94,7 +133,7 @@ export async function initializeClient(clientId: string, actorId: string) {
   await onEvent("client_created", clientId);
 }
 
-/** Within "New Lead" — records the RM's first outreach; no stage transition. Notes mandatory for negative outcomes; next action mandatory for open-ended ones. */
+/** Logs a sales contact touchpoint — available at any stage, not gated to one specific step of the pipeline. */
 export async function recordRmContact(
   clientId: string,
   input: {
@@ -131,6 +170,7 @@ export async function recordRmContact(
   if (input.nextAction && client.assignedToId) {
     await prisma.task.create({
       data: {
+        organizationId: client.organizationId,
         clientId,
         assignedToId: client.assignedToId,
         title: input.nextAction,
@@ -139,18 +179,23 @@ export async function recordRmContact(
       },
     });
   }
-
 }
 
-/** Within "New Lead" — seeds the default document checklist; no stage transition. */
-export async function startDocumentCollection(clientId: string) {
-  const existingCount = await prisma.document.count({ where: { clientId } });
-  if (existingCount === 0) {
-    await prisma.document.createMany({ data: DEFAULT_DOCUMENT_TYPES.map((d) => ({ clientId, ...d })) });
-  }
+/** Ad-hoc document tracking (proposals, contracts, signed agreements, etc.) — no preset checklist, add whatever's relevant. */
+export async function addDocument(
+  clientId: string,
+  input: { documentType: string; mandatory: boolean },
+  actorId: string,
+) {
+  const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId }, select: { organizationId: true } });
+  const doc = await prisma.document.create({
+    data: { organizationId: client.organizationId, clientId, documentType: input.documentType, mandatory: input.mandatory },
+  });
+  await logActivity({ clientId, userId: actorId, type: "NOTE", payload: { message: `Added document: ${input.documentType}` } });
+  return doc;
 }
 
-/** Updates a single document's checklist status; notifies the RM on rejection. */
+/** Updates a single document's status; notifies the assigned rep on rejection. */
 export async function updateDocumentStatus(
   documentId: string,
   input: { status: "PENDING" | "RECEIVED" | "VERIFIED" | "REJECTED" | "NOT_APPLICABLE"; rejectionReason?: string; remarks?: string },
@@ -179,6 +224,7 @@ export async function updateDocumentStatus(
     if (client.assignedToId) {
       await prisma.notification.create({
         data: {
+          organizationId: doc.organizationId,
           userId: client.assignedToId,
           type: "document_rejected",
           payload: { clientId: doc.clientId, clientName: client.name, documentType: doc.documentType, reason: input.rejectionReason },
@@ -190,270 +236,21 @@ export async function updateDocumentStatus(
   return doc;
 }
 
-/** New Lead -> Submitted for KYC. Blocks unless mandatory documents are verified (or a Manager/Admin override is passed). */
-export async function submitForKyc(
+/** Updates the generic deal value and/or org-defined custom fields on a client. */
+export async function updateClientDetails(
   clientId: string,
-  input: { submissionMethod?: string; kycReferenceNumber?: string; remarks?: string; override?: boolean },
-  actorId: string,
-  actorRole: Role,
-) {
-  const documents = await prisma.document.findMany({ where: { clientId, mandatory: true } });
-  const incomplete = documents.filter((d) => d.status !== "VERIFIED" && d.status !== "NOT_APPLICABLE");
-  const canOverride = actorRole === "MANAGER" || actorRole === "ADMIN";
-  if (incomplete.length > 0 && !(input.override && canOverride)) {
-    throw new Error(`Mandatory documents incomplete: ${incomplete.map((d) => d.documentType).join(", ")}`);
-  }
-
-  await prisma.kycRecord.upsert({
-    where: { clientId },
-    update: {
-      submissionDate: new Date(),
-      submissionMethod: input.submissionMethod,
-      referenceNumber: input.kycReferenceNumber,
-      submittedBy: actorId,
-      remarks: input.remarks,
-      status: "PENDING",
-    },
-    create: {
-      clientId,
-      submissionDate: new Date(),
-      submissionMethod: input.submissionMethod,
-      referenceNumber: input.kycReferenceNumber,
-      submittedBy: actorId,
-      remarks: input.remarks,
-      status: "PENDING",
-    },
-  });
-
-  const stage2 = await getStageByName("Submitted for KYC");
-  await advanceStage(clientId, stage2.id, actorId);
-
-  const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
-  if (client.assignedToId) {
-    await prisma.task.create({
-      data: {
-        clientId,
-        assignedToId: client.assignedToId,
-        title: "Follow up with KYC Team",
-        dueAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
-        source: "stage-engine",
-      },
-    });
-  }
-}
-
-/** Submitted for KYC -> KYC completed only on APPROVED; stays put with a task for REJECTED / ADDITIONAL_INFO_REQUIRED. */
-export async function completeKyc(
-  clientId: string,
-  input: { status: KycStatus; referenceNumber?: string; rejectionReason?: string; remarks?: string },
+  input: { dealValue?: number | null; customFields?: Record<string, unknown> },
   actorId: string,
 ) {
-  if (input.status === "REJECTED" && !input.rejectionReason) {
-    throw new Error("A rejection reason is required when KYC is rejected");
-  }
-
-  await prisma.kycRecord.update({
-    where: { clientId },
-    data: {
-      status: input.status,
-      completionDate: new Date(),
-      referenceNumber: input.referenceNumber,
-      rejectionReason: input.rejectionReason,
-      remarks: input.remarks,
-    },
-  });
-
-  await logActivity({ clientId, userId: actorId, type: "NOTE", payload: { message: `KYC ${input.status}` } });
-
-  const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
-
-  if (input.status === "ADDITIONAL_INFO_REQUIRED") {
-    if (client.assignedToId) {
-      await prisma.task.create({
-        data: {
-          clientId,
-          assignedToId: client.assignedToId,
-          title: "Collect additional KYC information",
-          dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-          source: "stage-engine",
-        },
-      });
-      await prisma.notification.create({
-        data: { userId: client.assignedToId, type: "kyc_update", payload: { clientId, clientName: client.name, message: "Additional KYC information required" } },
-      });
-    }
-    return;
-  }
-
-  if (input.status === "REJECTED") {
-    if (client.assignedToId) {
-      await prisma.notification.create({
-        data: { userId: client.assignedToId, type: "kyc_update", payload: { clientId, clientName: client.name, message: `KYC rejected: ${input.rejectionReason}` } },
-      });
-    }
-    return;
-  }
-
-  const stage3 = await getStageByName("KYC completed");
-  await advanceStage(clientId, stage3.id, actorId);
-
-  if (client.assignedToId) {
-    await prisma.task.create({
-      data: {
-        clientId,
-        assignedToId: client.assignedToId,
-        title: "Follow up for Funding",
-        dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        source: "stage-engine",
-      },
-    });
-    await prisma.notification.create({
-      data: { userId: client.assignedToId, type: "funding_pending", payload: { clientId, clientName: client.name } },
-    });
-  }
-
-  await checkCompletion(clientId, actorId);
-}
-
-/** KYC completed -> Pushed for funds, only on a qualifying (Partially/Fully Funded) status. */
-export async function updateFunding(
-  clientId: string,
-  input: {
-    status: FundingStatus;
-    amount?: number;
-    fundingDate?: Date;
-    fundingMethod?: string;
-    referenceNumber?: string;
-    remarks?: string;
-  },
-  actorId: string,
-) {
-  await prisma.fundingRecord.upsert({
-    where: { clientId },
-    update: { ...input, fundingDate: input.fundingDate ?? new Date() },
-    create: { ...input, clientId, fundingDate: input.fundingDate ?? new Date() },
-  });
-
-  await logActivity({ clientId, userId: actorId, type: "NOTE", payload: { message: `Funding status: ${input.status}` } });
-
-  const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
-  const qualifies = input.status === "PARTIALLY_FUNDED" || input.status === "FULLY_FUNDED";
-
-  if (!qualifies) {
-    if (client.assignedToId) {
-      await prisma.notification.create({
-        data: { userId: client.assignedToId, type: "funding_pending", payload: { clientId, clientName: client.name, message: `Funding status: ${input.status}` } },
-      });
-    }
-    return;
-  }
-
-  const stage4 = await getStageByName("Pushed for funds");
-  if (client.currentStageId !== stage4.id) {
-    await advanceStage(clientId, stage4.id, actorId);
-  }
-
-  if (client.assignedToId) {
-    await prisma.task.create({
-      data: {
-        clientId,
-        assignedToId: client.assignedToId,
-        title: "Schedule Dealer Introduction",
-        dueAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
-        source: "stage-engine",
-      },
-    });
-  }
-
-  await checkCompletion(clientId, actorId);
-}
-
-/** Pushed for funds -> Introduction with Dealer. */
-export async function recordDealerIntroduction(
-  clientId: string,
-  input: {
-    dealerId?: string;
-    dealerName?: string;
-    introductionMethod?: string;
-    status: DealerIntroStatus;
-    scheduledDate?: Date;
-    remarks?: string;
-  },
-  actorId: string,
-) {
-  await prisma.dealerIntroduction.upsert({
-    where: { clientId },
-    update: { ...input, completedDate: input.status === "COMPLETED" ? new Date() : undefined },
-    create: { ...input, clientId, completedDate: input.status === "COMPLETED" ? new Date() : undefined },
-  });
-
-  await logActivity({ clientId, userId: actorId, type: "NOTE", payload: { message: `Dealer introduction: ${input.status}` } });
-
-  const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
-  const stage5 = await getStageByName("Introduction with Dealer");
-  if (client.currentStageId !== stage5.id) {
-    await advanceStage(clientId, stage5.id, actorId);
-  }
-
-  if (input.status !== "COMPLETED" && client.assignedToId) {
-    await prisma.notification.create({
-      data: {
-        userId: client.assignedToId,
-        type: "dealer_intro_pending",
-        payload: { clientId, clientName: client.name, message: `Dealer introduction ${input.status.toLowerCase()}` },
-      },
-    });
-  }
-
-  await checkCompletion(clientId, actorId);
-}
-
-/**
- * Automatic once KYC + Funding + Dealer Intro are all in a qualifying state. There is no
- * terminal stage anymore — the client stays on "Introduction with Dealer" and this just
- * flips Client.status to COMPLETED.
- */
-export async function checkCompletion(clientId: string, actorId: string) {
-  const client = await prisma.client.findUniqueOrThrow({
+  const client = await prisma.client.update({
     where: { id: clientId },
-    include: { kycRecord: true, fundingRecord: true, dealerIntroduction: true },
-  });
-
-  const kycDone = client.kycRecord?.status === "APPROVED";
-  const fundsDone =
-    client.fundingRecord?.status === "PARTIALLY_FUNDED" || client.fundingRecord?.status === "FULLY_FUNDED";
-  const dealerDone = client.dealerIntroduction?.status === "COMPLETED";
-
-  if (!(kycDone && fundsDone && dealerDone) || client.status === "COMPLETED") return;
-
-  const durationDays = Math.round((Date.now() - client.createdAt.getTime()) / (1000 * 60 * 60 * 24));
-
-  await prisma.client.update({
-    where: { id: clientId },
-    data: { status: "COMPLETED", completedAt: new Date() },
-  });
-  await prisma.auditLog.create({
     data: {
-      userId: actorId,
-      entity: "Client",
-      entityId: clientId,
-      action: "auto_completed",
-      oldValue: { status: "ACTIVE" },
-      newValue: { status: "COMPLETED" },
-      reason: "Automatic completion",
+      ...(input.dealValue !== undefined ? { dealValue: input.dealValue } : {}),
+      ...(input.customFields !== undefined ? { customFields: input.customFields as Prisma.InputJsonValue } : {}),
     },
   });
-  await logActivity({
-    clientId,
-    type: "STAGE_CHANGE",
-    payload: { message: "Onboarding completed", durationDays },
-  });
-}
-
-/** Manager/Admin-only: move a client to any stage with a mandatory reason (bypasses sequential gating). */
-export async function correctStage(clientId: string, toStageId: string, reason: string, actorId: string) {
-  if (!reason) throw new Error("A reason is required for a manual stage correction");
-  return advanceStage(clientId, toStageId, actorId, reason, "stage_corrected");
+  await logActivity({ clientId, userId: actorId, type: "NOTE", payload: { message: "Updated client details" } });
+  return client;
 }
 
 export async function putOnHold(
@@ -465,6 +262,7 @@ export async function putOnHold(
 
   await prisma.exception.create({
     data: {
+      organizationId: client.organizationId,
       clientId,
       stageId: client.currentStageId,
       reason: input.reason,
@@ -477,19 +275,34 @@ export async function putOnHold(
   await prisma.client.update({ where: { id: clientId }, data: { status: "ON_HOLD" } });
 
   await prisma.auditLog.create({
-    data: { userId: actorId, entity: "Client", entityId: clientId, action: "hold_started", newValue: { reason: input.reason }, reason: input.reason },
+    data: {
+      organizationId: client.organizationId,
+      userId: actorId,
+      entity: "Client",
+      entityId: clientId,
+      action: "hold_started",
+      newValue: { reason: input.reason },
+      reason: input.reason,
+    },
   });
 
   await logActivity({ clientId, userId: actorId, type: "NOTE", payload: { message: `Put on hold: ${input.reason}` } });
 
   if (client.assignedToId) {
     await prisma.notification.create({
-      data: { userId: client.assignedToId, type: "hold_started", payload: { clientId, clientName: client.name, reason: input.reason } },
+      data: {
+        organizationId: client.organizationId,
+        userId: client.assignedToId,
+        type: "hold_started",
+        payload: { clientId, clientName: client.name, reason: input.reason },
+      },
     });
   }
 }
 
 export async function resumeFromHold(clientId: string, actorId: string) {
+  const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId }, select: { organizationId: true } });
+
   const openException = await prisma.exception.findFirst({
     where: { clientId, status: "OPEN" },
     orderBy: { createdAt: "desc" },
@@ -500,14 +313,24 @@ export async function resumeFromHold(clientId: string, actorId: string) {
 
   await prisma.client.update({ where: { id: clientId }, data: { status: "ACTIVE" } });
 
-  await prisma.auditLog.create({ data: { userId: actorId, entity: "Client", entityId: clientId, action: "hold_resolved" } });
+  await prisma.auditLog.create({
+    data: { organizationId: client.organizationId, userId: actorId, entity: "Client", entityId: clientId, action: "hold_resolved" },
+  });
   await logActivity({ clientId, userId: actorId, type: "NOTE", payload: { message: "Resumed from hold" } });
 }
 
 export async function markNotProceeding(clientId: string, input: { reason: string; notes?: string }, actorId: string) {
-  await prisma.client.update({ where: { id: clientId }, data: { status: "NOT_PROCEEDING" } });
+  const client = await prisma.client.update({ where: { id: clientId }, data: { status: "NOT_PROCEEDING" } });
   await prisma.auditLog.create({
-    data: { userId: actorId, entity: "Client", entityId: clientId, action: "marked_not_proceeding", newValue: { reason: input.reason }, reason: input.reason },
+    data: {
+      organizationId: client.organizationId,
+      userId: actorId,
+      entity: "Client",
+      entityId: clientId,
+      action: "marked_not_proceeding",
+      newValue: { reason: input.reason },
+      reason: input.reason,
+    },
   });
   await logActivity({
     clientId,
@@ -523,13 +346,18 @@ export async function reopenClient(clientId: string, input: { reason: string }, 
 
   await prisma.client.update({ where: { id: clientId }, data: { status: "ACTIVE" } });
   await prisma.auditLog.create({
-    data: { userId: actorId, entity: "Client", entityId: clientId, action: "reopened", reason: input.reason },
+    data: { organizationId: client.organizationId, userId: actorId, entity: "Client", entityId: clientId, action: "reopened", reason: input.reason },
   });
   await logActivity({ clientId, userId: actorId, type: "NOTE", payload: { message: `Reopened: ${input.reason}` } });
 
   if (client.assignedToId) {
     await prisma.notification.create({
-      data: { userId: client.assignedToId, type: "client_reopened", payload: { clientId, clientName: client.name, reason: input.reason } },
+      data: {
+        organizationId: client.organizationId,
+        userId: client.assignedToId,
+        type: "client_reopened",
+        payload: { clientId, clientName: client.name, reason: input.reason },
+      },
     });
   }
 }

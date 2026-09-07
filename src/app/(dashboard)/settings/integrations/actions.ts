@@ -8,34 +8,34 @@ import { encryptJson } from "@/lib/security/crypto";
 import { getAdapter } from "@/lib/integrations/registry";
 
 export async function setIntegrationModeAction(provider: string, mode: "mock" | "live") {
-  await requireRole(["ADMIN"]);
+  const session = await requireRole(["ADMIN"]);
 
   await prisma.integrationConfig.upsert({
-    where: { provider },
+    where: { organizationId_provider: { organizationId: session.user.organizationId, provider } },
     update: { mode },
-    create: { provider, mode },
+    create: { organizationId: session.user.organizationId, provider, mode },
   });
 
   revalidatePath("/settings/integrations");
 }
 
 export async function saveIntegrationCredentialsAction(provider: string, credentials: Record<string, string>) {
-  await requireRole(["ADMIN"]);
+  const session = await requireRole(["ADMIN"]);
 
   const encrypted = encryptJson(credentials);
 
   await prisma.integrationConfig.upsert({
-    where: { provider },
+    where: { organizationId_provider: { organizationId: session.user.organizationId, provider } },
     update: { credentials: encrypted, isEnabled: true },
-    create: { provider, credentials: encrypted, isEnabled: true },
+    create: { organizationId: session.user.organizationId, provider, credentials: encrypted, isEnabled: true },
   });
 
   revalidatePath("/settings/integrations");
 }
 
 export async function testIntegrationConnectionAction(provider: string) {
-  await requireRole(["ADMIN"]);
+  const session = await requireRole(["ADMIN"]);
 
-  const adapter = await getAdapter(provider);
+  const adapter = await getAdapter(provider, session.user.organizationId);
   return adapter.testConnection();
 }

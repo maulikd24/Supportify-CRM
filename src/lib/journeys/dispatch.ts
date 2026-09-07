@@ -8,14 +8,21 @@ async function enroll(journeyId: string, clientId: string) {
   });
   if (existing) return existing;
 
+  const journey = await prisma.journey.findUniqueOrThrow({
+    where: { id: journeyId },
+    select: { organizationId: true },
+  });
+
   return prisma.journeyRun.create({
-    data: { journeyId, clientId, status: "RUNNING", currentNodeId: null },
+    data: { organizationId: journey.organizationId, journeyId, clientId, status: "RUNNING", currentNodeId: null },
   });
 }
 
 /** Finds active journeys whose trigger matches this event and enrolls the client, then runs each to its first pause point. */
 export async function onEvent(triggerType: TriggerType, clientId: string): Promise<void> {
-  const journeys = await prisma.journey.findMany({ where: { isActive: true } });
+  // Derive organizationId from the client itself — journeys must never fire across tenants.
+  const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId }, select: { organizationId: true } });
+  const journeys = await prisma.journey.findMany({ where: { organizationId: client.organizationId, isActive: true } });
 
   for (const journey of journeys) {
     const graph = journey.definition as unknown as JourneyGraph;

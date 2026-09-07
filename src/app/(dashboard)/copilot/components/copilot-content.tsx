@@ -4,10 +4,20 @@ import { CopilotSummary } from "./copilot-summary";
 import { CopilotWorklist } from "./copilot-worklist";
 
 /** Fetches the worklist once and feeds both the summary strip and the table — avoids running the same scoring queries twice. */
-export async function CopilotContent({ visibleUserIds }: { visibleUserIds: string[] | null }) {
+export async function CopilotContent({
+  visibleUserIds,
+  organizationId,
+}: {
+  visibleUserIds: string[] | null;
+  organizationId: string;
+}) {
   const [{ entries, summary }, users] = await Promise.all([
-    buildWorklist(visibleUserIds),
-    prisma.user.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    buildWorklist(visibleUserIds, organizationId),
+    prisma.user.findMany({
+      where: { organizationId, isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
   ]);
 
   return (

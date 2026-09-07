@@ -49,14 +49,12 @@ const CLIENT_STATUSES = ["ON_HOLD", "NOT_PROCEEDING"];
 
 const CONDITION_FIELD_SUGGESTIONS = [
   "currentStage.name",
-  "kycRecord.status",
-  "fundingRecord.status",
-  "dealerIntroduction.status",
   "status",
   "priority",
   "clientType",
   "leadSource",
-  "expectedInvestment",
+  "dealValue",
+  "customFields.<key>",
 ];
 
 const CONDITION_OPERATORS: { value: ConditionNodeData["operator"]; label: string }[] = [

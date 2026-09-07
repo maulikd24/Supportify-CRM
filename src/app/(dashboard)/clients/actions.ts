@@ -8,28 +8,39 @@ import { requireUser, requireRole } from "@/lib/auth/require-role";
 import { logActivity } from "@/lib/activities/log-activity";
 import { sendMessage } from "@/lib/messaging/send";
 import { generateClientCode } from "@/lib/stage-engine/client-code";
-import { getStageByName } from "@/lib/stage-engine/stages";
+import { getFirstStage } from "@/lib/stage-engine/stages";
+import { parseCustomFieldsFromFormData } from "@/components/clients/custom-field-inputs";
+import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
 import {
   initializeClient,
   recordRmContact,
-  startDocumentCollection,
+  addDocument,
   updateDocumentStatus,
-  submitForKyc,
-  completeKyc,
-  updateFunding,
-  recordDealerIntroduction,
+  updateClientDetails,
+  moveToStage,
   correctStage,
   putOnHold,
   resumeFromHold,
   markNotProceeding,
   reopenClient,
 } from "@/lib/stage-engine/transitions";
-import type {
-  KycStatus,
-  FundingStatus,
-  DealerIntroStatus,
-  DocumentStatus,
-} from "@/generated/prisma/client";
+import type { DocumentStatus, Prisma } from "@/generated/prisma/client";
+
+/**
+ * Every action below takes a raw clientId/documentId from the client — this is
+ * the actual tenant boundary (stage-engine/transitions.ts trusts its inputs),
+ * so every wrapper here must verify the target belongs to the caller's org
+ * before doing anything with it.
+ */
+async function requireClientInOrg(clientId: string, organizationId: string): Promise<void> {
+  const client = await prisma.client.findFirst({ where: { id: clientId, organizationId }, select: { id: true } });
+  if (!client) throw new Error("Client not found");
+}
+
+async function requireDocumentInOrg(documentId: string, organizationId: string): Promise<void> {
+  const doc = await prisma.document.findFirst({ where: { id: documentId, organizationId }, select: { id: true } });
+  if (!doc) throw new Error("Document not found");
+}
 
 const createClientSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -39,6 +50,7 @@ const createClientSchema = z.object({
   leadSource: z.string().optional().or(z.literal("")),
   referralSource: z.string().optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
+  dealValue: z.coerce.number().optional(),
   assignedToId: z.string().optional().or(z.literal("")),
   allowDuplicate: z.coerce.boolean().optional(),
 });
@@ -55,11 +67,12 @@ export async function checkDuplicateClientAction(mobile: string, email: string) 
 }
 
 export async function searchClientsForMergeAction(query: string, excludeId: string) {
-  await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireRole(["ADMIN", "MANAGER"]);
   if (!query.trim()) return [];
 
   return prisma.client.findMany({
     where: {
+      organizationId: session.user.organizationId,
       id: { not: excludeId },
       mergedIntoId: null,
       OR: [
@@ -85,6 +98,7 @@ export async function createClientAction(formData: FormData) {
     leadSource: formData.get("leadSource"),
     referralSource: formData.get("referralSource"),
     notes: formData.get("notes"),
+    dealValue: formData.get("dealValue") || undefined,
     assignedToId: formData.get("assignedToId"),
     allowDuplicate: formData.get("allowDuplicate") || undefined,
   });
@@ -96,10 +110,16 @@ export async function createClientAction(formData: FormData) {
     }
   }
 
-  const [clientCode, stage1] = await Promise.all([generateClientCode(), getStageByName("New Lead")]);
+  const [clientCode, stage1, customFieldDefs] = await Promise.all([
+    generateClientCode(),
+    getFirstStage(session.user.organizationId),
+    prisma.customFieldDefinition.findMany({ where: { organizationId: session.user.organizationId } }),
+  ]);
+  const customFields = parseCustomFieldsFromFormData(formData, customFieldDefs);
 
   const client = await prisma.client.create({
     data: {
+      organizationId: session.user.organizationId,
       clientCode,
       name: parsed.name,
       mobile: parsed.mobile,
@@ -108,6 +128,8 @@ export async function createClientAction(formData: FormData) {
       leadSource: parsed.leadSource || "manual",
       referralSource: parsed.referralSource || null,
       notes: parsed.notes || null,
+      dealValue: parsed.dealValue ?? null,
+      customFields: Object.keys(customFields).length > 0 ? (customFields as Prisma.InputJsonValue) : undefined,
       // Defaults to the creating user regardless of role — intentional, not RM-only.
       assignedToId: parsed.assignedToId || session.user.id,
       currentStageId: stage1.id,
@@ -116,16 +138,31 @@ export async function createClientAction(formData: FormData) {
 
   await initializeClient(client.id, session.user.id);
 
+  void dispatchWebhookEvent(session.user.organizationId, "client.created", {
+    id: client.id,
+    clientCode: client.clientCode,
+    name: client.name,
+    email: client.email,
+    mobile: client.mobile,
+    leadSource: client.leadSource,
+    dealValue: client.dealValue ? client.dealValue.toString() : null,
+  });
+
   revalidatePath("/clients");
   return { client: { id: client.id, clientCode: client.clientCode, name: client.name } };
 }
 
 export async function reassignClientAction(clientId: string, assignedToId: string) {
   const session = await requireUser();
+  await requireClientInOrg(clientId, session.user.organizationId);
+
+  const newOwner = await prisma.user.findFirst({
+    where: { id: assignedToId, organizationId: session.user.organizationId },
+  });
+  if (!newOwner) throw new Error("User not found");
 
   await prisma.client.update({ where: { id: clientId }, data: { assignedToId } });
 
-  const newOwner = await prisma.user.findUnique({ where: { id: assignedToId } });
   await logActivity({
     clientId,
     userId: session.user.id,
@@ -139,6 +176,7 @@ export async function reassignClientAction(clientId: string, assignedToId: strin
 
 export async function addClientNoteAction(clientId: string, note: string) {
   const session = await requireUser();
+  await requireClientInOrg(clientId, session.user.organizationId);
 
   await logActivity({ clientId, userId: session.user.id, type: "NOTE", payload: { message: note } });
 
@@ -151,7 +189,8 @@ export async function sendClientMessageAction(
   templateId: string,
   variables: Record<string, string>,
 ) {
-  await requireUser();
+  const session = await requireUser();
+  await requireClientInOrg(clientId, session.user.organizationId);
 
   const message = await sendMessage({ clientId, channel, templateId, variables });
 
@@ -178,6 +217,7 @@ export async function recordRmContactAction(
   },
 ) {
   const session = await requireUser();
+  await requireClientInOrg(clientId, session.user.organizationId);
   await recordRmContact(
     clientId,
     { ...input, nextActionDate: input.nextActionDate ? new Date(input.nextActionDate) : undefined },
@@ -186,9 +226,10 @@ export async function recordRmContactAction(
   revalidateClient(clientId);
 }
 
-export async function startDocumentCollectionAction(clientId: string) {
-  await requireUser();
-  await startDocumentCollection(clientId);
+export async function addDocumentAction(clientId: string, documentType: string, mandatory: boolean) {
+  const session = await requireUser();
+  await requireClientInOrg(clientId, session.user.organizationId);
+  await addDocument(clientId, { documentType, mandatory }, session.user.id);
   revalidateClient(clientId);
 }
 
@@ -197,70 +238,31 @@ export async function updateDocumentStatusAction(
   input: { status: DocumentStatus; rejectionReason?: string; remarks?: string },
 ) {
   const session = await requireUser();
+  await requireDocumentInOrg(documentId, session.user.organizationId);
   const doc = await updateDocumentStatus(documentId, input, session.user.id);
   revalidateClient(doc.clientId);
 }
 
-export async function submitForKycAction(
+export async function updateClientDetailsAction(
   clientId: string,
-  input: { submissionMethod?: string; kycReferenceNumber?: string; remarks?: string; override?: boolean },
+  input: { dealValue?: number | null; customFields?: Record<string, unknown> },
 ) {
   const session = await requireUser();
-  await submitForKyc(clientId, input, session.user.id, session.user.role);
+  await requireClientInOrg(clientId, session.user.organizationId);
+  await updateClientDetails(clientId, input, session.user.id);
   revalidateClient(clientId);
 }
 
-export async function completeKycAction(
-  clientId: string,
-  input: { status: KycStatus; referenceNumber?: string; rejectionReason?: string; remarks?: string },
-) {
+export async function moveToStageAction(clientId: string, toStageId: string) {
   const session = await requireUser();
-  await completeKyc(clientId, input, session.user.id);
-  revalidateClient(clientId);
-}
-
-export async function updateFundingAction(
-  clientId: string,
-  input: {
-    status: FundingStatus;
-    amount?: number;
-    fundingDate?: string;
-    fundingMethod?: string;
-    referenceNumber?: string;
-    remarks?: string;
-  },
-) {
-  const session = await requireUser();
-  await updateFunding(
-    clientId,
-    { ...input, fundingDate: input.fundingDate ? new Date(input.fundingDate) : undefined },
-    session.user.id,
-  );
-  revalidateClient(clientId);
-}
-
-export async function recordDealerIntroductionAction(
-  clientId: string,
-  input: {
-    dealerId?: string;
-    dealerName?: string;
-    introductionMethod?: string;
-    status: DealerIntroStatus;
-    scheduledDate?: string;
-    remarks?: string;
-  },
-) {
-  const session = await requireUser();
-  await recordDealerIntroduction(
-    clientId,
-    { ...input, scheduledDate: input.scheduledDate ? new Date(input.scheduledDate) : undefined },
-    session.user.id,
-  );
+  await requireClientInOrg(clientId, session.user.organizationId);
+  await moveToStage(clientId, toStageId, session.user.id);
   revalidateClient(clientId);
 }
 
 export async function correctStageAction(clientId: string, toStageId: string, reason: string) {
   const session = await requireRole(["ADMIN", "MANAGER"]);
+  await requireClientInOrg(clientId, session.user.organizationId);
   await correctStage(clientId, toStageId, reason, session.user.id);
   revalidateClient(clientId);
 }
@@ -270,6 +272,7 @@ export async function putOnHoldAction(
   input: { reason: string; expectedResumeDate?: string; notes?: string },
 ) {
   const session = await requireUser();
+  await requireClientInOrg(clientId, session.user.organizationId);
   await putOnHold(
     clientId,
     { ...input, expectedResumeDate: input.expectedResumeDate ? new Date(input.expectedResumeDate) : undefined },
@@ -280,18 +283,21 @@ export async function putOnHoldAction(
 
 export async function resumeFromHoldAction(clientId: string) {
   const session = await requireUser();
+  await requireClientInOrg(clientId, session.user.organizationId);
   await resumeFromHold(clientId, session.user.id);
   revalidateClient(clientId);
 }
 
 export async function markNotProceedingAction(clientId: string, input: { reason: string; notes?: string }) {
   const session = await requireUser();
+  await requireClientInOrg(clientId, session.user.organizationId);
   await markNotProceeding(clientId, input, session.user.id);
   revalidateClient(clientId);
 }
 
 export async function reopenClientAction(clientId: string, input: { reason: string }) {
   const session = await requireRole(["ADMIN", "MANAGER"]);
+  await requireClientInOrg(clientId, session.user.organizationId);
   await reopenClient(clientId, input, session.user.id);
   revalidateClient(clientId);
 }
@@ -301,6 +307,8 @@ export async function reopenClientAction(clientId: string, input: { reason: stri
 export async function mergeClientsAction(primaryId: string, duplicateId: string) {
   const session = await requireRole(["ADMIN", "MANAGER"]);
   if (primaryId === duplicateId) throw new Error("Cannot merge a client into itself");
+  await requireClientInOrg(primaryId, session.user.organizationId);
+  await requireClientInOrg(duplicateId, session.user.organizationId);
 
   await prisma.$transaction([
     prisma.document.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
@@ -312,6 +320,7 @@ export async function mergeClientsAction(primaryId: string, duplicateId: string)
     }),
     prisma.auditLog.create({
       data: {
+        organizationId: session.user.organizationId,
         userId: session.user.id,
         entity: "Client",
         entityId: duplicateId,

@@ -24,7 +24,7 @@ export function ClientTasksPanel({
   tasks,
   users,
 }: {
-  client: Omit<Client, "expectedInvestment"> & { expectedInvestment: number | null };
+  client: Omit<Client, "dealValue"> & { dealValue: number | null };
   tasks: Task[];
   users: Pick<User, "id" | "name">[];
 }) {

@@ -18,7 +18,9 @@ export async function sendMessage(params: {
 
   const variables = params.variables ?? {};
   const template = params.templateId
-    ? await prisma.messageTemplate.findUnique({ where: { id: params.templateId } })
+    ? await prisma.messageTemplate.findUnique({
+        where: { id: params.templateId, organizationId: client.organizationId },
+      })
     : null;
 
   if (params.templateId && template?.approved === false) {
@@ -30,6 +32,7 @@ export async function sendMessage(params: {
 
   const message = await prisma.message.create({
     data: {
+      organizationId: client.organizationId,
       clientId: client.id,
       channel: params.channel,
       provider,
@@ -41,7 +44,7 @@ export async function sendMessage(params: {
   });
 
   try {
-    const adapter = await getMessagingAdapter(params.channel);
+    const adapter = await getMessagingAdapter(params.channel, client.organizationId);
     const result = await adapter.sendMessage({
       to: client.mobile,
       body,

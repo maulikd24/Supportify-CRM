@@ -7,9 +7,10 @@ import { ActionQueue, ActionQueueSkeleton } from "./components/action-queue";
 
 export default async function DashboardPage() {
   const session = await requireUser();
-  const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
-  const clientFilter = visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {};
-  const taskFilter = visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {};
+  const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role, session.user.organizationId);
+  const orgFilter = { organizationId: session.user.organizationId };
+  const clientFilter = visibleUserIds ? { ...orgFilter, assignedToId: { in: visibleUserIds } } : orgFilter;
+  const taskFilter = visibleUserIds ? { ...orgFilter, assignedToId: { in: visibleUserIds } } : orgFilter;
 
   return (
     <div className="flex flex-col gap-4">

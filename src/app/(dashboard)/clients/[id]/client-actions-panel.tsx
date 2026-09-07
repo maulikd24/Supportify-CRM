@@ -37,9 +37,7 @@ import {
 const NOT_PROCEEDING_REASONS = [
   "Not Interested",
   "Competitor",
-  "Unable to Complete Documentation",
-  "KYC Rejected",
-  "Funding Issue",
+  "Budget Constraints",
   "Client Unreachable",
   "Client Postponed",
   "Other",
@@ -48,10 +46,8 @@ const NOT_PROCEEDING_REASONS = [
 const HOLD_REASONS = [
   "Client Requested Delay",
   "Documentation Issue",
-  "KYC Issue",
-  "Funding Issue",
-  "Dealer Unavailable",
-  "RM Unavailable",
+  "Pricing Discussion",
+  "Rep Unavailable",
   "Other",
 ];
 
@@ -60,7 +56,7 @@ export function ClientActionsPanel({
   users,
   currentUserRole,
 }: {
-  client: Omit<Client, "expectedInvestment"> & { expectedInvestment: number | null };
+  client: Omit<Client, "dealValue"> & { dealValue: number | null };
   users: Pick<User, "id" | "name">[];
   currentUserRole: Role;
 }) {

@@ -45,7 +45,7 @@ export async function advanceRun(runId: string): Promise<void> {
     include: {
       journey: true,
       client: {
-        include: { currentStage: true, kycRecord: true, fundingRecord: true, dealerIntroduction: true },
+        include: { currentStage: true },
       },
     },
   });

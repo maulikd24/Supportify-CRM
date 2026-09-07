@@ -18,6 +18,7 @@ export async function checkOverdueTasks() {
 
     await prisma.notification.create({
       data: {
+        organizationId: task.organizationId,
         userId: task.assignedToId,
         type: "task_overdue",
         payload: { taskId: task.id, taskTitle: task.title, clientId: task.clientId, clientName: task.client.name },
@@ -28,6 +29,7 @@ export async function checkOverdueTasks() {
     if (hoursOverdue > 24 && task.assignedTo.managerId) {
       await prisma.notification.create({
         data: {
+          organizationId: task.organizationId,
           userId: task.assignedTo.managerId,
           type: "task_overdue_escalation",
           payload: {
@@ -70,6 +72,7 @@ async function checkExcessiveRmWorkload(now: Date) {
 
     await prisma.notification.create({
       data: {
+        organizationId: rm.organizationId,
         userId: rm.managerId,
         type: "excessive_overdue_workload",
         payload: { rmId: rm.id, rmName: rm.name, overdueCount },

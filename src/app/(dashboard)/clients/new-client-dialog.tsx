@@ -26,11 +26,19 @@ import {
 } from "@/components/ui/dialog";
 import { createClientAction } from "./actions";
 import { LEAD_SOURCES, CLIENT_TYPES } from "@/lib/clients/options";
+import { CustomFieldInputs } from "@/components/clients/custom-field-inputs";
+import type { CustomFieldDefinition } from "@/generated/prisma/client";
 
 type UserOption = { id: string; name: string };
 type DuplicateInfo = { id: string; name: string; clientCode: string; mobile: string; email: string | null };
 
-export function NewClientDialog({ users }: { users: UserOption[] }) {
+export function NewClientDialog({
+  users,
+  customFieldDefinitions,
+}: {
+  users: UserOption[];
+  customFieldDefinitions: CustomFieldDefinition[];
+}) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [duplicate, setDuplicate] = useState<DuplicateInfo | null>(null);
@@ -166,9 +174,14 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
               <Input id="referralSource" name="referralSource" />
             </Field>
             <Field>
+              <FieldLabel htmlFor="dealValue">Deal Value</FieldLabel>
+              <Input id="dealValue" name="dealValue" type="number" step="0.01" />
+            </Field>
+            <Field>
               <FieldLabel htmlFor="notes">Notes</FieldLabel>
               <Textarea id="notes" name="notes" rows={2} />
             </Field>
+            <CustomFieldInputs definitions={customFieldDefinitions} />
           </FieldGroup>
           <DialogFooter className="mt-4">
             <Button type="submit" disabled={pending}>

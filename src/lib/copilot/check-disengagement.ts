@@ -10,7 +10,7 @@ export async function checkDisengagement(): Promise<{ flagged: number }> {
 
   const clients = await prisma.client.findMany({
     where: { status: "ACTIVE" },
-    select: { id: true, name: true, assignedToId: true, createdAt: true },
+    select: { id: true, organizationId: true, name: true, assignedToId: true, createdAt: true },
     orderBy: { stageEnteredAt: "asc" },
     take: CANDIDATE_LIMIT,
   });
@@ -63,6 +63,7 @@ export async function checkDisengagement(): Promise<{ flagged: number }> {
 
     await prisma.notification.create({
       data: {
+        organizationId: client.organizationId,
         userId: client.assignedToId,
         type: "client_disengaged",
         payload: { clientId: client.id, clientName: client.name, daysSinceLastActivity },

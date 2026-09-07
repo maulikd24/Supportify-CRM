@@ -21,9 +21,6 @@ type UserOption = { id: string; name: string };
 const PRIORITY_OPTIONS = ["LOW", "MEDIUM", "HIGH"];
 const SLA_OPTIONS = ["ON_TRACK", "DUE_SOON", "OVERDUE", "NOT_APPLICABLE"];
 const STATUS_OPTIONS = ["ACTIVE", "ON_HOLD", "COMPLETED", "NOT_PROCEEDING"];
-const KYC_OPTIONS = ["PENDING", "APPROVED", "REJECTED", "ADDITIONAL_INFO_REQUIRED"];
-const FUNDING_OPTIONS = ["PENDING", "PARTIALLY_FUNDED", "FULLY_FUNDED", "NOT_PROCEEDING"];
-const DEALER_OPTIONS = ["PENDING", "SCHEDULED", "COMPLETED"];
 
 const LABELS: Record<string, string> = {
   ON_TRACK: "On Track",
@@ -34,13 +31,6 @@ const LABELS: Record<string, string> = {
   ON_HOLD: "On Hold",
   COMPLETED: "Completed",
   NOT_PROCEEDING: "Not Proceeding",
-  PENDING: "Pending",
-  APPROVED: "Approved",
-  REJECTED: "Rejected",
-  ADDITIONAL_INFO_REQUIRED: "Additional Info Required",
-  PARTIALLY_FUNDED: "Partially Funded",
-  FULLY_FUNDED: "Fully Funded",
-  SCHEDULED: "Scheduled",
   LOW: "Low",
   MEDIUM: "Medium",
   HIGH: "High",
@@ -83,7 +73,7 @@ export function ClientFilters({ stages, users }: { stages: StageOption[]; users:
       <div className="flex flex-wrap items-center gap-2">
         <Input
           defaultValue={searchParams.get("q") ?? ""}
-          placeholder="Search name, mobile, email, client ID, KYC ref, dealer ID..."
+          placeholder="Search name, mobile, email, client ID..."
           className="w-80"
           onChange={(e) => debouncedSetParam("q", e.target.value)}
         />
@@ -127,27 +117,6 @@ export function ClientFilters({ stages, users }: { stages: StageOption[]; users:
           <SelectTrigger className="w-full"><SelectValue placeholder="Assigned RM">{(v: string) => users.find((u) => u.id === v)?.name ?? "Assigned RM"}</SelectValue></SelectTrigger>
           <SelectContent>
             {users.map((u) => (<SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>))}
-          </SelectContent>
-        </Select>
-
-        <Select value={searchParams.get("kyc") ?? ""} onValueChange={(v) => setParam("kyc", v ?? "")}>
-          <SelectTrigger className="w-full"><SelectValue placeholder="KYC Status">{(v: string) => LABELS[v] ?? "KYC Status"}</SelectValue></SelectTrigger>
-          <SelectContent>
-            {KYC_OPTIONS.map((s) => (<SelectItem key={s} value={s}>{LABELS[s]}</SelectItem>))}
-          </SelectContent>
-        </Select>
-
-        <Select value={searchParams.get("funding") ?? ""} onValueChange={(v) => setParam("funding", v ?? "")}>
-          <SelectTrigger className="w-full"><SelectValue placeholder="Funding Status">{(v: string) => LABELS[v] ?? "Funding Status"}</SelectValue></SelectTrigger>
-          <SelectContent>
-            {FUNDING_OPTIONS.map((s) => (<SelectItem key={s} value={s}>{LABELS[s]}</SelectItem>))}
-          </SelectContent>
-        </Select>
-
-        <Select value={searchParams.get("dealer") ?? ""} onValueChange={(v) => setParam("dealer", v ?? "")}>
-          <SelectTrigger className="w-full"><SelectValue placeholder="Dealer Status">{(v: string) => LABELS[v] ?? "Dealer Status"}</SelectValue></SelectTrigger>
-          <SelectContent>
-            {DEALER_OPTIONS.map((s) => (<SelectItem key={s} value={s}>{LABELS[s]}</SelectItem>))}
           </SelectContent>
         </Select>
 

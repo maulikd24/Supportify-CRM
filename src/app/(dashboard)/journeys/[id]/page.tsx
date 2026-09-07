@@ -10,21 +10,21 @@ export default async function JourneyBuilderPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireRole(["ADMIN", "MANAGER"]);
   const { id } = await params;
 
   const [journey, users, templates] = await Promise.all([
     prisma.journey.findUnique({
-      where: { id },
+      where: { id, organizationId: session.user.organizationId },
       include: { _count: { select: { runs: { where: { status: { in: ["RUNNING", "WAITING"] } } } } } },
     }),
     prisma.user.findMany({
-      where: { isActive: true },
+      where: { organizationId: session.user.organizationId, isActive: true },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
     prisma.messageTemplate.findMany({
-      where: { approved: true },
+      where: { organizationId: session.user.organizationId, approved: true },
       select: { id: true, name: true, channel: true },
     }),
   ]);

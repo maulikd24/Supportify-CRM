@@ -24,9 +24,19 @@ function providerKeyFor(channel: string): string {
   return channel === "whatsapp" ? "whatsapp_meta" : "sms_exotel";
 }
 
-export async function getMessagingAdapter(channel: "whatsapp" | "sms"): Promise<MessagingAdapter> {
+/**
+ * `organizationId` is omitted only by inbound webhook handlers that haven't
+ * identified the tenant yet — see the comment on integrations/registry.ts's
+ * findIntegrationConfig for the same known gap.
+ */
+export async function getMessagingAdapter(
+  channel: "whatsapp" | "sms",
+  organizationId?: string,
+): Promise<MessagingAdapter> {
   const provider = providerKeyFor(channel);
-  const config = await prisma.integrationConfig.findUnique({ where: { provider } });
+  const config = organizationId
+    ? await prisma.integrationConfig.findUnique({ where: { organizationId_provider: { organizationId, provider } } })
+    : await prisma.integrationConfig.findFirst({ where: { provider } });
   const mode = config?.mode ?? "mock";
 
   if (mode !== "live") return MOCK_ADAPTERS[channel];

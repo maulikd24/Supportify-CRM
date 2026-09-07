@@ -49,6 +49,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
 
     await prisma.message.create({
       data: {
+        organizationId: client.organizationId,
         clientId: client.id,
         channel,
         provider: adapter.provider,
@@ -68,6 +69,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
     if (client.assignedToId) {
       await prisma.notification.create({
         data: {
+          organizationId: client.organizationId,
           userId: client.assignedToId,
           type: "inbound_message",
           payload: { clientId: client.id, clientName: client.name, channel, preview: msg.body.slice(0, 140) },

@@ -6,7 +6,6 @@ import { getStageDurations } from "@/lib/reports/stage-durations";
 import { computePriorityScore, computeHealthStatus, type PriorityScore, type HealthResult } from "./scoring";
 import { getNextBestAction, type NextBestAction } from "./next-best-action";
 import { suggestMessageTemplate, type MessageSuggestion } from "./message-suggestion";
-import { getCrossSellFlags, type CrossSellFlag } from "./cross-sell";
 import type { CopilotClient } from "./types";
 
 const CANDIDATE_LIMIT = 200;
@@ -17,12 +16,11 @@ export type WorklistEntry = {
   priority: PriorityScore;
   health: HealthResult;
   nba: NextBestAction;
-  crossSell: CrossSellFlag[];
   messageSuggestion: MessageSuggestion | null;
   suggestedFollowUp: { title: string; dueAtIso: string };
 };
 
-export type WorklistSummary = { critical: number; atRisk: number; disengaged: number; crossSellCandidates: number };
+export type WorklistSummary = { critical: number; atRisk: number; disengaged: number };
 
 async function fetchCandidates(clientFilter: Prisma.ClientWhereInput) {
   return prisma.client.findMany({
@@ -30,9 +28,6 @@ async function fetchCandidates(clientFilter: Prisma.ClientWhereInput) {
     include: {
       currentStage: true,
       documents: true,
-      kycRecord: true,
-      fundingRecord: true,
-      dealerIntroduction: true,
       assignedTo: { select: { name: true } },
       activities: { where: { type: "NOTE" }, select: { type: true, payload: true } },
     },
@@ -41,14 +36,19 @@ async function fetchCandidates(clientFilter: Prisma.ClientWhereInput) {
   });
 }
 
-export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ entries: WorklistEntry[]; summary: WorklistSummary }> {
-  const clientFilter: Prisma.ClientWhereInput = visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {};
+export async function buildWorklist(
+  visibleUserIds: string[] | null,
+  organizationId: string,
+): Promise<{ entries: WorklistEntry[]; summary: WorklistSummary }> {
+  const clientFilter: Prisma.ClientWhereInput = visibleUserIds
+    ? { organizationId, assignedToId: { in: visibleUserIds } }
+    : { organizationId };
   const now = new Date();
 
   const [candidates, stages, templates] = await Promise.all([
     fetchCandidates(clientFilter),
-    prisma.stage.findMany({ where: { isActive: true }, orderBy: { sequence: "asc" } }),
-    prisma.messageTemplate.findMany({ where: { approved: true } }),
+    prisma.stage.findMany({ where: { organizationId, isActive: true }, orderBy: { sequence: "asc" } }),
+    prisma.messageTemplate.findMany({ where: { organizationId, approved: true } }),
   ]);
 
   const candidateIds = candidates.map((c) => c.id);
@@ -85,7 +85,6 @@ export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ 
   let critical = 0;
   let atRisk = 0;
   let disengaged = 0;
-  let crossSellCandidates = 0;
 
   const entries: WorklistEntry[] = candidates.map((client) => {
     const heldMs = exceptions
@@ -118,14 +117,12 @@ export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ 
     });
 
     const copilotClient: CopilotClient = client;
-    const nba = getNextBestAction(copilotClient);
-    const crossSell = getCrossSellFlags(client);
+    const nba = getNextBestAction(copilotClient, daysSinceLastActivity);
     const messageSuggestion = suggestMessageTemplate(nba, { ...copilotClient, assignedTo: client.assignedTo }, templates);
 
     if (health.status === "CRITICAL") critical += 1;
     else if (health.status === "AT_RISK") atRisk += 1;
     if (daysSinceLastActivity >= 5) disengaged += 1;
-    if (crossSell.length > 0) crossSellCandidates += 1;
 
     return {
       client: {
@@ -138,7 +135,6 @@ export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ 
       priority,
       health,
       nba,
-      crossSell,
       messageSuggestion,
       suggestedFollowUp: {
         title: nba.label,
@@ -151,6 +147,6 @@ export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ 
 
   return {
     entries: entries.slice(0, WORKLIST_SIZE),
-    summary: { critical, atRisk, disengaged, crossSellCandidates },
+    summary: { critical, atRisk, disengaged },
   };
 }

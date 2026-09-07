@@ -10,9 +10,10 @@ import { NewJourneyDialog } from "./new-journey-dialog";
 import { JourneyRowActions } from "./journey-row-actions";
 
 export default async function JourneysPage() {
-  await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireRole(["ADMIN", "MANAGER"]);
 
   const journeys = await prisma.journey.findMany({
+    where: { organizationId: session.user.organizationId },
     include: {
       _count: { select: { runs: true } },
       runs: { where: { status: { in: ["RUNNING", "WAITING"] } }, select: { id: true }, take: 1 },

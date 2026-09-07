@@ -33,18 +33,12 @@ export function describeNotification(notification: Notification): string {
         : `${payload.clientName} is overdue at ${payload.stage}`;
     case "document_rejected":
       return `${payload.documentType} rejected for ${payload.clientName}: ${payload.reason}`;
-    case "kyc_update":
-      return `${payload.clientName}: ${payload.message}`;
-    case "funding_pending":
-      return payload.message ? `${payload.clientName}: ${payload.message}` : `Funding pending for ${payload.clientName}`;
     case "new_assignment":
       return `You were assigned client ${payload.clientName}`;
     case "hold_started":
       return `${payload.clientName} put on hold: ${payload.reason}`;
     case "client_reopened":
       return `${payload.clientName} reopened: ${payload.reason}`;
-    case "dealer_intro_pending":
-      return `${payload.clientName}: ${payload.message}`;
     case "excessive_overdue_workload":
       return `${payload.rmName} has ${payload.overdueCount} overdue tasks`;
     case "journey_notify_manager":

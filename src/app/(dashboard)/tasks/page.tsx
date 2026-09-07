@@ -17,10 +17,12 @@ export default async function TasksPage({
 }) {
   const session = await requireUser();
   const params = await searchParams;
-  const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
+  const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role, session.user.organizationId);
   const currentPage = Math.max(1, Number(params.page) || 1);
 
-  const where = visibleUserIds ? { assignedToId: { in: visibleUserIds } } : undefined;
+  const where = visibleUserIds
+    ? { organizationId: session.user.organizationId, assignedToId: { in: visibleUserIds } }
+    : { organizationId: session.user.organizationId };
 
   const [tasks, totalCount] = await Promise.all([
     prisma.task.findMany({

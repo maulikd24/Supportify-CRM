@@ -11,11 +11,13 @@ import { updateStageAction } from "./actions";
 import type { Stage } from "@/generated/prisma/client";
 
 export function StageRow({ stage }: { stage: Stage }) {
+  const [name, setName] = useState(stage.name);
   const [slaHours, setSlaHours] = useState(stage.slaHours);
   const [isActive, setIsActive] = useState(stage.isActive);
+  const [isTerminal, setIsTerminal] = useState(stage.isTerminal);
   const [pending, setPending] = useState(false);
 
-  async function save(next: { slaHours: number; isActive: boolean }) {
+  async function save(next: { name: string; slaHours: number; isActive: boolean; isTerminal: boolean }) {
     setPending(true);
     try {
       await updateStageAction(stage.id, next);
@@ -29,7 +31,15 @@ export function StageRow({ stage }: { stage: Stage }) {
   return (
     <TableRow>
       <TableCell className="text-muted-foreground">{stage.sequence}</TableCell>
-      <TableCell className="font-medium">{stage.name}</TableCell>
+      <TableCell>
+        <Input
+          className="w-40"
+          value={name}
+          disabled={pending}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => save({ name, slaHours, isActive, isTerminal })}
+        />
+      </TableCell>
       <TableCell>
         <Input
           type="number"
@@ -38,7 +48,7 @@ export function StageRow({ stage }: { stage: Stage }) {
           value={slaHours}
           disabled={pending}
           onChange={(e) => setSlaHours(Number(e.target.value))}
-          onBlur={() => save({ slaHours, isActive })}
+          onBlur={() => save({ name, slaHours, isActive, isTerminal })}
         />
       </TableCell>
       <TableCell>
@@ -47,7 +57,17 @@ export function StageRow({ stage }: { stage: Stage }) {
           disabled={pending}
           onCheckedChange={(checked) => {
             setIsActive(checked);
-            save({ slaHours, isActive: checked });
+            save({ name, slaHours, isActive: checked, isTerminal });
+          }}
+        />
+      </TableCell>
+      <TableCell>
+        <Switch
+          checked={isTerminal}
+          disabled={pending}
+          onCheckedChange={(checked) => {
+            setIsTerminal(checked);
+            save({ name, slaHours, isActive, isTerminal: checked });
           }}
         />
       </TableCell>

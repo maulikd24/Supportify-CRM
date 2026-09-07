@@ -7,9 +7,12 @@ import { NewTemplateDialog } from "./new-template-dialog";
 import { TemplateRowActions } from "./template-row-actions";
 
 export default async function TemplatesSettingsPage() {
-  await requireRole(["ADMIN"]);
+  const session = await requireRole(["ADMIN"]);
 
-  const templates = await prisma.messageTemplate.findMany({ orderBy: { createdAt: "desc" } });
+  const templates = await prisma.messageTemplate.findMany({
+    where: { organizationId: session.user.organizationId },
+    orderBy: { createdAt: "desc" },
+  });
 
   return (
     <Card>

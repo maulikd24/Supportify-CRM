@@ -7,12 +7,14 @@ import { PROVIDER_META } from "./provider-meta";
 import { IntegrationCard } from "./integration-card";
 
 export default async function IntegrationsSettingsPage() {
-  await requireRole(["ADMIN"]);
+  const session = await requireRole(["ADMIN"]);
 
   const messagingProviders = MESSAGING_CHANNELS.map((c) => messagingProviderKeyFor(c));
   const allProviders = [...INTEGRATION_PROVIDERS, ...messagingProviders, ...EMAIL_PROVIDERS];
 
-  const configs = await prisma.integrationConfig.findMany({ where: { provider: { in: allProviders } } });
+  const configs = await prisma.integrationConfig.findMany({
+    where: { organizationId: session.user.organizationId, provider: { in: allProviders } },
+  });
   const configByProvider = new Map(configs.map((c) => [c.provider, c]));
 
   return (

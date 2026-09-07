@@ -16,6 +16,7 @@ import {
   KeyRound,
   Sparkles,
   CreditCard,
+  ListPlus,
 } from "lucide-react";
 
 import {
@@ -49,6 +50,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/journeys", label: "Journeys", icon: Workflow, roles: ["ADMIN", "MANAGER"] },
   { href: "/reports", label: "Reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
   { href: "/settings/stages", label: "Stages", icon: SlidersHorizontal, roles: ["ADMIN"] },
+  { href: "/settings/custom-fields", label: "Custom Fields", icon: ListPlus, roles: ["ADMIN"] },
   { href: "/settings/templates", label: "Templates", icon: MessageSquareText, roles: ["ADMIN"] },
   { href: "/settings/users", label: "Users", icon: UserCog, roles: ["ADMIN"] },
   { href: "/settings/integrations", label: "Settings", icon: Settings, roles: ["ADMIN"] },

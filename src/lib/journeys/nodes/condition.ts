@@ -3,21 +3,18 @@ import type { ConditionNodeData } from "@/lib/journeys/types";
 
 type ClientWithRelations = Client & {
   currentStage?: { name: string } | null;
-  kycRecord?: { status: string } | null;
-  fundingRecord?: { status: string } | null;
-  dealerIntroduction?: { status: string } | null;
 };
 
-const DOTTED_FIELD_RESOLVERS: Record<string, (client: ClientWithRelations) => unknown> = {
-  "currentStage.name": (client) => client.currentStage?.name,
-  "kycRecord.status": (client) => client.kycRecord?.status,
-  "fundingRecord.status": (client) => client.fundingRecord?.status,
-  "dealerIntroduction.status": (client) => client.dealerIntroduction?.status,
-};
+const CUSTOM_FIELD_PREFIX = "customFields.";
 
 function getField(client: ClientWithRelations, context: Record<string, unknown>, field: string): unknown {
-  const dottedResolver = DOTTED_FIELD_RESOLVERS[field];
-  if (dottedResolver) return dottedResolver(client);
+  if (field === "currentStage.name") return client.currentStage?.name;
+
+  if (field.startsWith(CUSTOM_FIELD_PREFIX)) {
+    const key = field.slice(CUSTOM_FIELD_PREFIX.length);
+    const customFields = (client.customFields as Record<string, unknown> | null) ?? {};
+    return customFields[key];
+  }
 
   if (field.startsWith("context.")) {
     return context[field.slice("context.".length)];

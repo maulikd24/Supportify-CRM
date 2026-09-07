@@ -1,6 +1,5 @@
 import type { MessageTemplate, User } from "@/generated/prisma/client";
 import type { CopilotClient } from "./types";
-import { incompleteMandatoryDocuments } from "./types";
 import type { NextBestAction } from "./next-best-action";
 
 export type MessageSuggestion = {
@@ -13,11 +12,8 @@ export type MessageSuggestion = {
 type TemplateInput = Pick<MessageTemplate, "id" | "name" | "channel" | "variables" | "approved">;
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  document_reminder: ["document", "doc", "kyc doc"],
-  kyc_reminder: ["kyc"],
-  funding_reminder: ["fund", "funding", "payment"],
-  dealer_reminder: ["dealer", "intro"],
   welcome: ["welcome", "greeting", "onboard"],
+  follow_up_reminder: ["follow up", "followup", "reminder", "check in", "checkin"],
 };
 
 /**
@@ -41,14 +37,11 @@ export function suggestMessageTemplate(
   const channel = template.channel === "sms" ? "sms" : "whatsapp";
   const variableNames = (template.variables as string[] | null) ?? [];
 
-  const firstIncompleteDoc = incompleteMandatoryDocuments(client.documents)[0];
   const values: Record<string, string> = {
     clientName: client.name,
     rmName: client.assignedTo?.name ?? "",
     stage: client.currentStage.name,
-    amount: client.fundingRecord?.amount ? String(client.fundingRecord.amount) : "",
-    dealerName: client.dealerIntroduction?.dealerName ?? "",
-    documentType: firstIncompleteDoc?.documentType ?? "",
+    dealValue: client.dealValue ? String(client.dealValue) : "",
   };
 
   const variables: Record<string, string> = {};

@@ -12,12 +12,13 @@ import { ClientTasksPanel } from "./client-tasks-panel";
 import { SendMessagePanel } from "./send-message-panel";
 import { StageActionCard } from "./stage-action-card";
 import { ClientCopilotPanel } from "./client-copilot-panel";
+import { AddDocumentForm } from "./add-document-form";
+import { DocumentRowActions } from "./document-row-actions";
 import { formatDateTime } from "@/lib/utils/format";
 import { computeSlaStatus, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { computePriorityScore, computeHealthStatus } from "@/lib/copilot/scoring";
 import { getNextBestAction } from "@/lib/copilot/next-best-action";
-import { getCrossSellFlags } from "@/lib/copilot/cross-sell";
 import { getMilestoneChecklist } from "@/lib/copilot/milestones";
 import { suggestMessageTemplate } from "@/lib/copilot/message-suggestion";
 import type { CopilotClient } from "@/lib/copilot/types";
@@ -43,33 +44,38 @@ export default async function ClientDetailPage({
   const session = await requireUser();
   const { id } = await params;
 
-  const [client, visibleUserIds, users, templates, stages, exceptions] = await Promise.all([
+  const [client, visibleUserIds, users, templates, stages, exceptions, customFieldDefinitions] = await Promise.all([
     prisma.client.findUnique({
-      where: { id },
+      where: { id, organizationId: session.user.organizationId },
       include: {
         assignedTo: true,
         currentStage: true,
         documents: { orderBy: { createdAt: "asc" }, take: 50 },
-        kycRecord: true,
-        fundingRecord: true,
-        dealerIntroduction: true,
         activities: { include: { user: true }, orderBy: { createdAt: "desc" }, take: 50 },
         tasks: { orderBy: { dueAt: "asc" }, take: 50 },
       },
     }),
-    getVisibleUserIds(session.user.id, session.user.role),
-    prisma.user.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
-    prisma.messageTemplate.findMany({ where: { approved: true } }),
-    prisma.stage.findMany({ where: { isActive: true }, orderBy: { sequence: "asc" } }),
+    getVisibleUserIds(session.user.id, session.user.role, session.user.organizationId),
+    prisma.user.findMany({
+      where: { organizationId: session.user.organizationId, isActive: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.messageTemplate.findMany({ where: { organizationId: session.user.organizationId, approved: true } }),
+    prisma.stage.findMany({
+      where: { organizationId: session.user.organizationId, isActive: true },
+      orderBy: { sequence: "asc" },
+    }),
     prisma.exception.findMany({ where: { clientId: id }, select: { stageId: true, createdAt: true, resolvedAt: true } }),
+    prisma.customFieldDefinition.findMany({
+      where: { organizationId: session.user.organizationId },
+      orderBy: { sortOrder: "asc" },
+    }),
   ]);
 
   if (!client) notFound();
   if (visibleUserIds && (!client.assignedToId || !visibleUserIds.includes(client.assignedToId))) {
     notFound();
   }
-
-  const canOverride = session.user.role === "ADMIN" || session.user.role === "MANAGER";
 
   const now = new Date();
   const heldMs = exceptions
@@ -97,8 +103,7 @@ export default async function ClientDetailPage({
     benchmarkAvgHours: null,
     daysSinceLastActivity,
   });
-  const nba = getNextBestAction(copilotClient);
-  const crossSellFlags = getCrossSellFlags(client);
+  const nba = getNextBestAction(copilotClient, daysSinceLastActivity);
   const milestones = getMilestoneChecklist(copilotClient, stages);
   const messageSuggestion = suggestMessageTemplate(nba, { ...copilotClient, assignedTo: client.assignedTo }, templates);
   const suggestedFollowUp = { title: nba.label, dueAtIso: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString() };
@@ -107,10 +112,7 @@ export default async function ClientDetailPage({
   // boundary — convert to plain numbers before passing down to any "use client" component.
   const serializedClient = {
     ...client,
-    expectedInvestment: client.expectedInvestment ? Number(client.expectedInvestment) : null,
-    fundingRecord: client.fundingRecord
-      ? { ...client.fundingRecord, amount: client.fundingRecord.amount ? Number(client.fundingRecord.amount) : null }
-      : null,
+    dealValue: client.dealValue ? Number(client.dealValue) : null,
   };
 
   return (
@@ -138,28 +140,28 @@ export default async function ClientDetailPage({
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 flex flex-col gap-4">
-          <StageActionCard client={serializedClient} canOverride={canOverride} />
+          <StageActionCard client={serializedClient} stages={stages} customFieldDefinitions={customFieldDefinitions} />
 
-          {client.documents.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Documents</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-2">
-                {client.documents.map((doc) => (
-                  <div key={doc.id} className="flex items-center justify-between text-sm">
-                    <span>
-                      {doc.documentType}
-                      {doc.mandatory && <span className="text-destructive"> *</span>}
-                    </span>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Documents</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              {client.documents.map((doc) => (
+                <div key={doc.id} className="flex items-center justify-between text-sm">
+                  <span>{doc.documentType}</span>
+                  <div className="flex items-center gap-2">
                     <Badge variant={doc.status === "REJECTED" ? "destructive" : doc.status === "VERIFIED" ? "default" : "outline"}>
                       {doc.status}
                     </Badge>
+                    <DocumentRowActions documentId={doc.id} status={doc.status} />
                   </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+                </div>
+              ))}
+              {client.documents.length === 0 && <p className="text-sm text-muted-foreground">No documents yet.</p>}
+              <AddDocumentForm clientId={client.id} />
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
@@ -179,7 +181,6 @@ export default async function ClientDetailPage({
             priority={priorityScore}
             health={healthResult}
             nba={nba}
-            crossSell={crossSellFlags}
             milestones={milestones}
             messageSuggestion={messageSuggestion}
             suggestedFollowUp={suggestedFollowUp}

@@ -10,6 +10,7 @@ function baseUrl(): string {
 /** Emails all active Admins + the client's assigned RM about an SLA breach. Never throws — a failed send degrades to in-app notification only. */
 export async function sendSlaBreachEmail(client: {
   id: string;
+  organizationId: string;
   name: string;
   clientCode: string;
   currentStage: { name: string };
@@ -17,7 +18,7 @@ export async function sendSlaBreachEmail(client: {
 }) {
   try {
     const admins = await prisma.user.findMany({
-      where: { role: "ADMIN", isActive: true },
+      where: { organizationId: client.organizationId, role: "ADMIN", isActive: true },
       select: { email: true },
     });
 
@@ -25,7 +26,7 @@ export async function sendSlaBreachEmail(client: {
     if (client.assignedTo) recipients.add(client.assignedTo.email);
     if (recipients.size === 0) return;
 
-    const adapter = await getEmailAdapter();
+    const adapter = await getEmailAdapter(client.organizationId);
     const url = `${baseUrl()}/clients/${client.id}`;
 
     await adapter.sendEmail({

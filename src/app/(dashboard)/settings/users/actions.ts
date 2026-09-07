@@ -22,7 +22,7 @@ function generateTempPassword(): string {
 }
 
 export async function createUserAction(formData: FormData) {
-  await requireRole(["ADMIN"]);
+  const session = await requireRole(["ADMIN"]);
 
   const parsed = createUserSchema.parse({
     name: formData.get("name"),
@@ -35,11 +35,23 @@ export async function createUserAction(formData: FormData) {
   const existing = await prisma.user.findUnique({ where: { email: parsed.email } });
   if (existing) throw new Error("A user with this email already exists");
 
+  const [subscription, seatCount] = await Promise.all([
+    prisma.productSubscription.findUnique({
+      where: { organizationId_product: { organizationId: session.user.organizationId, product: "CRM" } },
+    }),
+    prisma.user.count({ where: { organizationId: session.user.organizationId } }),
+  ]);
+  if (subscription?.seats != null && seatCount >= subscription.seats) {
+    throw new Error(`Your CRM plan includes ${subscription.seats} seats. Upgrade in Billing to add more team members.`);
+  }
+
   const tempPassword = generateTempPassword();
   const passwordHash = await bcrypt.hash(tempPassword, 10);
 
   await prisma.user.create({
     data: {
+      organizationId: session.user.organizationId,
+      orgRole: "MEMBER",
       name: parsed.name,
       email: parsed.email,
       role: parsed.role,
@@ -54,19 +66,26 @@ export async function createUserAction(formData: FormData) {
 }
 
 export async function setUserRoleAction(userId: string, role: Role) {
-  await requireRole(["ADMIN"]);
+  const session = await requireRole(["ADMIN"]);
 
-  await prisma.user.update({ where: { id: userId }, data: { role } });
+  await prisma.user.update({ where: { id: userId, organizationId: session.user.organizationId }, data: { role } });
 
   revalidatePath("/settings/users");
 }
 
 export async function setUserManagerAction(userId: string, managerId: string | null) {
-  await requireRole(["ADMIN"]);
+  const session = await requireRole(["ADMIN"]);
 
   if (managerId === userId) throw new Error("A user cannot be their own manager");
+  if (managerId) {
+    const manager = await prisma.user.findUnique({
+      where: { id: managerId, organizationId: session.user.organizationId },
+      select: { id: true },
+    });
+    if (!manager) throw new Error("Manager not found");
+  }
 
-  await prisma.user.update({ where: { id: userId }, data: { managerId } });
+  await prisma.user.update({ where: { id: userId, organizationId: session.user.organizationId }, data: { managerId } });
 
   revalidatePath("/settings/users");
 }
@@ -78,15 +97,15 @@ export async function setUserActiveAction(userId: string, isActive: boolean) {
     throw new Error("You cannot deactivate your own account");
   }
 
-  await prisma.user.update({ where: { id: userId }, data: { isActive } });
+  await prisma.user.update({ where: { id: userId, organizationId: session.user.organizationId }, data: { isActive } });
 
   revalidatePath("/settings/users");
 }
 
 export async function setUserCapacityAction(userId: string, capacity: number | null) {
-  await requireRole(["ADMIN"]);
+  const session = await requireRole(["ADMIN"]);
 
-  await prisma.user.update({ where: { id: userId }, data: { capacity } });
+  await prisma.user.update({ where: { id: userId, organizationId: session.user.organizationId }, data: { capacity } });
 
   revalidatePath("/settings/users");
   revalidatePath("/reports");
@@ -97,12 +116,12 @@ const resetPasswordSchema = z.object({
 });
 
 export async function resetUserPasswordAction(userId: string, newPassword: string) {
-  await requireRole(["ADMIN"]);
+  const session = await requireRole(["ADMIN"]);
 
   const parsed = resetPasswordSchema.parse({ newPassword });
   const passwordHash = await bcrypt.hash(parsed.newPassword, 10);
 
-  await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+  await prisma.user.update({ where: { id: userId, organizationId: session.user.organizationId }, data: { passwordHash } });
 
   revalidatePath("/settings/users");
 }

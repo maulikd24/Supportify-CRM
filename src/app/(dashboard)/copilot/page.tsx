@@ -8,7 +8,7 @@ import { CopilotWorklistSkeleton } from "./components/copilot-worklist";
 
 export default async function CopilotPage() {
   const session = await requireUser();
-  const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
+  const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role, session.user.organizationId);
 
   return (
     <Suspense
@@ -19,7 +19,7 @@ export default async function CopilotPage() {
         </div>
       }
     >
-      <CopilotContent visibleUserIds={visibleUserIds} />
+      <CopilotContent visibleUserIds={visibleUserIds} organizationId={session.user.organizationId} />
     </Suspense>
   );
 }

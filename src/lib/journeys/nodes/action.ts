@@ -12,7 +12,7 @@ async function callIntegrationAndLog(
   client: Client,
   params: Record<string, unknown>,
 ): Promise<{ success: boolean; result?: unknown }> {
-  const adapter = await getAdapter(provider);
+  const adapter = await getAdapter(provider, client.organizationId);
   const handler = adapter.actions[actionName];
   if (!handler) {
     return { success: false, result: { error: `${provider} has no action "${actionName}"` } };
@@ -44,6 +44,7 @@ export async function executeAction(
       }
       const task = await prisma.task.create({
         data: {
+          organizationId: client.organizationId,
           clientId: client.id,
           assignedToId,
           title,
@@ -101,6 +102,7 @@ export async function executeAction(
       }
       await prisma.notification.create({
         data: {
+          organizationId: client.organizationId,
           userId: owner.managerId,
           type: "journey_notify_manager",
           payload: {
@@ -160,7 +162,7 @@ export async function executeAction(
       const subject = substitute(String(config.subject ?? ""), variables);
       const body = substitute(String(config.body ?? ""), variables);
       try {
-        const adapter = await getEmailAdapter();
+        const adapter = await getEmailAdapter(client.organizationId);
         const result = await adapter.sendEmail({ to: [client.email], subject, html: body, text: body });
         if (!result.success) {
           return { success: false, result: { error: result.error } };

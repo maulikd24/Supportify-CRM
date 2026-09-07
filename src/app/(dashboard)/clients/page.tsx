@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { NewClientDialog } from "./new-client-dialog";
+import { ImportClientsDialog } from "./import-clients-dialog";
 import { ClientFilters } from "./client-filters";
 import { ClientRow } from "./client-row";
 import { computeSlaStatus, stageAgeHours, type SlaStatus } from "@/lib/stage-engine/sla-status";
@@ -22,9 +23,6 @@ type SearchParams = {
   sla?: string;
   status?: string;
   rm?: string;
-  kyc?: string;
-  funding?: string;
-  dealer?: string;
   clientType?: string;
   leadSource?: string;
   createdFrom?: string;
@@ -39,7 +37,7 @@ export default async function ClientsPage({
 }) {
   const session = await requireUser();
   const params = await searchParams;
-  const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
+  const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role, session.user.organizationId);
 
   const currentPage = Math.max(1, Number(params.page) || 1);
 
@@ -51,13 +49,11 @@ export default async function ClientsPage({
   }
 
   const where: Prisma.ClientWhereInput = {
+    organizationId: session.user.organizationId,
     ...(assignedToFilter !== undefined ? { assignedToId: assignedToFilter } : {}),
     ...(params.stage ? { currentStageId: params.stage } : {}),
     ...(params.priority ? { priority: params.priority as Prisma.ClientWhereInput["priority"] } : {}),
     ...(params.status ? { status: params.status as Prisma.ClientWhereInput["status"] } : {}),
-    ...(params.kyc ? { kycRecord: { status: params.kyc as never } } : {}),
-    ...(params.funding ? { fundingRecord: { status: params.funding as never } } : {}),
-    ...(params.dealer ? { dealerIntroduction: { status: params.dealer as never } } : {}),
     ...(params.clientType ? { clientType: params.clientType } : {}),
     ...(params.leadSource ? { leadSource: params.leadSource } : {}),
     ...(params.createdFrom || params.createdTo
@@ -75,8 +71,6 @@ export default async function ClientsPage({
             { mobile: { contains: params.q, mode: "insensitive" } },
             { email: { contains: params.q, mode: "insensitive" } },
             { clientCode: { contains: params.q, mode: "insensitive" } },
-            { kycRecord: { referenceNumber: { contains: params.q, mode: "insensitive" } } },
-            { dealerIntroduction: { dealerId: { contains: params.q, mode: "insensitive" } } },
           ],
         }
       : {}),
@@ -89,8 +83,18 @@ export default async function ClientsPage({
   let totalCount: number;
 
   const filtersPromise = Promise.all([
-    prisma.stage.findMany({ where: { isActive: true }, orderBy: { sequence: "asc" } }),
-    prisma.user.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+    prisma.stage.findMany({
+      where: { organizationId: session.user.organizationId, isActive: true },
+      orderBy: { sequence: "asc" },
+    }),
+    prisma.user.findMany({
+      where: { organizationId: session.user.organizationId, isActive: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.customFieldDefinition.findMany({
+      where: { organizationId: session.user.organizationId },
+      orderBy: { sortOrder: "asc" },
+    }),
   ]);
 
   if (params.sla) {
@@ -119,7 +123,7 @@ export default async function ClientsPage({
   const pageClientIds = pageClients.map((c) => c.id);
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  const [[stages, users], exceptionsForPage, nextTasks, lastActivities] = await Promise.all([
+  const [[stages, users, customFieldDefinitions], exceptionsForPage, nextTasks, lastActivities] = await Promise.all([
     filtersPromise,
     prisma.exception.findMany({
       where: { clientId: { in: pageClientIds } },
@@ -166,7 +170,10 @@ export default async function ClientsPage({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-4">
         <CardTitle>Clients</CardTitle>
-        <NewClientDialog users={users} />
+        <div className="flex gap-2">
+          <ImportClientsDialog />
+          <NewClientDialog users={users} customFieldDefinitions={customFieldDefinitions} />
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <ClientFilters stages={stages} users={users} />
