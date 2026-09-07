@@ -1,15 +1,18 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  /* Deep indigo-violet — replaces the old navy as the dark/hero/footer color */
-  --navy: #2E1F66;
-  --navy-mid: #3D2B7D;
-  --navy-light: #4C3696;
-  /* Mid purple — replaces the old blue as the smaller-accent color (eyebrows, links, icon tints) */
-  --blue: #7C5CFC;
-  --blue-light: #9B82FF;
-  --blue-pale: #F1EDFF;
-  /* Reference-logo red — replaces the old orange as the primary CTA/badge/highlight color */
+  /* Near-black ink — dark section backgrounds (hero/footer/CTA/why) and heading text on light sections */
+  --navy: #111114;
+  --navy-mid: #1B1B20;
+  --navy-light: #26262E;
+  /* Navy-blue — primary interactive accent (eyebrows, links, icon tints, focus, pricing highlight) */
+  --blue: #2E4E92;
+  --blue-light: #4569B8;
+  --blue-pale: #EAF0FB;
+  /* Violet — secondary accent, reserved for the logo gradient and small decorative flourishes */
+  --violet: #7C5CFC;
+  --violet-light: #9B82FF;
+  /* Red — secondary accent (logo badge, numbered flourishes), no longer the primary CTA color */
   --orange: #FF4D5E;
   --orange-light: #FF7480;
   --white: #F8F7F4;
@@ -20,12 +23,13 @@
   --gray-700: #444441;
   --text: #1A1A18;
   --text-muted: #5F5E5A;
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 20px;
-  --shadow-card: 0 2px 20px rgba(46,31,102,0.08);
-  --shadow-hover: 0 8px 40px rgba(46,31,102,0.16);
-  --shadow-glow: 0 0 0 4px rgba(124,92,252,0.16);
+  --radius-sm: 4px;
+  --radius-md: 10px;
+  --radius-lg: 22px;
+  --shadow-card: 0 2px 20px rgba(17,17,20,0.08);
+  --shadow-hover: 0 8px 40px rgba(17,17,20,0.14);
+  --shadow-glow: 0 0 0 4px rgba(46,78,146,0.16);
+  --font-serif: 'Source Serif 4', Georgia, serif;
 }
 
 html { scroll-behavior: smooth; }
@@ -65,7 +69,7 @@ nav.scrolled { box-shadow: 0 2px 24px rgba(10,22,40,0.1); }
 
 .nav-logo-icon {
   width: 34px; height: 34px;
-  background: linear-gradient(135deg, var(--blue-light) 0%, var(--navy) 100%);
+  background: linear-gradient(135deg, var(--violet-light) 0%, var(--navy) 100%);
   border-radius: 9px;
   display: flex; align-items: center; justify-content: center;
   position: relative;
@@ -189,7 +193,7 @@ nav.scrolled { box-shadow: 0 2px 24px rgba(10,22,40,0.1); }
   margin-bottom: 1.5rem;
   color: white;
 }
-.hero h1 em { font-style: normal; color: var(--orange); }
+.hero h1 em { font-family: var(--font-serif); font-style: italic; font-weight: 600; }
 
 .hero p {
   font-size: 1.1rem;
@@ -202,7 +206,7 @@ nav.scrolled { box-shadow: 0 2px 24px rgba(10,22,40,0.1); }
 .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
 
 .btn-primary {
-  background: var(--orange);
+  background: var(--navy);
   color: white;
   border: none;
   padding: 0.875rem 1.75rem;
@@ -215,7 +219,7 @@ nav.scrolled { box-shadow: 0 2px 24px rgba(10,22,40,0.1); }
   display: inline-flex; align-items: center; gap: 8px;
   transition: background 0.2s, transform 0.15s;
 }
-.btn-primary:hover { background: var(--orange-light); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,77,94,0.35); }
+.btn-primary:hover { background: var(--navy-light); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(17,17,20,0.35); }
 .btn-primary { transition: background 0.2s, transform 0.15s, box-shadow 0.25s; }
 
 .btn-outline-white {
@@ -272,6 +276,15 @@ section { padding: 5rem max(2rem, calc(50vw - 640px)); }
   color: var(--navy);
   line-height: 1.2;
   margin-bottom: 1rem;
+}
+
+.section-title em,
+.product-copy h2 em,
+.cta-band h2 em,
+.contact-info h2 em {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 600;
 }
 
 .section-sub {
@@ -427,7 +440,7 @@ section { padding: 5rem max(2rem, calc(50vw - 640px)); }
   margin-bottom: 1rem;
   color: white;
 }
-.page-hero h1 em { font-style: normal; color: var(--orange); }
+.page-hero h1 em { font-family: var(--font-serif); font-style: italic; font-weight: 600; }
 .page-hero p { color: rgba(255,255,255,0.68); font-size: 1rem; line-height: 1.7; max-width: 500px; }
 
 /* DETAIL SECTIONS */
@@ -544,7 +557,7 @@ section { padding: 5rem max(2rem, calc(50vw - 640px)); }
 /* PRICING NOTE */
 .pricing-note {
   background: var(--blue-pale);
-  border: 1.5px solid rgba(124,92,252,0.2);
+  border: 1.5px solid rgba(46,78,146,0.2);
   border-radius: var(--radius-md);
   padding: 1.75rem 2rem;
   display: flex;
@@ -773,7 +786,7 @@ footer {
   text-align: center;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
-.tool-pill:hover { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(124,92,252,0.08); }
+.tool-pill:hover { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(46,78,146,0.08); }
 .tool-pill span { display: block; font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; font-weight: 400; }
 
 .divider { height: 1px; background: var(--gray-100); margin: 0 max(2rem, calc(50vw - 640px)); }
@@ -842,7 +855,28 @@ footer {
 .product-features li:last-child { border-bottom: none; }
 .product-features li strong { color: var(--navy); font-weight: 600; }
 
-/* PRICING */
+/* PRICING — dark navy section with a subtle grid texture, matching the why-section/CTA-band rhythm */
+#pricing {
+  background: var(--navy);
+  position: relative;
+  overflow: hidden;
+}
+#pricing::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(69,105,184,0.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(69,105,184,0.14) 1px, transparent 1px);
+  background-size: 44px 44px;
+  pointer-events: none;
+}
+#pricing > * { position: relative; }
+#pricing .section-eyebrow { color: var(--blue-light); }
+#pricing .section-title { color: white; }
+#pricing .section-sub { color: rgba(255,255,255,0.65); }
+#pricing .pricing-enterprise-note { color: rgba(255,255,255,0.65) !important; }
+#pricing .pricing-enterprise-note a { color: var(--blue-light) !important; }
+
 .pricing-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
