@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 import { requireOrg } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AuditorCommentForm } from "./auditor-comment-form";
+import { StartCalibrationButton } from "./start-calibration-button";
 
 function scoreVariant(score: number | null): "default" | "secondary" | "destructive" {
   if (score === null) return "secondary";
@@ -19,9 +21,11 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ i
 
   const review = await prisma.ticketReview.findUnique({
     where: { id, organizationId: session.user.organizationId },
+    include: { calibrationSessions: { orderBy: { createdAt: "desc" }, select: { id: true, status: true } } },
   });
   if (!review) notFound();
 
+  const isAdmin = session.user.orgRole === "OWNER" || session.user.orgRole === "ADMIN";
   const criteriaScores = (review.criteriaScores as Record<string, number> | null) ?? {};
   const strengths = (review.strengths as string[] | null) ?? [];
   const improvements = (review.improvements as string[] | null) ?? [];
@@ -39,9 +43,12 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ i
               Agent: {review.agentName} ({review.agentEmail}) · Reviewed {review.createdAt.toLocaleString()}
             </CardDescription>
           </div>
-          <Badge variant={scoreVariant(review.overallScore)} className="text-lg px-3 py-1">
-            {review.overallScore ?? "—"}
-          </Badge>
+          <div className="flex items-center gap-2">
+            {isAdmin && <StartCalibrationButton reviewId={review.id} />}
+            <Badge variant={scoreVariant(review.overallScore)} className="text-lg px-3 py-1">
+              {review.overallScore ?? "—"}
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <p>{review.summary}</p>
@@ -101,6 +108,22 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ i
           <AuditorCommentForm reviewId={review.id} initialComment={review.auditorComment ?? ""} />
         </CardContent>
       </Card>
+
+      {review.calibrationSessions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Calibration sessions</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
+            {review.calibrationSessions.map((s) => (
+              <Link key={s.id} href={`/qa/calibration/${s.id}`} className="flex items-center gap-2 text-sm hover:underline">
+                <Badge variant={s.status === "OPEN" ? "secondary" : "outline"}>{s.status}</Badge>
+                View session
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

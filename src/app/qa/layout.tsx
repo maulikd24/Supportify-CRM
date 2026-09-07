@@ -7,6 +7,7 @@ import { VerifyEmailBanner } from "@/components/verify-email-banner";
 const NAV_ITEMS = [
   { href: "/qa", label: "Overview" },
   { href: "/qa/reviews", label: "Reviews" },
+  { href: "/qa/calibration", label: "Calibration" },
   { href: "/qa/agents", label: "Agents" },
   { href: "/qa/dsat", label: "DSAT" },
   { href: "/qa/settings", label: "Settings" },
