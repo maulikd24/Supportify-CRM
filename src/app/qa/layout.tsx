@@ -1,39 +1,36 @@
-import Link from "next/link";
-
 import { requireProductAccess } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
+import { AppSidebar, type NavItem } from "@/components/app-sidebar";
 import { VerifyEmailBanner } from "@/components/verify-email-banner";
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 
-const NAV_ITEMS = [
-  { href: "/qa", label: "Overview" },
-  { href: "/qa/reviews", label: "Reviews" },
-  { href: "/qa/calibration", label: "Calibration" },
-  { href: "/qa/agents", label: "Agents" },
-  { href: "/qa/dsat", label: "DSAT" },
-  { href: "/qa/settings", label: "Settings" },
-  { href: "/billing/QA_SENTINEL", label: "Billing" },
-] as const;
+const QA_NAV_ITEMS: NavItem[] = [
+  { href: "/qa", label: "Overview", icon: "dashboard" },
+  { href: "/qa/reviews", label: "Reviews", icon: "reviews" },
+  { href: "/qa/calibration", label: "Calibration", icon: "calibration" },
+  { href: "/qa/agents", label: "Agents", icon: "users" },
+  { href: "/qa/dsat", label: "DSAT", icon: "dsat" },
+  { href: "/qa/settings", label: "Settings", icon: "settings" },
+  { href: "/billing/QA_SENTINEL", label: "Billing", icon: "billing" },
+];
 
 export default async function QaLayout({ children }: { children: React.ReactNode }) {
   const session = await requireProductAccess("QA_SENTINEL");
   const user = await prisma.user.findUniqueOrThrow({ where: { id: session.user.id }, select: { emailVerifiedAt: true } });
 
   return (
-    <div className="min-h-screen">
-      {!user.emailVerifiedAt && <VerifyEmailBanner />}
-      <header className="border-b">
-        <div className="mx-auto flex max-w-5xl items-center gap-6 px-4 py-3">
-          <span className="font-semibold">Supportify QA</span>
-          <nav className="flex gap-4 text-sm text-muted-foreground">
-            {NAV_ITEMS.map((item) => (
-              <Link key={item.href} href={item.href} className="hover:text-foreground">
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
-      </header>
-      <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
-    </div>
+    <SidebarProvider>
+      <AppSidebar user={session.user} navItems={QA_NAV_ITEMS} groupLabel="QA Sentinel" />
+      <SidebarInset>
+        {!user.emailVerifiedAt && <VerifyEmailBanner />}
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-card/60 px-4 backdrop-blur-sm">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <span className="font-heading text-sm font-medium text-muted-foreground">QA Sentinel</span>
+        </header>
+        <main className="flex flex-1 flex-col gap-4 p-6">{children}</main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
