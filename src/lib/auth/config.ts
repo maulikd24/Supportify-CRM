@@ -137,6 +137,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
     Google({
+      // NextAuth v5 auto-detects env vars as AUTH_GOOGLE_ID/AUTH_GOOGLE_SECRET
+      // by default — pass these explicitly so the GOOGLE_CLIENT_ID/SECRET
+      // names already configured in Vercel are the ones actually used.
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       // The augmented `User` type (role/organizationId/orgRole/isPlatformAdmin)
       // requires every provider to return those fields. Google's own profile
       // has no concept of them, so this just satisfies the type with
