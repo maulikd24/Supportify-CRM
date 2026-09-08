@@ -31,23 +31,15 @@ const MOCK_EMAIL_ADAPTERS: Record<string, EmailAdapter> = { [EMAIL_PROVIDER]: re
 
 export const EMAIL_PROVIDERS = Object.keys(LIVE_EMAIL_ADAPTERS);
 
-/**
- * Looks up an org's IntegrationConfig row for a provider. `organizationId` is
- * omitted only by inbound webhook handlers that haven't identified the
- * tenant yet (see callers) — that falls back to an arbitrary matching row,
- * which is a known gap for providers where multiple orgs configure the same
- * provider (real fix: route inbound webhooks per-org, e.g. via a per-org
- * webhook path or a provider account-id -> organizationId mapping).
- */
-async function findIntegrationConfig(provider: string, organizationId?: string) {
-  if (organizationId) {
-    return prisma.integrationConfig.findUnique({ where: { organizationId_provider: { organizationId, provider } } });
-  }
-  return prisma.integrationConfig.findFirst({ where: { provider } });
+/** Looks up an org's IntegrationConfig row for a provider. Always org-scoped —
+ * inbound webhooks resolve their organizationId from the URL's webhookToken
+ * (see src/app/api/webhooks/[provider]/[token]/route.ts) before calling this. */
+async function findIntegrationConfig(provider: string, organizationId: string) {
+  return prisma.integrationConfig.findUnique({ where: { organizationId_provider: { organizationId, provider } } });
 }
 
 /** Resolves the configured email adapter (mock or live), applying stored credentials. */
-export async function getEmailAdapter(organizationId?: string): Promise<EmailAdapter> {
+export async function getEmailAdapter(organizationId: string): Promise<EmailAdapter> {
   const config = await findIntegrationConfig(EMAIL_PROVIDER, organizationId);
   const mode = config?.mode ?? "mock";
 
@@ -61,7 +53,7 @@ export async function getEmailAdapter(organizationId?: string): Promise<EmailAda
 }
 
 /** Resolves the configured adapter (mock or live) for a provider, applying stored credentials/settings. */
-export async function getAdapter(provider: string, organizationId?: string): Promise<IntegrationAdapter> {
+export async function getAdapter(provider: string, organizationId: string): Promise<IntegrationAdapter> {
   const config = await findIntegrationConfig(provider, organizationId);
   const mode = config?.mode ?? "mock";
 

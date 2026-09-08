@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db/prisma";
-import { getMessagingAdapter } from "@/lib/messaging/registry";
+import { getMessagingAdapter, messagingProviderKeyFor } from "@/lib/messaging/registry";
 import { logActivity } from "@/lib/activities/log-activity";
 
 type Channel = "whatsapp" | "sms";
@@ -11,7 +11,7 @@ function isChannel(value: string): value is Channel {
 }
 
 /** Meta's webhook verification handshake (WhatsApp Cloud API). */
-export async function GET(request: Request, { params }: { params: Promise<{ channel: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ channel: string; token: string }> }) {
   const { channel } = await params;
   if (channel !== "whatsapp") return NextResponse.json({ error: "Not applicable" }, { status: 404 });
 
@@ -26,13 +26,22 @@ export async function GET(request: Request, { params }: { params: Promise<{ chan
   return NextResponse.json({ error: "Verification failed" }, { status: 403 });
 }
 
-export async function POST(request: Request, { params }: { params: Promise<{ channel: string }> }) {
-  const { channel } = await params;
+export async function POST(request: Request, { params }: { params: Promise<{ channel: string; token: string }> }) {
+  const { channel, token } = await params;
   if (!isChannel(channel)) {
     return NextResponse.json({ error: `Unknown channel: ${channel}` }, { status: 404 });
   }
 
-  const adapter = await getMessagingAdapter(channel);
+  // The token alone identifies the tenant — never trust the `channel` path
+  // segment or payload for that, since the same channel URL shape is shared
+  // by every org.
+  const config = await prisma.integrationConfig.findUnique({ where: { webhookToken: token } });
+  if (!config || config.provider !== messagingProviderKeyFor(channel)) {
+    return NextResponse.json({ error: "Unknown webhook" }, { status: 404 });
+  }
+  const { organizationId } = config;
+
+  const adapter = await getMessagingAdapter(channel, organizationId);
   const contentType = request.headers.get("content-type") ?? "";
   const payload = contentType.includes("application/json")
     ? await request.json()
@@ -44,7 +53,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
   ]);
 
   for (const msg of inbound) {
-    const client = await prisma.client.findFirst({ where: { mobile: msg.fromPhone } });
+    const client = await prisma.client.findFirst({ where: { organizationId, mobile: msg.fromPhone } });
     if (!client) continue;
 
     await prisma.message.create({
@@ -81,7 +90,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
   for (const status of statuses) {
     if (!status.externalId) continue;
     await prisma.message.updateMany({
-      where: { externalId: status.externalId },
+      where: { organizationId, externalId: status.externalId },
       data: { status: status.status },
     });
   }

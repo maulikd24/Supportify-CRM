@@ -12,6 +12,20 @@ export default async function IntegrationsSettingsPage() {
   const messagingProviders = MESSAGING_CHANNELS.map((c) => messagingProviderKeyFor(c));
   const allProviders = [...INTEGRATION_PROVIDERS, ...messagingProviders, ...EMAIL_PROVIDERS];
 
+  // Webhook-receiving providers need a stable webhookToken to show on this page
+  // even before an admin has configured credentials — ensure a (mock-mode,
+  // disabled) row exists for each so the tokenized URL is always ready to copy.
+  const webhookProviders = [...INTEGRATION_PROVIDERS, ...messagingProviders];
+  await Promise.all(
+    webhookProviders.map((provider) =>
+      prisma.integrationConfig.upsert({
+        where: { organizationId_provider: { organizationId: session.user.organizationId, provider } },
+        update: {},
+        create: { organizationId: session.user.organizationId, provider },
+      }),
+    ),
+  );
+
   const configs = await prisma.integrationConfig.findMany({
     where: { organizationId: session.user.organizationId, provider: { in: allProviders } },
   });
@@ -74,15 +88,20 @@ export default async function IntegrationsSettingsPage() {
           <CardTitle className="text-base">Webhook URLs</CardTitle>
           <CardDescription>
             Point each provider&apos;s outbound webhooks/automations at these URLs to feed events back into
-            Supportify.
+            Supportify. Each URL is unique to your organization — don&apos;t share it with other tenants of the
+            same provider.
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col gap-1 text-sm font-mono text-muted-foreground">
+        <CardContent className="flex flex-col gap-1 text-sm font-mono text-muted-foreground break-all">
           {INTEGRATION_PROVIDERS.map((provider) => (
-            <span key={provider}>/api/webhooks/{provider}</span>
+            <span key={provider}>
+              /api/webhooks/{provider}/{configByProvider.get(provider)?.webhookToken}
+            </span>
           ))}
           {MESSAGING_CHANNELS.map((channel) => (
-            <span key={channel}>/api/webhooks/messaging/{channel}</span>
+            <span key={channel}>
+              /api/webhooks/messaging/{channel}/{configByProvider.get(messagingProviderKeyFor(channel))?.webhookToken}
+            </span>
           ))}
         </CardContent>
       </Card>

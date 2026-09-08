@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldGroup, FieldLabel, FieldError, FieldDescription } from "@/components/ui/field";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthLogo } from "@/components/auth-logo";
+import { GoogleSignInButton } from "@/components/google-signin-button";
 
 const initialState: LoginState = {};
 
@@ -24,7 +26,8 @@ export default function LoginPage() {
   const stage = state.stage ?? "credentials";
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/40 px-4">
+      <AuthLogo />
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>{stage === "2fa" ? "Two-factor verification" : "Sign in"}</CardTitle>
@@ -90,11 +93,19 @@ export default function LoginPage() {
             </FieldGroup>
           </form>
           {stage !== "2fa" && (
-            <p className="mt-4 text-center text-sm text-muted-foreground">
-              <Link href="/login/sso" className="underline underline-offset-4">
-                Sign in with SSO
-              </Link>
-            </p>
+            <>
+              <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="h-px flex-1 bg-border" />
+                or
+                <div className="h-px flex-1 bg-border" />
+              </div>
+              <GoogleSignInButton label="Continue with Google" />
+              <p className="mt-4 text-center text-sm text-muted-foreground">
+                <Link href="/login/sso" className="underline underline-offset-4">
+                  Sign in with SSO
+                </Link>
+              </p>
+            </>
           )}
           <p className="mt-2 text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}

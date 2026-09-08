@@ -5,6 +5,7 @@ import { AuthError } from "next-auth";
 
 import { signIn } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/prisma";
+import { isLockedOut, registerLoginFailure, resetLoginFailures } from "@/lib/auth/login-lockout";
 
 export type LoginState = {
   error?: string;
@@ -33,10 +34,18 @@ export async function loginAction(prevState: LoginState, formData: FormData): Pr
   }
 
   const user = await prisma.user.findUnique({ where: { email } });
-  const validPassword = user ? await bcrypt.compare(password, user.passwordHash) : false;
-  if (!user || !user.isActive || !validPassword) {
+  if (!user || !user.isActive || isLockedOut(user)) {
+    // Generic failure — don't reveal account existence or lockout state.
     return { stage: "credentials", error: "Invalid email or password." };
   }
+
+  const validPassword = await bcrypt.compare(password, user.passwordHash);
+  if (!validPassword) {
+    await registerLoginFailure(user);
+    return { stage: "credentials", error: "Invalid email or password." };
+  }
+
+  await resetLoginFailures(user);
 
   if (user.twoFactorEnabled) {
     return { stage: "2fa", email, password };

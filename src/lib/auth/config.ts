@@ -1,5 +1,8 @@
+import { randomBytes } from "crypto";
+
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 
 import { prisma } from "@/lib/db/prisma";
@@ -7,6 +10,8 @@ import type { OrgRole, Role } from "@/generated/prisma/client";
 import { decryptJson } from "@/lib/security/crypto";
 import { verifyTotpToken, consumeRecoveryCode } from "@/lib/security/two-factor";
 import { consumeVerificationToken } from "@/lib/auth/verification-tokens";
+import { provisionOrganization } from "@/lib/auth/provision-organization";
+import { isLockedOut, registerLoginFailure, resetLoginFailures } from "@/lib/auth/login-lockout";
 
 declare module "next-auth" {
   interface User {
@@ -57,8 +62,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user || !user.isActive) return null;
 
+        if (isLockedOut(user)) {
+          // Generic failure — don't reveal lockout state to an attacker
+          // probing whether an account exists/is locked.
+          return null;
+        }
+
         const valid = await bcrypt.compare(password, user.passwordHash);
-        if (!valid) return null;
+        if (!valid) {
+          await registerLoginFailure(user);
+          return null;
+        }
 
         if (user.twoFactorEnabled) {
           if (typeof code !== "string" || !code) return null;
@@ -71,11 +85,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               ? (user.twoFactorRecoveryCodes as string[])
               : [];
             const remaining = await consumeRecoveryCode(hashes, code);
-            if (!remaining) return null;
+            if (!remaining) {
+              await registerLoginFailure(user);
+              return null;
+            }
             // Recovery codes are single-use — burn it immediately so it can't be replayed.
             await prisma.user.update({ where: { id: user.id }, data: { twoFactorRecoveryCodes: remaining } });
           }
         }
+
+        await resetLoginFailures(user);
 
         return {
           id: user.id,
@@ -117,8 +136,60 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         };
       },
     }),
+    Google({
+      // The augmented `User` type (role/organizationId/orgRole/isPlatformAdmin)
+      // requires every provider to return those fields. Google's own profile
+      // has no concept of them, so this just satisfies the type with
+      // placeholders — the `signIn` callback below resolves the real values
+      // (creating a new org on first login) and overwrites them before the
+      // `jwt` callback ever reads this object.
+      profile(profile) {
+        return {
+          id: profile.sub,
+          name: profile.name,
+          email: profile.email,
+          image: profile.picture,
+          role: "RM" as Role,
+          organizationId: "",
+          orgRole: "MEMBER" as OrgRole,
+          isPlatformAdmin: false,
+        };
+      },
+    }),
   ],
   callbacks: {
+    signIn: async ({ user, account, profile }) => {
+      if (account?.provider !== "google") return true;
+
+      const email = profile?.email;
+      if (!email || !profile?.email_verified) return false;
+
+      let dbUser = await prisma.user.findUnique({ where: { email } });
+      if (dbUser && !dbUser.isActive) return false;
+
+      if (!dbUser) {
+        // First-time Google sign-in: create a new org exactly like self-serve
+        // email signup does, trialing both products (Google's OAuth profile
+        // has no product-picker step to drive this choice from).
+        const unusablePasswordHash = await bcrypt.hash(randomBytes(32).toString("hex"), 10);
+        const orgName = profile.name ? `${profile.name}'s Organization` : "My Organization";
+        dbUser = await provisionOrganization({
+          orgName,
+          ownerName: profile.name ?? email,
+          ownerEmail: email,
+          passwordHash: unusablePasswordHash,
+          products: ["QA_SENTINEL", "CRM"],
+          emailVerifiedAt: new Date(),
+        });
+      }
+
+      user.id = dbUser.id;
+      user.role = dbUser.role;
+      user.organizationId = dbUser.organizationId;
+      user.orgRole = dbUser.orgRole;
+      user.isPlatformAdmin = dbUser.isPlatformAdmin;
+      return true;
+    },
     jwt: async ({ token, user }) => {
       if (user?.id) {
         // Initial sign-in: NextAuth provides `user` from authorize().

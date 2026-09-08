@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldGroup, FieldLabel, FieldError, FieldDescription } from "@/components/ui/field";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthLogo } from "@/components/auth-logo";
+import { GoogleSignInButton } from "@/components/google-signin-button";
 
 const initialState: SignupState = {};
 
@@ -15,13 +17,20 @@ export default function SignupPage() {
   const [state, formAction, pending] = useActionState(signupAction, initialState);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-10">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/40 px-4 py-10">
+      <AuthLogo />
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>Create your Supportify account</CardTitle>
           <CardDescription>Start a 14-day free trial — no card required</CardDescription>
         </CardHeader>
         <CardContent>
+          <GoogleSignInButton label="Sign up with Google" />
+          <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="h-px flex-1 bg-border" />
+            or sign up with email
+            <div className="h-px flex-1 bg-border" />
+          </div>
           <form action={formAction}>
             <FieldGroup>
               <Field data-invalid={Boolean(state.fieldErrors?.orgName)}>

@@ -11,12 +11,21 @@ const ACTIVITY_TYPE_BY_EVENT: Record<string, "CALL" | "TICKET" | "MESSAGE"> = {
   campaign_event: "MESSAGE",
 };
 
-export async function POST(request: Request, { params }: { params: Promise<{ provider: string }> }) {
-  const { provider } = await params;
+export async function POST(request: Request, { params }: { params: Promise<{ provider: string; token: string }> }) {
+  const { provider, token } = await params;
+
+  // The token alone identifies the tenant — never trust the `provider` path
+  // segment or payload for that, since the same provider URL shape is shared
+  // by every org.
+  const config = await prisma.integrationConfig.findUnique({ where: { webhookToken: token } });
+  if (!config || config.provider !== provider) {
+    return NextResponse.json({ error: "Unknown webhook" }, { status: 404 });
+  }
+  const { organizationId } = config;
 
   let adapter;
   try {
-    adapter = await getAdapter(provider);
+    adapter = await getAdapter(provider, organizationId);
   } catch {
     return NextResponse.json({ error: `Unknown provider: ${provider}` }, { status: 404 });
   }
@@ -32,9 +41,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
 
   for (const event of events) {
     const client = event.clientPhone
-      ? await prisma.client.findFirst({ where: { mobile: event.clientPhone } })
+      ? await prisma.client.findFirst({ where: { organizationId, mobile: event.clientPhone } })
       : event.clientEmail
-        ? await prisma.client.findFirst({ where: { email: event.clientEmail } })
+        ? await prisma.client.findFirst({ where: { organizationId, email: event.clientEmail } })
         : null;
 
     if (!client) continue;

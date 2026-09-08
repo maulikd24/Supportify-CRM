@@ -211,6 +211,11 @@ model User {
   role            Role      @default(RM)
   isActive        Boolean   @default(true)
 
+  // Login brute-force lockout — incremented on each failed password/2FA
+  // attempt in authorize() (src/lib/auth/config.ts), reset on success.
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
   // TOTP two-factor auth. Secret is AES-256-GCM encrypted at rest (see
   // src/lib/security/crypto.ts) — never stored or logged in plaintext.
   // twoFactorSecret is set as soon as setup starts but twoFactorEnabled only
@@ -593,6 +598,11 @@ model IntegrationConfig {
   settings       Json?
   isEnabled      Boolean      @default(false)
   updatedAt      DateTime     @updatedAt
+  // Opaque per-org-per-provider token embedded in this org's inbound webhook URL
+  // (see src/app/api/webhooks/[provider]/[token]/route.ts) so the URL itself
+  // identifies the tenant — inbound webhooks never have to guess/fall back to
+  // an arbitrary org's config.
+  webhookToken String @unique @default(cuid())
 
   @@unique([organizationId, provider])
 }
