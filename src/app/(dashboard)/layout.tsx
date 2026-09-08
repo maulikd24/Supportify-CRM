@@ -26,6 +26,7 @@ const CRM_NAV_ITEMS: (NavItem & { roles: Role[] })[] = [
   { href: "/settings/sso", label: "Single Sign-On", icon: "sso", roles: ["ADMIN"] },
   { href: "/billing/CRM", label: "Billing", icon: "billing", roles: ["ADMIN"] },
   { href: "/settings/account", label: "Account", icon: "account", roles: ["ADMIN", "MANAGER", "RM"] },
+  { href: "/help", label: "Help", icon: "help", roles: ["ADMIN", "MANAGER", "RM"] },
 ];
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {

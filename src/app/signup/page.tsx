@@ -18,27 +18,28 @@ export default function SignupPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-10">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>
-            Create your Supportify <span className="font-serif-accent italic">account</span>
-          </CardTitle>
+          <CardTitle>Create your Supportify account</CardTitle>
           <CardDescription>Start a 14-day free trial — no card required</CardDescription>
         </CardHeader>
         <CardContent>
           <form action={formAction}>
             <FieldGroup>
-              <Field>
+              <Field data-invalid={Boolean(state.fieldErrors?.orgName)}>
                 <FieldLabel htmlFor="orgName">Company name</FieldLabel>
                 <Input id="orgName" name="orgName" type="text" autoComplete="organization" required />
+                {state.fieldErrors?.orgName && <FieldError>{state.fieldErrors.orgName}</FieldError>}
               </Field>
-              <Field>
+              <Field data-invalid={Boolean(state.fieldErrors?.name)}>
                 <FieldLabel htmlFor="name">Your name</FieldLabel>
                 <Input id="name" name="name" type="text" autoComplete="name" required />
+                {state.fieldErrors?.name && <FieldError>{state.fieldErrors.name}</FieldError>}
               </Field>
-              <Field>
+              <Field data-invalid={Boolean(state.fieldErrors?.email)}>
                 <FieldLabel htmlFor="email">Work email</FieldLabel>
                 <Input id="email" name="email" type="email" autoComplete="email" required />
+                {state.fieldErrors?.email && <FieldError>{state.fieldErrors.email}</FieldError>}
               </Field>
-              <Field>
+              <Field data-invalid={Boolean(state.fieldErrors?.password)}>
                 <FieldLabel htmlFor="password">Password</FieldLabel>
                 <Input
                   id="password"
@@ -48,8 +49,9 @@ export default function SignupPage() {
                   minLength={8}
                   required
                 />
+                {state.fieldErrors?.password && <FieldError>{state.fieldErrors.password}</FieldError>}
               </Field>
-              <Field>
+              <Field data-invalid={Boolean(state.fieldErrors?.products)}>
                 <FieldLabel>What do you want to trial?</FieldLabel>
                 <div className="flex flex-col gap-2 rounded-md border p-3">
                   <label className="flex items-center gap-2 text-sm">
@@ -62,6 +64,7 @@ export default function SignupPage() {
                   </label>
                 </div>
                 <FieldDescription>You can add the other one later from Billing.</FieldDescription>
+                {state.fieldErrors?.products && <FieldError>{state.fieldErrors.products}</FieldError>}
               </Field>
               {state.error && <FieldError>{state.error}</FieldError>}
               <Button type="submit" disabled={pending} className="w-full">

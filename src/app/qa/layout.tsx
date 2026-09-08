@@ -13,6 +13,7 @@ const QA_NAV_ITEMS: NavItem[] = [
   { href: "/qa/dsat", label: "DSAT", icon: "dsat" },
   { href: "/qa/settings", label: "Settings", icon: "settings" },
   { href: "/billing/QA_SENTINEL", label: "Billing", icon: "billing" },
+  { href: "/qa/help", label: "Help", icon: "help" },
 ];
 
 export default async function QaLayout({ children }: { children: React.ReactNode }) {

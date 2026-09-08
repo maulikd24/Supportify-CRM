@@ -2,6 +2,7 @@
 
 import { AuthError } from "next-auth";
 import bcrypt from "bcryptjs";
+import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
 import { signIn } from "@/lib/auth/config";
@@ -9,9 +10,17 @@ import { issueVerificationToken } from "@/lib/auth/verification-tokens";
 import { sendVerificationEmail } from "@/lib/email/send";
 import { TRIAL_DAYS } from "@/lib/billing/plans";
 import { DEFAULT_STAGE_DEFINITIONS } from "@/lib/stage-engine/stages";
-import type { Product } from "@/generated/prisma/client";
 
-export type SignupState = { error?: string };
+export type SignupFieldErrors = Partial<Record<"orgName" | "name" | "email" | "password" | "products", string>>;
+export type SignupState = { error?: string; fieldErrors?: SignupFieldErrors };
+
+const signupSchema = z.object({
+  orgName: z.string().trim().min(1, "Company name is required"),
+  name: z.string().trim().min(1, "Your name is required"),
+  email: z.string().trim().toLowerCase().email("Enter a valid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  products: z.array(z.enum(["QA_SENTINEL", "CRM"])).min(1, "Pick at least one product to trial"),
+});
 
 function slugify(name: string): string {
   return (
@@ -35,27 +44,29 @@ async function uniqueSlug(name: string): Promise<string> {
 }
 
 export async function signupAction(_prevState: SignupState, formData: FormData): Promise<SignupState> {
-  const name = String(formData.get("name") ?? "").trim();
-  const email = String(formData.get("email") ?? "")
-    .trim()
-    .toLowerCase();
-  const password = String(formData.get("password") ?? "");
-  const orgName = String(formData.get("orgName") ?? "").trim();
-  const products = formData.getAll("products") as Product[];
+  const parsed = signupSchema.safeParse({
+    orgName: formData.get("orgName"),
+    name: formData.get("name"),
+    email: formData.get("email"),
+    password: formData.get("password"),
+    products: formData.getAll("products"),
+  });
 
-  if (!name || !email || !password || !orgName) {
-    return { error: "All fields are required." };
+  if (!parsed.success) {
+    const flattened = parsed.error.flatten().fieldErrors;
+    const fieldErrors: SignupFieldErrors = {};
+    for (const key of ["orgName", "name", "email", "password", "products"] as const) {
+      const message = flattened[key]?.[0];
+      if (message) fieldErrors[key] = message;
+    }
+    return { fieldErrors };
   }
-  if (password.length < 8) {
-    return { error: "Password must be at least 8 characters." };
-  }
-  if (products.length === 0) {
-    return { error: "Pick at least one product to trial." };
-  }
+
+  const { orgName, name, email, password, products } = parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    return { error: "An account with that email already exists." };
+    return { fieldErrors: { email: "An account with that email already exists." } };
   }
 
   const passwordHash = await bcrypt.hash(password, 12);

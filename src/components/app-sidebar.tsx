@@ -26,6 +26,7 @@ import {
   Frown,
   Building2,
   ArrowLeftCircle,
+  HelpCircle,
 } from "lucide-react";
 
 import {
@@ -74,6 +75,7 @@ const ICON_MAP = {
   dsat: Frown,
   organizations: Building2,
   "exit-app": ArrowLeftCircle,
+  help: HelpCircle,
 } as const;
 
 export type IconKey = keyof typeof ICON_MAP;

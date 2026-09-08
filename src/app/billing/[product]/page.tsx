@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Sparkles, Users } from "lucide-react";
 
 import { requireOrg } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
@@ -7,6 +8,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import type { Product } from "@/generated/prisma/client";
 import { CheckoutButton } from "./checkout-button";
+
+const PRODUCT_ICON = {
+  QA_SENTINEL: Sparkles,
+  CRM: Users,
+} as const;
 
 function parseProduct(value: string): Product | null {
   return value === "QA_SENTINEL" || value === "CRM" ? value : null;
@@ -23,18 +29,22 @@ export default async function ProductBillingPage({ params }: { params: Promise<{
   });
 
   const plans = plansForProduct(product);
+  const Icon = PRODUCT_ICON[product];
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-10">
-      <div>
-        <h1 className="text-xl font-semibold">
-          {PRODUCT_LABELS[product]} <span className="font-serif-accent italic">plans</span>
-        </h1>
-        {subscription?.status === "TRIALING" && subscription.trialEndsAt && (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-start gap-3">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Icon className="size-5" />
+        </div>
+        <div>
+          <h1 className="font-heading text-xl font-semibold">{PRODUCT_LABELS[product]} plans</h1>
           <p className="text-sm text-muted-foreground">
-            Your trial ends {subscription.trialEndsAt.toLocaleDateString()}.
+            {subscription?.status === "TRIALING" && subscription.trialEndsAt
+              ? `Your trial ends ${subscription.trialEndsAt.toLocaleDateString()}.`
+              : "Pick the plan that fits your team — switch or cancel any time."}
           </p>
-        )}
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
