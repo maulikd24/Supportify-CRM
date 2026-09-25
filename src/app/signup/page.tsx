@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Field, FieldGroup, FieldLabel, FieldError, FieldDescription } from "@/components/ui/field";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AuthLogo } from "@/components/auth-logo";
-import { GoogleSignInButton } from "@/components/google-signin-button";
+import { GoogleSignInButton, googleAuthEnabled } from "@/components/google-signin-button";
 
 const initialState: SignupState = {};
 
@@ -25,12 +25,16 @@ export default function SignupPage() {
           <CardDescription>Start a 14-day free trial — no card required</CardDescription>
         </CardHeader>
         <CardContent>
-          <GoogleSignInButton label="Sign up with Google" />
-          <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
-            <div className="h-px flex-1 bg-border" />
-            or sign up with email
-            <div className="h-px flex-1 bg-border" />
-          </div>
+          {googleAuthEnabled && (
+            <>
+              <GoogleSignInButton label="Sign up with Google" />
+              <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="h-px flex-1 bg-border" />
+                or sign up with email
+                <div className="h-px flex-1 bg-border" />
+              </div>
+            </>
+          )}
           <form action={formAction}>
             <FieldGroup>
               <Field data-invalid={Boolean(state.fieldErrors?.orgName)}>

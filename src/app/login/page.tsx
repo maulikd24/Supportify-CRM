@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Field, FieldGroup, FieldLabel, FieldError, FieldDescription } from "@/components/ui/field";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AuthLogo } from "@/components/auth-logo";
-import { GoogleSignInButton } from "@/components/google-signin-button";
+import { GoogleSignInButton, googleAuthEnabled } from "@/components/google-signin-button";
 
 const initialState: LoginState = {};
 
@@ -94,12 +94,16 @@ export default function LoginPage() {
           </form>
           {stage !== "2fa" && (
             <>
-              <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
-                <div className="h-px flex-1 bg-border" />
-                or
-                <div className="h-px flex-1 bg-border" />
-              </div>
-              <GoogleSignInButton label="Continue with Google" />
+              {googleAuthEnabled && (
+                <>
+                  <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
+                    <div className="h-px flex-1 bg-border" />
+                    or
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
+                  <GoogleSignInButton label="Continue with Google" />
+                </>
+              )}
               <p className="mt-4 text-center text-sm text-muted-foreground">
                 <Link href="/login/sso" className="underline underline-offset-4">
                   Sign in with SSO

@@ -24,6 +24,9 @@ function GoogleIcon() {
   );
 }
 
+/** Set at build time from GOOGLE_CLIENT_ID/SECRET — see next.config.ts. */
+export const googleAuthEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
+
 export function GoogleSignInButton({ label }: { label: string }) {
   return (
     <form action={signInWithGoogleAction}>

@@ -14,6 +14,11 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Inlined at build time so the (client-rendered) login/signup pages can hide
+  // "Continue with Google" when OAuth isn't configured for this deployment.
+  env: {
+    NEXT_PUBLIC_GOOGLE_AUTH_ENABLED: process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET ? "true" : "",
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

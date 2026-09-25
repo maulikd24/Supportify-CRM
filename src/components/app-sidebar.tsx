@@ -84,6 +84,8 @@ export type NavItem = {
   href: string;
   label: string;
   icon: IconKey;
+  /** Sidebar section heading; items without one fall under "Workspace". */
+  group?: string;
 };
 
 function initials(name: string): string {
@@ -107,67 +109,84 @@ export function AppSidebar({
 }: {
   user: { name: string; email: string; orgRole: OrgRole };
   navItems: NavItem[];
+  /** Product name shown under the wordmark (e.g. "CRM", "QA Sentinel"). */
   groupLabel?: string;
 }) {
   const pathname = usePathname();
 
+  // Preserve first-seen order of groups so callers control section order.
+  const groups = new Map<string, NavItem[]>();
+  for (const item of navItems) {
+    const key = item.group ?? "Workspace";
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  }
+
+  // Longest matching href wins, so "/qa" isn't also active on "/qa/reviews".
+  const activeHref = navItems
+    .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-1.5">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-[var(--shadow-xs)] font-heading text-sm font-semibold">
+        <div className="flex items-center gap-2.5 px-2 py-2">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary font-heading text-sm font-bold text-sidebar-primary-foreground">
             S
           </div>
-          <span className="font-heading text-base font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
-            Supportify
-          </span>
+          <div className="min-w-0 leading-tight group-data-[collapsible=icon]:hidden">
+            <p className="font-heading text-[15px] font-semibold tracking-tight">Supportify</p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-sidebar-muted">{groupLabel}</p>
+          </div>
         </div>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>{groupLabel}</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navItems.map((item) => {
-                const Icon = ICON_MAP[item.icon];
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      render={<Link href={item.href} />}
-                      isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
-                    >
-                      <Icon className="size-4" />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {[...groups].map(([label, items]) => (
+          <SidebarGroup key={label}>
+            <SidebarGroupLabel>{label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {items.map((item) => {
+                  const Icon = ICON_MAP[item.icon];
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        render={<Link href={item.href} />}
+                        isActive={item.href === activeHref}
+                        tooltip={item.label}
+                      >
+                        <Icon className="size-4" />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
       <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <div className="flex items-center gap-2 px-2 py-1">
-              <Avatar className="size-6">
-                <AvatarFallback className="text-[10px]">{initials(user.name)}</AvatarFallback>
-              </Avatar>
-              <div className="min-w-0">
-                <p className="truncate text-xs font-medium leading-tight">{user.name}</p>
-                <p className="truncate text-[10px] text-muted-foreground leading-tight">{user.orgRole}</p>
-              </div>
-            </div>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <form action={logoutAction}>
-              <SidebarMenuButton type="submit">
-                <LogOut className="size-4" />
-                <span>Sign out</span>
-              </SidebarMenuButton>
-            </form>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <div className="flex items-center gap-2.5 rounded-lg bg-sidebar-accent p-2 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0">
+          <Avatar className="size-8 rounded-md after:rounded-md group-data-[collapsible=icon]:hidden">
+            <AvatarFallback className="rounded-md bg-sidebar-badge text-xs font-semibold text-sidebar-foreground">
+              {initials(user.name)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+            <p className="truncate text-sm font-semibold leading-tight">{user.name}</p>
+            <p className="truncate text-[11px] capitalize leading-tight text-sidebar-muted">{user.orgRole.toLowerCase()}</p>
+          </div>
+          <form action={logoutAction}>
+            <button
+              type="submit"
+              aria-label="Sign out"
+              title="Sign out"
+              className="flex size-7 items-center justify-center rounded-md text-sidebar-muted transition-colors hover:bg-sidebar-badge hover:text-sidebar-foreground"
+            >
+              <LogOut className="size-4" />
+            </button>
+          </form>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
