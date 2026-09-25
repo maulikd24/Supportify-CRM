@@ -3,132 +3,139 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Supportify — AI QA & CRM Tools for Support and Sales Teams</title>
+<title>Supportify — AI tools your team will actually use</title>
 <meta name="description" content="QA Sentinel scores every support ticket against your own SOPs with AI. Supportify CRM runs your sales pipeline your way. Start a 14-day free trial, no card required.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body id="top">
 
 <nav id="mainNav">
-  <a class="nav-logo" href="index.html">
-    <div class="nav-logo-icon">
-      <svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M2 5C2 3.9 2.9 3 4 3h10c1.1 0 2 .9 2 2v6c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V5z" stroke="#FF4D5E" stroke-width="1.5"/>
-        <path d="M6 3v2M9 3v2M12 3v2" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M4 8h10M4 10.5h6" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
-        <circle cx="14" cy="14" r="3" fill="#FF4D5E"/>
-        <path d="M13 14h2M14 13v2" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
-      </svg>
-    </div>
-    Supportify
-  </a>
+  <a class="nav-logo" href="#top"><span class="nav-logo-icon" aria-hidden="true"></span>Supportify</a>
   <ul class="nav-links" id="navLinks">
-    <li><a href="#qa-sentinel">QA Sentinel</a></li>
-    <li><a href="#crm">CRM</a></li>
+    <li><a href="#products">Products</a></li>
     <li><a href="#pricing">Pricing</a></li>
-    <li><a href="consulting.html">Consulting Services</a></li>
+    <li><a href="#why-supportify">Why Supportify</a></li>
+    <li><a href="consulting.html">Consulting</a></li>
+    <li><a href="mailto:hello@supportify.co.in">Contact</a></li>
+    <li class="nav-divider" aria-hidden="true"></li>
     <li><a href="https://app.supportify.co.in/login">Log in</a></li>
-    <li><a href="https://app.supportify.co.in/signup" class="nav-cta">Start Free Trial</a></li>
+    <li><a href="https://app.supportify.co.in/signup" class="nav-cta">Start free trial ↗</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" onclick="toggleMenu()" aria-label="Menu">
+  <button class="hamburger" id="hamburger" onclick="toggleMenu()" aria-label="Menu" aria-controls="navLinks" aria-expanded="false">
     <span></span><span></span><span></span>
   </button>
 </nav>
 
+<main>
+
+<!-- ======================== HERO ======================== -->
 <section class="hero">
   <div class="hero-bg-grid"></div>
-  <div class="hero-content">
-    <div class="hero-badge">AI-Powered Support &amp; Sales Tools</div>
-    <h1>Tools your team will<br><em>actually use</em></h1>
-    <p>QA Sentinel scores every support ticket against your own SOPs with AI — no more spot-checking a handful of conversations. Supportify CRM runs your sales pipeline exactly the way your team already works, no forced-fit fields.</p>
-    <div class="hero-actions">
-      <a class="btn-primary" href="https://app.supportify.co.in/signup">
-        Start Free Trial
-        <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:16px;height:16px"><path d="M4 10h12M12 6l4 4-4 4" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </a>
-      <a class="btn-outline-white" href="#pricing">See Pricing</a>
+  <div class="hero-layout">
+    <div>
+      <p class="eyebrow">AI-powered support &amp; sales tools</p>
+      <h1>Tools your team will <em>actually use.</em></h1>
+      <p class="hero-lede">Review every support conversation against your own standards, then run your sales pipeline exactly the way your team already works.</p>
+      <div class="hero-actions">
+        <a class="btn-primary" href="https://app.supportify.co.in/signup">Start free trial →</a>
+        <a class="btn-outline-white" href="#pricing">See pricing</a>
+      </div>
+      <div class="hero-stats">
+        <div>
+          <div class="stat-number">14d</div>
+          <div class="stat-label">Free trial</div>
+        </div>
+        <div>
+          <div class="stat-number">2</div>
+          <div class="stat-label">Products, one login</div>
+        </div>
+        <div>
+          <div class="stat-number">0</div>
+          <div class="stat-label">Card required</div>
+        </div>
+      </div>
     </div>
-    <div class="hero-stats">
-      <div class="stat-item">
-        <div class="stat-number">14<span>d</span></div>
-        <div class="stat-label">Free trial</div>
+
+    <aside class="pulse-card" aria-label="Example QA dashboard">
+      <div class="pulse-head">
+        <span>Weekly quality pulse</span>
+        <span class="pulse-live">Live</span>
       </div>
-      <div class="stat-item">
-        <div class="stat-number">2</div>
-        <div class="stat-label">Products, one login</div>
+      <p class="pulse-label">Tickets reviewed this month</p>
+      <div class="pulse-value">
+        <strong>2,846</strong>
+        <span class="pulse-delta">+38.4%</span>
       </div>
-      <div class="stat-item">
-        <div class="stat-number">0<span></span></div>
-        <div class="stat-label">Card required to start</div>
+      <div class="pulse-bars" aria-hidden="true">
+        <span style="height:30%"></span><span style="height:42%"></span><span style="height:36%"></span>
+        <span style="height:54%"></span><span style="height:48%"></span><span style="height:68%"></span>
+        <span style="height:62%"></span><span style="height:84%"></span><span style="height:76%"></span>
+        <span style="height:96%"></span>
       </div>
-    </div>
+      <div class="pulse-row"><span>Average QA score</span><strong>91 / 100</strong></div>
+      <div class="pulse-row"><span>DSAT root causes found</span><strong class="coral">184</strong></div>
+    </aside>
   </div>
-  <svg class="hero-wave" viewBox="0 0 1440 120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M0,80 C360,40 720,100 1080,60 C1260,40 1380,70 1440,80 L1440,120 L0,120 Z" fill="#F8F7F4"/>
-  </svg>
 </section>
 
-<!-- ======================== QA SENTINEL ======================== -->
-<section class="product-section" id="qa-sentinel">
-  <div class="product-layout">
-    <div class="product-copy reveal">
-      <div class="product-eyebrow">
-        <svg width="16" height="16" viewBox="0 0 26 26" fill="none"><path d="M8 6h10M8 10h10M8 14h6" stroke="#99A9FF" stroke-width="1.8" stroke-linecap="round"/><rect x="3" y="3" width="20" height="20" rx="3" stroke="#99A9FF" stroke-width="1.8"/></svg>
-        QA Sentinel
-      </div>
-      <h2>Every ticket <em>reviewed</em>. Not just the ones you have time for.</h2>
-      <p>Most teams spot-check 2–3% of tickets. QA Sentinel uses Claude to score 100% of them against your actual SOPs — consistently, instantly, and without a QA team working overtime.</p>
-      <a class="btn-primary" href="https://app.supportify.co.in/signup">Try QA Sentinel Free</a>
+<!-- ======================== PRODUCTS ======================== -->
+<section class="on-paper" id="products">
+  <div class="intro-split reveal">
+    <div>
+      <p class="eyebrow">01 — Products</p>
+      <h2 class="section-title">Built around how teams really work.</h2>
     </div>
-    <div class="product-features reveal">
+    <p>Supportify brings your support quality and sales workflow into one clear operating system — without forcing your team into a rigid template.</p>
+  </div>
+
+  <hr class="rule">
+
+  <div class="product-row" id="qa-sentinel">
+    <div class="product-copy reveal">
+      <p class="eyebrow">01 / QA Sentinel</p>
+      <h3>Every ticket reviewed. Not just the ones you have time for.</h3>
+      <p>Score 100% of your conversations against your actual SOPs — consistently, instantly, and without a QA team working overtime.</p>
+      <a class="btn-ink" href="https://app.supportify.co.in/signup">Try QA Sentinel free →</a>
+    </div>
+    <div class="feature-card reveal">
+      <p class="eyebrow">What you get</p>
       <ul>
-        <li><strong>AI scoring against your SOPs</strong> — SOP Adherence, Tone &amp; Empathy, Accuracy, Resolution Quality, and Response Completeness, scored 0–100 with a written rationale.</li>
-        <li><strong>Bulk review</strong> — score dozens of tickets in one pass instead of one at a time.</li>
-        <li><strong>Calibration workflows</strong> — multiple reviewers blind-score the same ticket, then compare results to keep the whole team applying the rubric consistently.</li>
-        <li><strong>Agent scorecards</strong> — trend performance per agent over time, not just a flat list of scores.</li>
-        <li><strong>DSAT analysis</strong> — automatic root-cause breakdowns on dissatisfied customers.</li>
-        <li><strong>Zendesk connection</strong> — pulls ticket conversations directly, no copy-pasting transcripts.</li>
+        <li>AI scoring against your SOPs</li>
+        <li>Bulk review and calibration workflows</li>
+        <li>Agent scorecards and DSAT analysis</li>
+        <li>Direct Zendesk connection</li>
       </ul>
     </div>
   </div>
-</section>
 
-<!-- ======================== CRM ======================== -->
-<section class="product-section" id="crm">
-  <div class="product-layout reverse">
-    <div class="product-features reveal">
+  <div class="product-row reverse" id="crm">
+    <div class="feature-card reveal">
+      <p class="eyebrow">What you get</p>
       <ul>
-        <li><strong>Configurable pipeline</strong> — define your own stages and mark any stage terminal; not locked into someone else's sales process.</li>
-        <li><strong>Custom fields</strong> — add exactly the fields your business needs, no hardcoded schema to work around.</li>
-        <li><strong>Journeys &amp; automation</strong> — trigger-based workflows for stage changes, follow-ups, and waits.</li>
-        <li><strong>Task management</strong> with SLA tracking, so nothing slips through.</li>
-        <li><strong>CSV import</strong> for your existing leads and contacts — no re-typing your pipeline.</li>
-        <li><strong>Audit log &amp; data export</strong> built in from day one.</li>
+        <li>Configurable pipeline and custom fields</li>
+        <li>Journeys, automation, and SLA tasks</li>
+        <li>CSV import, audit log, and export</li>
+        <li>Built for your process, not ours</li>
       </ul>
     </div>
     <div class="product-copy reveal">
-      <div class="product-eyebrow">
-        <svg width="16" height="16" viewBox="0 0 26 26" fill="none"><rect x="3" y="8" width="8" height="6" rx="1.5" stroke="#99A9FF" stroke-width="1.8"/><rect x="15" y="3" width="8" height="6" rx="1.5" stroke="#99A9FF" stroke-width="1.8"/><rect x="15" y="17" width="8" height="6" rx="1.5" stroke="#99A9FF" stroke-width="1.8"/><path d="M11 11h2m0 0v-5m0 5v6" stroke="#99A9FF" stroke-width="1.8" stroke-linecap="round"/></svg>
-        CRM
-      </div>
-      <h2>A pipeline shaped like <em>your business</em>, not a template.</h2>
-      <p>Most CRMs make you adapt to their fields and their stages. Supportify CRM starts generic and lets you configure the pipeline, custom fields, and automations to match how your team actually sells.</p>
-      <a class="btn-primary" href="https://app.supportify.co.in/signup">Try CRM Free</a>
+      <p class="eyebrow">02 / CRM</p>
+      <h3>A pipeline shaped like your business, not a template.</h3>
+      <p>Start with a clean foundation, then configure stages, custom fields, journeys, tasks, and automations around the way your team sells.</p>
+      <a class="btn-ink" href="https://app.supportify.co.in/signup">Try CRM free →</a>
     </div>
   </div>
 </section>
-
-<div class="divider"></div>
 
 <!-- ======================== PRICING ======================== -->
 <section id="pricing">
   <div class="reveal">
-    <div class="section-eyebrow">Pricing</div>
-    <h2 class="section-title">Simple, per-product <em>pricing</em></h2>
-    <p class="section-sub">Try either product free for 14 days, no card required. Subscribe to one or both — QA Sentinel and CRM are billed completely independently.</p>
+    <p class="eyebrow">02 — Pricing</p>
+    <h2 class="section-title">Simple, per-product pricing.</h2>
+    <p class="section-sub">Try either product free for 14 days, no card required. Subscribe to one or both — each is billed independently.</p>
   </div>
   <div class="pricing-grid">
     <div class="pricing-card reveal">
@@ -140,7 +147,7 @@
         <li>1 Zendesk connection</li>
         <li>DSAT analysis</li>
       </ul>
-      <a class="btn-outline-navy" href="https://app.supportify.co.in/signup">Start Free Trial</a>
+      <a class="btn-outline-navy" href="https://app.supportify.co.in/signup">Start free trial</a>
     </div>
     <div class="pricing-card featured reveal">
       <div class="pricing-product">QA Sentinel</div>
@@ -149,9 +156,9 @@
       <ul>
         <li>500 AI reviews / month</li>
         <li>Unlimited SOPs</li>
-        <li>DSAT analysis, priority support</li>
+        <li>Priority support</li>
       </ul>
-      <a class="btn-outline-navy" href="https://app.supportify.co.in/signup">Start Free Trial</a>
+      <a class="btn-outline-navy" href="https://app.supportify.co.in/signup">Start free trial</a>
     </div>
     <div class="pricing-card reveal">
       <div class="pricing-product">CRM</div>
@@ -162,7 +169,7 @@
         <li>Pipeline &amp; journeys</li>
         <li>Task management</li>
       </ul>
-      <a class="btn-outline-navy" href="https://app.supportify.co.in/signup">Start Free Trial</a>
+      <a class="btn-outline-navy" href="https://app.supportify.co.in/signup">Start free trial</a>
     </div>
     <div class="pricing-card reveal">
       <div class="pricing-product">CRM</div>
@@ -173,64 +180,57 @@
         <li>Everything in Starter</li>
         <li>Priority support</li>
       </ul>
-      <a class="btn-outline-navy" href="https://app.supportify.co.in/signup">Start Free Trial</a>
+      <a class="btn-outline-navy" href="https://app.supportify.co.in/signup">Start free trial</a>
     </div>
   </div>
-  <p class="pricing-enterprise-note" style="margin-top: 2rem; font-size: 0.9rem;">Need more seats or reviews? <a href="mailto:hello@supportify.co.in" style="font-weight: 600; text-decoration: none;">Contact us about Enterprise</a> for either product.</p>
+  <p class="pricing-enterprise-note">Need more seats or reviews? <a href="mailto:hello@supportify.co.in">Contact us about Enterprise.</a></p>
 </section>
 
-<section class="why-section">
+<!-- ======================== WHY ======================== -->
+<section class="why-section" id="why-supportify">
   <div class="reveal">
-    <div class="section-eyebrow" style="color:#C7D0FF">Why Supportify</div>
-    <h2 class="section-title" style="color:white">Built by people who've run <em>support teams</em>, not just software teams</h2>
+    <p class="eyebrow">03 — Why Supportify</p>
+    <h2 class="section-title">Made by people who have run support teams.</h2>
   </div>
   <div class="why-grid">
     <div class="why-item reveal">
       <div class="why-num">01</div>
-      <div>
-        <h4>Grounded in real support ops</h4>
-        <p>Supportify started as a consulting practice helping startups build support teams from scratch — these tools exist because we needed them ourselves.</p>
-      </div>
+      <h4>Grounded in real support ops</h4>
+      <p>Supportify started as a consulting practice helping startups build support teams from scratch.</p>
     </div>
     <div class="why-item reveal">
       <div class="why-num">02</div>
-      <div>
-        <h4>Scores against your rubric, not a generic one</h4>
-        <p>QA Sentinel reads your actual SOPs — it doesn't grade every team against the same generic checklist.</p>
-      </div>
+      <h4>Your rubric, not a generic one</h4>
+      <p>QA Sentinel reads your actual SOPs — it does not grade every team against the same checklist.</p>
     </div>
     <div class="why-item reveal">
       <div class="why-num">03</div>
-      <div>
-        <h4>Configurable, not prescriptive</h4>
-        <p>Custom fields and a configurable pipeline mean the CRM adapts to your process instead of the other way around.</p>
-      </div>
+      <h4>Configurable, not prescriptive</h4>
+      <p>Custom fields and a flexible pipeline mean your tools adapt to your process.</p>
     </div>
     <div class="why-item reveal">
       <div class="why-num">04</div>
-      <div>
-        <h4>Try before you pay</h4>
-        <p>14-day free trial on both products, no card required, and each is billed independently — pay only for what your team actually uses.</p>
-      </div>
+      <h4>Try before you pay</h4>
+      <p>A 14-day free trial, no card required, and independent product billing.</p>
     </div>
   </div>
 </section>
 
-<div class="cta-band">
-  <h2>Ready to see it on <em>your own tickets and pipeline</em>?</h2>
-  <p>Start a free trial in under a minute — no card required.</p>
-  <a class="btn-primary" href="https://app.supportify.co.in/signup" style="display:inline-flex">Start Free Trial</a>
+<!-- ======================== CTA ======================== -->
+<div class="cta-band cta-split">
+  <div>
+    <p class="eyebrow">Ready when you are</p>
+    <h2>See what Supportify can do with your own tickets and pipeline.</h2>
+  </div>
+  <a class="btn-primary" href="https://app.supportify.co.in/signup">Start free trial ↗</a>
 </div>
+
+</main>
 
 <footer>
   <div class="footer-top">
     <div class="footer-brand">
-      <div class="nav-logo" style="cursor:default">
-        <div class="nav-logo-icon">
-          <svg viewBox="0 0 18 18" fill="none"><path d="M2 5C2 3.9 2.9 3 4 3h10c1.1 0 2 .9 2 2v6c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V5z" stroke="#FF4D5E" stroke-width="1.5"/><path d="M6 3v2M9 3v2M12 3v2" stroke="white" stroke-width="1.5" stroke-linecap="round"/><path d="M4 8h10M4 10.5h6" stroke="white" stroke-width="1.2" stroke-linecap="round"/><circle cx="14" cy="14" r="3" fill="#FF4D5E"/><path d="M13 14h2M14 13v2" stroke="white" stroke-width="1.2" stroke-linecap="round"/></svg>
-        </div>
-        <span style="color:white;font-family:'Inter',sans-serif;font-weight:800;font-size:1.1rem">Supportify</span>
-      </div>
+      <span class="nav-logo"><span class="nav-logo-icon" aria-hidden="true"></span>Supportify</span>
       <p>AI-powered QA and CRM tools for startup support and sales teams.</p>
     </div>
     <div class="footer-col">
@@ -241,8 +241,8 @@
     </div>
     <div class="footer-col">
       <h5>Company</h5>
-      <a href="consulting.html">Consulting Services</a>
-      <a href="mailto:hello@supportify.co.in">Contact Us</a>
+      <a href="consulting.html">Consulting services</a>
+      <a href="mailto:hello@supportify.co.in">hello@supportify.co.in</a>
     </div>
     <div class="footer-col">
       <h5>Legal</h5>
@@ -257,7 +257,8 @@
 
 <script>
   function toggleMenu() {
-    document.getElementById('navLinks').classList.toggle('open');
+    const open = document.getElementById('navLinks').classList.toggle('open');
+    document.getElementById('hamburger').setAttribute('aria-expanded', String(open));
   }
 
   window.addEventListener('scroll', () => {
@@ -272,8 +273,11 @@
     });
   }
 
-  document.querySelectorAll('.nav-links a[href^="#"]').forEach(a => {
-    a.addEventListener('click', () => document.getElementById('navLinks').classList.remove('open'));
+  document.querySelectorAll('.nav-links a').forEach(a => {
+    a.addEventListener('click', () => {
+      document.getElementById('navLinks').classList.remove('open');
+      document.getElementById('hamburger').setAttribute('aria-expanded', 'false');
+    });
   });
 
   checkReveal();
