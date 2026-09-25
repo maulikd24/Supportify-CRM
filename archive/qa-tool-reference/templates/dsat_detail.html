@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% block title %}DSAT Analysis #{{ analysis.id }} — QA Tool{% endblock %}
+{% block content %}
+
+<div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">
+  <a href="/dsat" style="color:#6b7280;text-decoration:none;font-size:.85rem;">← DSAT Analyser</a>
+  <h1 style="margin:0;">DSAT Analysis #{{ analysis.id }}</h1>
+  {% set prob = analysis.recovery_probability %}
+  {% if prob %}
+  <span style="margin-left:auto;font-size:.8rem;font-weight:700;padding:.3rem .8rem;border-radius:99px;
+    background:{% if prob=='high' %}#dcfce7{% elif prob=='medium' %}#fef9c3{% else %}#fee2e2{% endif %};
+    color:{% if prob=='high' %}#166534{% elif prob=='medium' %}#854d0e{% else %}#991b1b{% endif %};">
+    {{ prob|title }} Recovery Probability
+  </span>
+  {% endif %}
+</div>
+
+<!-- ── Report Summary Card ───────────────────────────────────────────────── -->
+{% set dsat_categories = analysis.root_causes | map(attribute='category') | list | unique | list %}
+<div class="card" style="margin-bottom:1.5rem;border-left:4px solid #dc2626;">
+  {% if request.query_params.get('saved') %}
+  <div style="background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;font-size:.82rem;font-weight:600;
+              padding:.5rem .85rem;border-radius:6px;margin-bottom:1rem;">
+    Comment saved successfully.
+  </div>
+  {% endif %}
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+    <h2 style="margin:0;">DSAT Report</h2>
+    <span style="font-size:.75rem;color:#9ca3af;">{{ analysis.created_at[:16].replace('T',' ') }}</span>
+  </div>
+
+  <!-- Four key fields -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.25rem;">
+    <div style="padding:.85rem 1rem;background:#fafafa;border:1px solid var(--border);border-radius:8px;">
+      <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-bottom:.35rem;">Agent Name</div>
+      <div style="font-weight:600;color:#1a1d23;font-size:.95rem;">{{ analysis.agent_name or '—' }}</div>
+    </div>
+    <div style="padding:.85rem 1rem;background:#fafafa;border:1px solid var(--border);border-radius:8px;">
+      <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-bottom:.35rem;">Ticket ID</div>
+      <div style="font-weight:600;color:#1a1d23;font-size:.95rem;">
+        {% if analysis.ticket_id %}#{{ analysis.ticket_id }}{% else %}—{% endif %}
+        {% if analysis.ticket_subject %}
+        <div style="font-size:.78rem;font-weight:400;color:#6b7280;margin-top:.15rem;">{{ analysis.ticket_subject }}</div>
+        {% endif %}
+      </div>
+    </div>
+    <div style="padding:.85rem 1rem;background:#fafafa;border:1px solid var(--border);border-radius:8px;">
+      <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-bottom:.35rem;">DSAT Category</div>
+      {% if dsat_categories %}
+      <div style="display:flex;flex-wrap:wrap;gap:.3rem;">
+        {% for cat in dsat_categories %}
+        <span style="font-size:.72rem;font-weight:600;padding:.2rem .55rem;border-radius:99px;background:#fee2e2;color:#991b1b;">
+          {{ cat | replace('_',' ') | title }}
+        </span>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div style="font-weight:600;color:#1a1d23;">—</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Improvements Comment -->
+  <div>
+    <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-bottom:.5rem;">
+      Comments for Improvement
+      <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#9ca3af;margin-left:.4rem;">— reviewer notes, coaching points, action items</span>
+    </div>
+    <form method="post" action="/dsat/{{ analysis.id }}/comment" id="comment-form">
+      <textarea name="improvements_comment" id="improvements-comment"
+        style="width:100%;min-height:100px;resize:vertical;font-family:inherit;font-size:.875rem;
+               padding:.65rem .75rem;border:1px solid var(--border);border-radius:6px;
+               line-height:1.65;color:#374151;outline:none;transition:border-color .15s;"
+        placeholder="e.g. Agent should have escalated after the second follow-up. Recommend coaching on tone during frustrated customer interactions. Ensure ticket is re-opened and customer contacted within 24 hours."
+        onfocus="this.style.borderColor='#dc2626'"
+        onblur="this.style.borderColor='var(--border)'">{{ analysis.improvements_comment or '' }}</textarea>
+      <div style="display:flex;gap:.6rem;margin-top:.65rem;align-items:center;">
+        <button type="submit" class="btn btn-sm" style="background:#dc2626;color:#fff;font-weight:600;">
+          Save Comment
+        </button>
+        {% if analysis.improvements_comment %}
+        <span style="font-size:.78rem;color:#6b7280;">Last saved: {{ analysis.created_at[:10] }}</span>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── What went wrong + Recovery rationale ─────────────────────────────── -->
+<div class="grid2" style="margin-bottom:1.5rem;">
+  <div class="card" style="border-left:4px solid #ef4444;">
+    <h2 style="color:#991b1b;">What Went Wrong</h2>
+    <p style="font-size:.9rem;line-height:1.75;color:#374151;">{{ analysis.what_went_wrong }}</p>
+    {% if analysis.customer_impact %}
+    <div style="margin-top:1rem;padding:.65rem .9rem;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;">
+      <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#c2410c;margin-bottom:.3rem;">Customer Impact</div>
+      <p style="font-size:.85rem;color:#7c2d12;line-height:1.6;margin:0;">{{ analysis.customer_impact }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Root Causes</h2>
+    {% if analysis.root_causes %}
+    <div style="display:grid;gap:.65rem;">
+      {% set sev_colors = {'high': ('#fee2e2','#991b1b'), 'medium': ('#fef9c3','#854d0e'), 'low': ('#f3f4f6','#374151')} %}
+      {% for rc in analysis.root_causes %}
+      {% set bg, fg = sev_colors.get(rc.severity, ('#f3f4f6','#374151')) %}
+      <div style="display:flex;align-items:flex-start;gap:.75rem;padding:.6rem .75rem;background:#fafafa;border:1px solid var(--border);border-radius:6px;">
+        <div style="flex-shrink:0;margin-top:.1rem;">
+          <span style="font-size:.68rem;font-weight:700;padding:.2rem .5rem;border-radius:99px;background:{{ bg }};color:{{ fg }};text-transform:uppercase;">{{ rc.severity }}</span>
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:.875rem;font-weight:500;color:#374151;">{{ rc.issue }}</div>
+          <div style="font-size:.72rem;color:#9ca3af;margin-top:.2rem;">{{ rc.category|replace('_',' ')|title }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p style="color:#9ca3af;font-size:.875rem;">No root causes identified.</p>
+    {% endif %}
+
+    {% if analysis.recovery_rationale %}
+    <div style="margin-top:1rem;padding:.65rem .9rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;">
+      <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#166534;margin-bottom:.3rem;">Recovery Assessment</div>
+      <p style="font-size:.85rem;color:#14532d;line-height:1.6;margin:0;">{{ analysis.recovery_rationale }}</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── CSAT Recovery Recommendations ────────────────────────────────────── -->
+{% if analysis.csat_recovery_recommendations %}
+<div class="card" style="margin-bottom:1.5rem;">
+  <h2>DSAT → CSAT Recovery Recommendations</h2>
+  <div style="display:grid;gap:.75rem;">
+    {% set priority_order = ['immediate', 'short_term', 'long_term'] %}
+    {% set priority_styles = {
+      'immediate': ('#fee2e2','#991b1b','🔴'),
+      'short_term': ('#fef9c3','#854d0e','🟡'),
+      'long_term': ('#eff6ff','#1d4ed8','🔵')
+    } %}
+    {% for rec in analysis.csat_recovery_recommendations %}
+    {% set bg, fg, dot = priority_styles.get(rec.priority, ('#f3f4f6','#374151','⚪')) %}
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:1rem;padding:.9rem 1rem;
+                border:1px solid var(--border);border-radius:8px;background:#fafafa;">
+      <div style="text-align:center;min-width:80px;">
+        <div style="font-size:1.1rem;">{{ dot }}</div>
+        <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-top:.2rem;">{{ rec.priority|replace('_',' ') }}</div>
+        <div style="font-size:.65rem;padding:.15rem .4rem;border-radius:99px;background:{{ bg }};color:{{ fg }};margin-top:.3rem;font-weight:600;">{{ rec.owner }}</div>
+      </div>
+      <div>
+        <div style="font-weight:600;font-size:.9rem;color:#1a1d23;margin-bottom:.3rem;">{{ rec.action }}</div>
+        <div style="font-size:.82rem;color:#6b7280;line-height:1.55;">{{ rec.rationale }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Follow-up Response ────────────────────────────────────────────────── -->
+{% if analysis.follow_up_response %}
+{% set fu = analysis.follow_up_response %}
+<div class="card" style="margin-bottom:1.5rem;border-color:#a5b4fc;background:#fafafe;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+    <h2 style="margin:0;color:#4338ca;">Recommended Follow-up Response</h2>
+    <button onclick="copyResponse()" class="btn btn-sm" style="background:#4338ca;color:#fff;">Copy Message</button>
+  </div>
+  {% if fu.subject %}
+  <div style="margin-bottom:.75rem;">
+    <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;margin-bottom:.3rem;">Subject</div>
+    <div style="font-size:.875rem;font-weight:600;color:#1a1d23;padding:.5rem .75rem;background:#eff6ff;border-radius:6px;border:1px solid #c7d2fe;">{{ fu.subject }}</div>
+  </div>
+  {% endif %}
+  <div>
+    <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;margin-bottom:.3rem;">Message Body</div>
+    <div id="follow-up-body" style="font-size:.875rem;line-height:1.8;color:#374151;white-space:pre-wrap;
+         padding:1rem;background:#fff;border:1px solid #c7d2fe;border-radius:6px;font-family:inherit;">{{ fu.body }}</div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Prevention tips + Conversation ───────────────────────────────────── -->
+<div class="grid2" style="margin-bottom:1.5rem;">
+  {% if analysis.prevention_tips %}
+  <div class="card">
+    <h2>Prevention Tips</h2>
+    <ul class="checklist" style="margin:0;">
+      {% for tip in analysis.prevention_tips %}
+      <li style="color:#374151;">{{ tip }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if analysis.raw_conversation %}
+  <div class="card">
+    <h2>Ticket Conversation</h2>
+    <div style="display:grid;gap:.65rem;max-height:360px;overflow-y:auto;padding-right:.5rem;">
+      {% for msg in analysis.raw_conversation %}
+      <div style="display:flex;gap:.65rem;align-items:flex-start;">
+        <span style="flex-shrink:0;font-size:.68rem;font-weight:600;padding:.2rem .5rem;border-radius:99px;margin-top:.1rem;
+              {% if msg.role=='agent' %}background:#dbeafe;color:#1d4ed8;{% else %}background:#fee2e2;color:#991b1b;{% endif %}">
+          {{ msg.role|upper }}
+        </span>
+        <div style="font-size:.85rem;line-height:1.65;white-space:pre-wrap;color:#374151;flex:1;">{{ msg.body }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<div style="display:flex;gap:.75rem;">
+  <a href="/dsat" class="btn" style="background:#f1f5f9;color:#374151;">← Back to DSAT Analyser</a>
+  <a href="/dsat" class="btn btn-primary" style="background:#dc2626;">Analyse Another Ticket</a>
+</div>
+
+<script>
+function copyResponse() {
+  const subject = {{ ('"' + analysis.follow_up_response.subject|replace('"','\\"') + '"') if analysis.follow_up_response and analysis.follow_up_response.subject else 'null' }};
+  const body = document.getElementById('follow-up-body').innerText;
+  const full = subject ? `Subject: ${subject}\n\n${body}` : body;
+  navigator.clipboard.writeText(full).then(() => {
+    const btn = event.target;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy Message', 2000);
+  });
+}
+</script>
+{% endblock %}

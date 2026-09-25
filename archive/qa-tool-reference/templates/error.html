@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Error — QA Sentinel{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:center;min-height:60vh;">
+  <div class="card" style="max-width:540px;width:100%;text-align:center;border-top:4px solid var(--danger);padding:2.5rem;box-shadow:var(--shadow-lg);">
+    <div style="font-size:3rem;margin-bottom:.75rem;">⚠️</div>
+    <h1 style="color:var(--danger-text);margin-bottom:.75rem;font-size:1.35rem;">Something went wrong</h1>
+    <div style="color:var(--text-2);font-size:.875rem;line-height:1.75;white-space:pre-wrap;text-align:left;
+                background:var(--bg2);padding:1rem 1.1rem;border-radius:var(--radius-sm);
+                border-left:4px solid var(--danger);margin-bottom:1.5rem;">{{ error }}</div>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap;justify-content:center;">
+      <a href="/" class="btn btn-primary">← Back to Dashboard</a>
+      {% if 'credentials' in error or 'API key' in error or 'Unauthorized' in error or 'Missing' in error or 'ZENDESK' in error or 'ANTHROPIC' in error %}
+      <a href="/health" class="btn btn-ghost">⚙ Check Setup</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

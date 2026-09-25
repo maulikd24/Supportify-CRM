@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Edit SOP — {{ sop.name }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="breadcrumb"><a href="/sops">SOPs</a> › Edit</div>
+    <h1><span class="gradient-text">Edit SOP</span></h1>
+  </div>
+  <a href="/sops" class="btn btn-ghost">← Back to SOPs</a>
+</div>
+
+<div style="max-width:720px;">
+  <div class="card" style="border-top:3px solid var(--primary);">
+    <form method="post" action="/sops/{{ sop.id }}/edit">
+      <div class="form-group">
+        <label>SOP Name</label>
+        <input type="text" name="name" value="{{ sop.name }}" required />
+      </div>
+      <div class="form-group">
+        <label>SOP Content</label>
+        <textarea name="content" style="min-height:360px;" required>{{ sop.content }}</textarea>
+      </div>
+      <div style="display:flex;gap:.75rem;">
+        <button type="submit" class="btn btn-primary">💾 Save Changes</button>
+        <a href="/sops" class="btn btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="alert alert-warn" style="margin-top:1rem;">
+    <span>⚠️</span>
+    <span>Editing this SOP will <strong>not</strong> automatically update existing reviews.
+    Open any review and use <strong>Re-run Audit</strong> to re-score it with the updated SOP.</span>
+  </div>
+</div>
+{% endblock %}

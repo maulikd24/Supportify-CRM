@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — QA Sentinel{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    {% if selected_agent %}
+    <div class="breadcrumb"><a href="/">Dashboard</a> › {{ selected_agent }}</div>
+    {% endif %}
+    <h1>{% if selected_agent %}{{ selected_agent }}{% else %}<span class="gradient-text">Dashboard</span>{% endif %}</h1>
+  </div>
+  <a href="/review/new" class="btn btn-primary btn-lg">+ New Review</a>
+</div>
+
+<!-- ── KPI Cards ─────────────────────────────────────────────────────────── -->
+<div class="grid3" style="margin-bottom:1.75rem;">
+  <div class="card stat-card" style="border-top:3px solid var(--primary);">
+    <span class="stat-icon">📋</span>
+    <div class="value gradient-text">{{ stats.c or 0 }}</div>
+    <div class="label">{{ 'Agent Reviews' if selected_agent else 'Total Reviews' }}</div>
+  </div>
+  {% set avg_score = stats.avg if stats.avg is not none else 0 %}
+  <div class="card stat-card" style="border-top:3px solid {% if avg_score >= 75 %}var(--success){% elif avg_score >= 60 %}var(--warning){% else %}var(--danger){% endif %};">
+    <span class="stat-icon">🎯</span>
+    <div class="value" style="color:{% if avg_score >= 75 %}var(--success-text){% elif avg_score >= 60 %}var(--warning-text){% else %}var(--danger-text){% endif %}">
+      {{ stats.avg if stats.avg is not none else '—' }}
+    </div>
+    <div class="label">Avg QA Score</div>
+  </div>
+  <div class="card stat-card" style="border-top:3px solid var(--accent);">
+    <span class="stat-icon">📚</span>
+    <div class="value" style="color:#be185d;">{{ sops|length }}</div>
+    <div class="label">SOPs Loaded</div>
+  </div>
+</div>
+
+{% if sops|length == 0 %}
+<div class="alert alert-info" style="margin-bottom:1.5rem;">
+  📚 No SOPs found. <a href="/sops" style="font-weight:700;color:var(--primary);">Add your first SOP →</a> to start reviewing tickets.
+</div>
+{% endif %}
+
+<div class="card">
+  <!-- ── Toolbar ─────────────────────────────────────────────────────────── -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.1rem;gap:1rem;flex-wrap:wrap;">
+    <h2 style="margin:0;">
+      {% if selected_agent %}Reviews for {{ selected_agent }}{% else %}Recent Reviews{% endif %}
+    </h2>
+    <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;">
+      <form method="get" action="/" style="display:flex;gap:.4rem;align-items:center;">
+        <select name="agent" onchange="this.form.submit()">
+          <option value="">All Agents</option>
+          {% for a in agents %}
+          {% set key = a.agent_email or a.agent_name %}
+          <option value="{{ key }}" {% if selected_agent == key %}selected{% endif %}>
+            {{ a.agent_name }}{% if a.agent_email %} ({{ a.agent_email }}){% endif %}
+          </option>
+          {% endfor %}
+        </select>
+        {% if selected_agent %}
+        <a href="/" class="btn btn-ghost btn-sm">✕ Clear</a>
+        {% endif %}
+      </form>
+      <a href="/reviews/download{% if selected_agent %}?agent={{ selected_agent }}{% endif %}"
+         class="btn btn-success btn-sm">⬇ CSV</a>
+    </div>
+  </div>
+
+  {% if reviews %}
+  <table>
+    <thead>
+      <tr>
+        <th>Ticket</th><th>Subject</th><th>Agent</th><th>SOP(s)</th>
+        <th>Score</th><th>Sentiment</th><th>Tokens</th><th>Date</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in reviews %}
+      <tr>
+        <td><code>#{{ r.ticket_id }}</code></td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2);">{{ r.ticket_subject or '—' }}</td>
+        <td>
+          {% set agent_key = r.agent_email or r.agent_name %}
+          {% if agent_key %}
+          <a href="/?agent={{ agent_key }}" style="color:var(--primary);text-decoration:none;font-weight:600;">
+            {{ r.agent_name or r.agent_email or '—' }}
+          </a>
+          {% else %}—{% endif %}
+        </td>
+        <td style="font-size:.78rem;color:var(--muted-light);">
+          {% set names = r.sop_names if r.sop_names else ([r.sop_name] if r.sop_name else []) %}
+          {% for n in names %}<span>{{ n }}</span>{% if not loop.last %}<br/>{% endif %}{% endfor %}
+        </td>
+        <td>
+          {% set s = r.overall_score %}
+          <span class="badge {% if s >= 75 %}badge-green{% elif s >= 60 %}badge-yellow{% else %}badge-red{% endif %}">{{ s }}</span>
+        </td>
+        <td>
+          {% set ov = r.sentiment.get('overall','') if r.sentiment else '' %}
+          {% if ov %}
+          <span class="badge {% if ov=='positive' %}badge-green{% elif ov=='negative' %}badge-red{% else %}badge-yellow{% endif %}" style="font-size:.7rem;">
+            {% if ov=='positive' %}😊{% elif ov=='negative' %}😟{% else %}😐{% endif %} {{ ov|title }}
+          </span>
+          {% else %}<span style="color:var(--muted-light);">—</span>{% endif %}
+        </td>
+        <td style="font-size:.78rem;color:var(--muted-light);white-space:nowrap;">
+          {% if r.tokens_input %}
+          <span title="{{ r.tokens_input }} in / {{ r.tokens_output }} out">
+            {{ "{:,}".format(r.tokens_input + r.tokens_output) }}
+          </span>
+          {% if r.tokens_cost_usd %}<br/><span style="font-size:.7rem;">${{ "%.4f"|format(r.tokens_cost_usd) }}</span>{% endif %}
+          {% else %}—{% endif %}
+        </td>
+        <td style="color:var(--muted-light);font-size:.8rem;">{{ r.created_at[:10] }}</td>
+        <td><a href="/review/{{ r.id }}" class="btn btn-sm btn-primary">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="text-align:center;padding:3rem;color:var(--muted);">
+    {% if selected_agent %}
+      No reviews found for this agent.
+    {% else %}
+      <div style="font-size:2.5rem;margin-bottom:.75rem;">🔍</div>
+      <div style="font-weight:600;margin-bottom:.4rem;">No reviews yet</div>
+      <a href="/review/new" style="color:var(--primary);font-weight:600;">Run your first QA review →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

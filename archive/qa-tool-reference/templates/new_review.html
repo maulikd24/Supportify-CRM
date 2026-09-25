@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}New Review — QA Sentinel{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="breadcrumb"><a href="/">Dashboard</a> › New Review</div>
+    <h1><span class="gradient-text">New QA Review</span></h1>
+  </div>
+</div>
+
+<div style="max-width:700px;">
+  <div class="card">
+    <form method="post" action="/review/new" id="review-form">
+      <input type="hidden" name="input_mode" id="input_mode" value="manual" />
+
+      <!-- ── Tab switcher ──────────────────────────────────────────────── -->
+      <div style="display:flex;gap:0;margin-bottom:1.75rem;border:1.5px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;background:var(--bg);">
+        <button type="button" id="tab-zendesk"
+          {% if zendesk_configured %}onclick="switchTab('zendesk')" title="Pull ticket directly from Zendesk"
+          {% else %}disabled title="Add Zendesk credentials to .env to enable"{% endif %}
+          style="flex:1;padding:.7rem 1rem;font-size:.84rem;font-weight:600;border:none;border-radius:0;
+                 {% if zendesk_configured %}cursor:pointer;background:transparent;color:var(--muted);
+                 {% else %}cursor:not-allowed;background:transparent;color:var(--muted-light);{% endif %}">
+          🔗 Zendesk Ticket
+          {% if not zendesk_configured %}<span style="font-size:.68rem;font-weight:400;display:block;color:var(--muted-light);">not configured</span>{% endif %}
+        </button>
+        <button type="button" id="tab-manual" onclick="switchTab('manual')"
+          style="flex:1;padding:.7rem 1rem;font-size:.84rem;font-weight:700;border:none;cursor:pointer;
+                 background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;
+                 border-radius:6px;box-shadow:0 4px 6px rgba(99,102,241,.3);">
+          📋 Paste Conversation
+        </button>
+      </div>
+
+      <!-- ── Zendesk panel ─────────────────────────────────────────────── -->
+      <div id="panel-zendesk" style="display:none;">
+        <div class="form-group">
+          <label>Zendesk Ticket ID</label>
+          <input type="text" name="ticket_id" placeholder="e.g. 12345" />
+        </div>
+      </div>
+
+      <!-- ── Manual panel ──────────────────────────────────────────────── -->
+      <div id="panel-manual">
+        <div class="grid2" style="gap:1rem;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label>Ticket Subject <span style="color:var(--muted-light);font-weight:400;">(optional)</span></label>
+            <input type="text" name="manual_subject" placeholder="e.g. Billing overcharge" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>Agent Name <span style="color:var(--muted-light);font-weight:400;">(optional)</span></label>
+            <input type="text" name="manual_agent" placeholder="e.g. Sarah Johnson" />
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:1rem;">
+          <label>Paste Conversation</label>
+          <textarea name="manual_conversation" style="min-height:240px;"
+            placeholder="[CUSTOMER]: Hi, I was charged twice this month...&#10;[AGENT]: I'm sorry! Let me look into this.&#10;[CUSTOMER]: It happened on March 5th.&#10;[AGENT]: I can see the duplicate. Refunding now.&#10;&#10;— or paste plain text, we'll auto-detect turns —"></textarea>
+          <p class="tip">💡 Use <code>[CUSTOMER]:</code> / <code>[AGENT]:</code> labels for best accuracy, or paste plain text.</p>
+        </div>
+      </div>
+
+      <!-- ── SOP multi-select ──────────────────────────────────────────── -->
+      <div class="form-group" style="margin-top:.5rem;">
+        <label>
+          SOPs to Evaluate Against
+          <span style="font-weight:400;color:var(--muted-light);font-size:.78rem;margin-left:.35rem;">— select one or more</span>
+        </label>
+        {% if sops %}
+        <div style="border:1.5px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;max-height:220px;overflow-y:auto;background:#fff;">
+          {% set ns = namespace(last_cat='') %}
+          {% for sop in sops %}
+          {% if sop.category != ns.last_cat %}
+          {% set ns.last_cat = sop.category %}
+          <div style="padding:.35rem .9rem;background:var(--bg);font-size:.68rem;font-weight:700;
+                      text-transform:uppercase;letter-spacing:.09em;color:var(--primary);
+                      border-bottom:1px solid var(--border-light);">{{ sop.category }}</div>
+          {% endif %}
+          <label style="display:flex;align-items:center;gap:.75rem;padding:.6rem .9rem;cursor:pointer;
+                         border-bottom:1px solid var(--border-light);font-size:.875rem;font-weight:400;transition:background .15s;">
+            <input type="checkbox" name="sop_ids" value="{{ sop.id }}"
+                   style="width:15px;height:15px;cursor:pointer;accent-color:var(--primary);flex-shrink:0;" />
+            {{ sop.name }}
+          </label>
+          {% endfor %}
+        </div>
+        <p class="tip">🗂️ Select multiple SOPs when a ticket spans different topics (e.g. billing + technical).</p>
+        {% else %}
+        <p style="font-size:.875rem;color:var(--danger);">No SOPs yet. <a href="/sops" style="color:var(--primary);">Add one first →</a></p>
+        {% endif %}
+      </div>
+
+      <!-- ── Criteria exclusion ───────────────────────────────────────── -->
+      <div class="form-group" style="margin-top:.5rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:.5rem 0;"
+             onclick="toggleCriteriaSection()">
+          <label style="cursor:pointer;margin:0;">
+            ⚙️ Scoring Criteria
+            <span style="font-weight:400;color:var(--muted-light);font-size:.78rem;margin-left:.35rem;">— uncheck to exclude from assessment</span>
+          </label>
+          <span id="criteria-toggle-icon" style="color:var(--primary);font-size:.8rem;">▼ Show</span>
+        </div>
+        <div id="criteria-section" style="display:none;border:1.5px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;background:#fff;">
+          {% for key, label in all_criteria %}
+          <label style="display:flex;align-items:center;gap:.75rem;padding:.6rem .9rem;cursor:pointer;
+                         border-bottom:1px solid var(--border-light);font-size:.875rem;font-weight:400;transition:background .15s;">
+            <input type="checkbox" name="excluded_criteria" value="{{ key }}"
+                   id="excl_{{ key }}"
+                   style="width:15px;height:15px;cursor:pointer;accent-color:var(--danger);flex-shrink:0;"
+                   onchange="updateCriteriaLabel(this, '{{ label }}')" />
+            <span id="excl_label_{{ key }}">{{ label }}</span>
+            <span style="font-size:.72rem;color:var(--muted-light);margin-left:auto;display:none;" id="excl_tag_{{ key }}">excluded</span>
+          </label>
+          {% endfor %}
+        </div>
+        <p class="tip" id="criteria-tip" style="display:none;">⚠️ Excluded criteria will not be scored. The overall score is calculated from included criteria only.</p>
+      </div>
+
+      <div style="display:flex;gap:.75rem;align-items:center;margin-top:1.5rem;">
+        <button type="submit" class="btn btn-primary btn-lg" {% if not sops %}disabled{% endif %}
+          onclick="return validateForm()">
+          🚀 Run Assessment
+        </button>
+        <a href="/" class="btn btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── How it works ──────────────────────────────────────────────────── -->
+  <div class="card" style="margin-top:1.25rem;border-left:4px solid var(--primary);background:rgba(99,102,241,.04);">
+    <h2 style="color:var(--primary);font-size:.875rem;margin-bottom:.65rem;">✨ How it works</h2>
+    <ol style="padding-left:1.3rem;font-size:.83rem;color:var(--text-2);line-height:2.15;margin:0;">
+      <li id="how-step1">We parse the conversation you pasted</li>
+      <li>Claude reads all selected SOPs and the conversation</li>
+      <li>QA score, sentiment analysis &amp; detailed report are generated</li>
+      <li>Results are saved for agent performance tracking</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+const zendeskConfigured = {{ 'true' if zendesk_configured else 'false' }};
+
+function switchTab(mode) {
+  const isZendesk = mode === 'zendesk';
+  document.getElementById('input_mode').value = mode;
+  document.getElementById('panel-zendesk').style.display = isZendesk ? 'block' : 'none';
+  document.getElementById('panel-manual').style.display  = isZendesk ? 'none'  : 'block';
+
+  const activeStyle = 'linear-gradient(135deg,var(--primary),var(--primary-dark))';
+  const inactiveStyle = 'transparent';
+
+  if (zendeskConfigured) {
+    const tabZ = document.getElementById('tab-zendesk');
+    tabZ.style.background  = isZendesk ? activeStyle : inactiveStyle;
+    tabZ.style.color       = isZendesk ? '#fff' : 'var(--muted)';
+    tabZ.style.fontWeight  = isZendesk ? '700' : '600';
+    tabZ.style.boxShadow   = isZendesk ? '0 4px 6px rgba(99,102,241,.3)' : 'none';
+    tabZ.style.borderRadius = '6px';
+  }
+  const tabM = document.getElementById('tab-manual');
+  tabM.style.background  = isZendesk ? inactiveStyle : activeStyle;
+  tabM.style.color       = isZendesk ? 'var(--muted)' : '#fff';
+  tabM.style.fontWeight  = isZendesk ? '600' : '700';
+  tabM.style.boxShadow   = isZendesk ? 'none' : '0 4px 6px rgba(99,102,241,.3)';
+  tabM.style.borderRadius = '6px';
+
+  document.getElementById('how-step1').textContent = isZendesk
+    ? 'We fetch the ticket conversation from Zendesk'
+    : 'We parse the conversation you pasted';
+}
+
+function validateForm() {
+  const checked = document.querySelectorAll('input[name="sop_ids"]:checked');
+  if (checked.length === 0) { alert('Please select at least one SOP.'); return false; }
+  return true;
+}
+
+function toggleCriteriaSection() {
+  const sec = document.getElementById('criteria-section');
+  const icon = document.getElementById('criteria-toggle-icon');
+  const tip = document.getElementById('criteria-tip');
+  const open = sec.style.display === 'none';
+  sec.style.display = open ? 'block' : 'none';
+  icon.textContent = open ? '▲ Hide' : '▼ Show';
+  tip.style.display = open ? 'block' : 'none';
+}
+
+function updateCriteriaLabel(cb, label) {
+  const tag = document.getElementById('excl_tag_' + cb.value);
+  const lbl = document.getElementById('excl_label_' + cb.value);
+  if (cb.checked) {
+    lbl.style.textDecoration = 'line-through';
+    lbl.style.color = 'var(--muted-light)';
+    tag.style.display = 'inline';
+  } else {
+    lbl.style.textDecoration = '';
+    lbl.style.color = '';
+    tag.style.display = 'none';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  if (!zendeskConfigured) switchTab('manual');
+});
+</script>
+{% endblock %}

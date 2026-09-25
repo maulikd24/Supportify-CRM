@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Agents — QA Sentinel{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1><span class="gradient-text">Agent Leaderboard</span></h1>
+  <a href="/reports" class="btn btn-secondary">📊 Team Report</a>
+</div>
+
+{% if agents %}
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:52px;">Rank</th>
+        <th>Agent</th>
+        <th>Reviews</th>
+        <th>Avg Score</th>
+        <th>Min</th>
+        <th>Max</th>
+        <th>Last Review</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in agents %}
+      <tr>
+        <td style="font-size:1.2rem;text-align:center;">
+          {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}<span style="color:var(--muted-light);font-weight:700;">{{ loop.index }}</span>{% endif %}
+        </td>
+        <td>
+          <div style="font-weight:700;color:var(--text);">{{ a.agent_name or '—' }}</div>
+          {% if a.agent_email %}<div style="font-size:.75rem;color:var(--muted-light);">{{ a.agent_email }}</div>{% endif %}
+        </td>
+        <td><span class="badge badge-purple">{{ a.total }}</span></td>
+        <td>
+          {% set sc = a.avg_score or 0 %}
+          <span class="badge {% if sc >= 75 %}badge-green{% elif sc >= 60 %}badge-yellow{% else %}badge-red{% endif %}">
+            {{ a.avg_score or '—' }}
+          </span>
+        </td>
+        <td style="color:var(--muted);font-size:.84rem;">{{ a.min_score }}</td>
+        <td style="color:var(--muted);font-size:.84rem;">{{ a.max_score }}</td>
+        <td style="color:var(--muted-light);font-size:.8rem;">{{ (a.last_review or '')[:10] }}</td>
+        <td><a href="/agents/{{ a.agent_email or a.agent_name }}" class="btn btn-sm btn-primary">View →</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:4rem;">
+  <div style="font-size:3rem;margin-bottom:.9rem;">👥</div>
+  <div style="font-weight:700;font-size:1rem;color:var(--text-2);margin-bottom:.5rem;">No agent data yet</div>
+  <p class="text-sm text-muted" style="margin-bottom:1.25rem;">Run a review to start building the leaderboard.</p>
+  <a href="/review/new" class="btn btn-primary">+ New Review</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}SOPs — QA Sentinel{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1><span class="gradient-text">Standard Operating Procedures</span></h1>
+</div>
+
+{% if request.query_params.get('error') %}
+<div class="alert alert-danger" style="margin-bottom:1.25rem;">
+  ⚠️ {{ request.query_params.get('error') }}
+</div>
+{% endif %}
+
+<div class="grid2">
+  <!-- ── SOP List ────────────────────────────────────────────────────────── -->
+  <div>
+    {% if sops %}
+    <div style="margin-bottom:1.75rem;">
+      {% for sop in sops %}
+      <div class="card" style="margin-bottom:.75rem;padding:1.1rem 1.25rem;border-left:4px solid var(--primary);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.75rem;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:.95rem;color:var(--text);">{{ sop.name }}</div>
+            <div style="font-size:.74rem;color:var(--muted-light);margin-top:.2rem;">Updated {{ sop.updated_at[:10] }}</div>
+          </div>
+          <div style="display:flex;gap:.4rem;flex-shrink:0;">
+            <a href="/sops/{{ sop.id }}/edit" class="btn btn-sm btn-secondary">✏️ Edit</a>
+            <form method="post" action="/sops/{{ sop.id }}/delete" onsubmit="return confirm('Delete this SOP?')">
+              <button type="submit" class="btn btn-sm btn-danger">🗑</button>
+            </form>
+          </div>
+        </div>
+        <details style="margin-top:.85rem;">
+          <summary style="cursor:pointer;font-size:.81rem;color:var(--primary);font-weight:600;
+                          list-style:none;display:flex;align-items:center;gap:.35rem;user-select:none;">
+            <span>▶</span> View content
+          </summary>
+          <pre style="margin-top:.75rem;white-space:pre-wrap;font-size:.79rem;line-height:1.7;
+                      color:var(--text-2);font-family:inherit;background:var(--bg);
+                      padding:.9rem;border-radius:var(--radius-sm);border:1px solid var(--border);">{{ sop.content }}</pre>
+        </details>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="card" style="text-align:center;padding:3rem;border-left:4px solid var(--primary);">
+      <div style="font-size:2.5rem;margin-bottom:.75rem;">📋</div>
+      <div style="font-weight:700;color:var(--text-2);">No SOPs yet</div>
+      <p class="text-sm text-muted" style="margin-top:.35rem;">Add your first SOP using the form →</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── Add SOP Form ───────────────────────────────────────────────────── -->
+  <div>
+    <div class="card" style="position:sticky;top:1rem;border-top:3px solid var(--primary);">
+      <h2 style="color:var(--primary);">➕ Add New SOP</h2>
+      <form method="post" action="/sops/new">
+        <div class="form-group">
+          <label>SOP Name</label>
+          <input type="text" name="name" placeholder="e.g. Billing Dispute Handling" required />
+        </div>
+        <div class="form-group">
+          <label>SOP Content</label>
+          <textarea name="content" style="min-height:220px;"
+            placeholder="Paste your SOP here. Use numbered steps or plain text.&#10;&#10;Example:&#10;1. Greet the customer by name&#10;2. Acknowledge the issue with empathy&#10;3. Verify account details before proceeding&#10;..." required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">💾 Save SOP</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

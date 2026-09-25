@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% block title %}DSAT Dashboard — QA Tool{% endblock %}
+{% block content %}
+
+<!-- ── Header ──────────────────────────────────────────────────────────── -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
+  <div>
+    <h1 style="margin-bottom:.2rem;">DSAT Dashboard</h1>
+    <p style="color:#6b7280;font-size:.875rem;margin:0;">
+      {% if agent_filter %}Filtered to agent: <strong>{{ agent_filter }}</strong> —
+        <a href="/dsat/dashboard" style="color:#dc2626;">clear filter</a>
+      {% else %}All agents · {{ total }} total analyses{% endif %}
+    </p>
+  </div>
+  <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;">
+    <!-- Agent filter -->
+    <form method="get" action="/dsat/dashboard" style="display:flex;gap:.4rem;align-items:center;">
+      <select name="agent" onchange="this.form.submit()"
+        style="font-size:.85rem;padding:.4rem .7rem;border:1px solid var(--border);border-radius:6px;
+               background:#fff;color:#374151;cursor:pointer;max-width:200px;">
+        <option value="">All Agents</option>
+        {% for a in all_agents %}
+        <option value="{{ a }}" {% if a == agent_filter %}selected{% endif %}>{{ a }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    <!-- Downloads -->
+    <a href="/dsat/download/csv{% if agent_filter %}?agent={{ agent_filter }}{% endif %}"
+       class="btn btn-sm" style="background:#16a34a;color:#fff;font-weight:600;text-decoration:none;">
+      ↓ CSV
+    </a>
+    <a href="/dsat/download/excel{% if agent_filter %}?agent={{ agent_filter }}{% endif %}"
+       class="btn btn-sm" style="background:#1d4ed8;color:#fff;font-weight:600;text-decoration:none;">
+      ↓ Excel
+    </a>
+    <a href="/dsat" class="btn btn-sm" style="background:#dc2626;color:#fff;font-weight:600;text-decoration:none;">
+      + New Analysis
+    </a>
+  </div>
+</div>
+
+{% if total == 0 %}
+<div class="card" style="text-align:center;padding:3rem;color:#9ca3af;">
+  <div style="font-size:2.5rem;margin-bottom:.75rem;">📭</div>
+  <div style="font-weight:600;font-size:1rem;color:#374151;margin-bottom:.4rem;">No DSAT analyses yet</div>
+  <p style="font-size:.875rem;">Run your first analysis to start seeing data here.</p>
+  <a href="/dsat" class="btn btn-primary" style="background:#dc2626;margin-top:1rem;display:inline-flex;">
+    Analyse a DSAT Ticket
+  </a>
+</div>
+{% else %}
+
+<!-- ── Summary stats ───────────────────────────────────────────────────── -->
+{% set high = prob_counts.get('high', 0) %}
+{% set medium = prob_counts.get('medium', 0) %}
+{% set low = prob_counts.get('low', 0) %}
+{% set unknown = total - high - medium - low %}
+
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;">
+  <div class="card stat-card">
+    <div class="value" style="color:#dc2626;">{{ total }}</div>
+    <div class="label">Total DSATs</div>
+  </div>
+  <div class="card stat-card">
+    <div class="value" style="color:#16a34a;">{{ high }}</div>
+    <div class="label">High Recovery</div>
+    {% if total %}<div style="font-size:.72rem;color:#9ca3af;margin-top:.25rem;">{{ "%.0f"|format(high/total*100) }}% of total</div>{% endif %}
+  </div>
+  <div class="card stat-card">
+    <div class="value" style="color:#ca8a04;">{{ medium }}</div>
+    <div class="label">Medium Recovery</div>
+    {% if total %}<div style="font-size:.72rem;color:#9ca3af;margin-top:.25rem;">{{ "%.0f"|format(medium/total*100) }}% of total</div>{% endif %}
+  </div>
+  <div class="card stat-card">
+    <div class="value" style="color:#991b1b;">{{ low }}</div>
+    <div class="label">Low Recovery</div>
+    {% if total %}<div style="font-size:.72rem;color:#9ca3af;margin-top:.25rem;">{{ "%.0f"|format(low/total*100) }}% of total</div>{% endif %}
+  </div>
+</div>
+
+<!-- ── Recovery probability bar ──────────────────────────────────────── -->
+{% if total > 0 %}
+<div class="card" style="margin-bottom:1.5rem;">
+  <h2 style="margin-bottom:.9rem;">Recovery Probability Distribution</h2>
+  <div style="display:flex;height:28px;border-radius:8px;overflow:hidden;gap:2px;">
+    {% if high %}
+    <div style="flex:{{ high }};background:#16a34a;display:flex;align-items:center;justify-content:center;
+                font-size:.72rem;font-weight:700;color:#fff;"
+         title="High: {{ high }}">
+      {% if high/total > 0.08 %}High {{ high }}{% endif %}
+    </div>
+    {% endif %}
+    {% if medium %}
+    <div style="flex:{{ medium }};background:#ca8a04;display:flex;align-items:center;justify-content:center;
+                font-size:.72rem;font-weight:700;color:#fff;"
+         title="Medium: {{ medium }}">
+      {% if medium/total > 0.08 %}Medium {{ medium }}{% endif %}
+    </div>
+    {% endif %}
+    {% if low %}
+    <div style="flex:{{ low }};background:#dc2626;display:flex;align-items:center;justify-content:center;
+                font-size:.72rem;font-weight:700;color:#fff;"
+         title="Low: {{ low }}">
+      {% if low/total > 0.08 %}Low {{ low }}{% endif %}
+    </div>
+    {% endif %}
+    {% if unknown %}
+    <div style="flex:{{ unknown }};background:#d1d5db;display:flex;align-items:center;justify-content:center;
+                font-size:.72rem;font-weight:700;color:#6b7280;"
+         title="Unknown: {{ unknown }}">
+      {% if unknown/total > 0.08 %}? {{ unknown }}{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="grid2" style="margin-bottom:1.5rem;align-items:start;">
+
+  <!-- ── DSAT Categories ──────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>DSAT Categories</h2>
+    {% if category_counts %}
+    {% set max_count = category_counts[0][1] %}
+    <div style="display:grid;gap:.65rem;">
+      {% set cat_colors = {
+        'response_time': '#dc2626',
+        'incorrect_info': '#7c3aed',
+        'lack_of_empathy': '#db2777',
+        'unresolved_issue': '#ea580c',
+        'process_failure': '#ca8a04',
+        'communication': '#2563eb',
+        'other': '#6b7280'
+      } %}
+      {% for cat, count in category_counts %}
+      {% set color = cat_colors.get(cat, '#6b7280') %}
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.3rem;">
+          <span style="font-size:.82rem;font-weight:600;color:#374151;">
+            {{ cat | replace('_',' ') | title }}
+          </span>
+          <span style="font-size:.78rem;font-weight:700;color:{{ color }};">{{ count }}</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-bar-fill"
+               style="width:{{ (count/max_count*100)|int }}%;background:{{ color }};"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p style="color:#9ca3af;font-size:.875rem;">No categories detected yet.</p>
+    {% endif %}
+  </div>
+
+  <!-- ── Agent Summary ────────────────────────────────────────────────── -->
+  <div class="card">
+    <h2>Agent Breakdown</h2>
+    {% if agents %}
+    <table>
+      <thead>
+        <tr>
+          <th>Agent</th>
+          <th style="text-align:center;">DSATs</th>
+          <th>Top Category</th>
+          <th style="text-align:center;">Recovery</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ag in agents %}
+        <tr style="cursor:pointer;" onclick="window.location='/dsat/dashboard?agent={{ ag.name }}'">
+          <td style="font-weight:600;">{{ ag.name }}</td>
+          <td style="text-align:center;">
+            <span style="font-weight:700;color:#dc2626;">{{ ag.total }}</span>
+          </td>
+          <td style="font-size:.78rem;color:#6b7280;">
+            {{ ag.top_category | replace('_',' ') | title if ag.top_category != '—' else '—' }}
+          </td>
+          <td style="text-align:center;">
+            <div style="display:flex;gap:3px;justify-content:center;align-items:center;">
+              {% if ag.high_prob %}
+              <span style="background:#dcfce7;color:#166534;font-size:.65rem;font-weight:700;
+                           padding:.15rem .4rem;border-radius:99px;">H:{{ ag.high_prob }}</span>
+              {% endif %}
+              {% if ag.medium_prob %}
+              <span style="background:#fef9c3;color:#854d0e;font-size:.65rem;font-weight:700;
+                           padding:.15rem .4rem;border-radius:99px;">M:{{ ag.medium_prob }}</span>
+              {% endif %}
+              {% if ag.low_prob %}
+              <span style="background:#fee2e2;color:#991b1b;font-size:.65rem;font-weight:700;
+                           padding:.15rem .4rem;border-radius:99px;">L:{{ ag.low_prob }}</span>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p style="font-size:.72rem;color:#9ca3af;margin-top:.75rem;">Click a row to filter the dashboard to that agent.</p>
+    {% else %}
+    <p style="color:#9ca3af;font-size:.875rem;">No agent data available.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── All analyses table ──────────────────────────────────────────────── -->
+<div class="card">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.75rem;">
+    <h2 style="margin:0;">
+      All Analyses
+      {% if agent_filter %}
+      <span style="font-size:.8rem;font-weight:400;color:#6b7280;margin-left:.5rem;">— {{ agent_filter }}</span>
+      {% endif %}
+    </h2>
+    <div style="display:flex;gap:.5rem;align-items:center;">
+      <input type="text" id="table-search" placeholder="Search ticket / subject / category…"
+        oninput="filterTable(this.value)"
+        style="font-size:.82rem;padding:.38rem .7rem;border:1px solid var(--border);border-radius:6px;
+               width:240px;font-family:inherit;" />
+    </div>
+  </div>
+
+  <div style="overflow-x:auto;">
+    <table id="analyses-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Date</th>
+          <th>Agent</th>
+          <th>Ticket</th>
+          <th>Customer</th>
+          <th>DSAT Categories</th>
+          <th style="text-align:center;">Recovery</th>
+          <th>Comment</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        {% set prob = r.recovery_probability %}
+        {% set cats = r.root_causes | map(attribute='category') | list %}
+        <tr onclick="window.location='/dsat/{{ r.id }}'" style="cursor:pointer;">
+          <td style="color:#9ca3af;font-size:.8rem;">{{ r.id }}</td>
+          <td style="white-space:nowrap;font-size:.82rem;">{{ r.created_at[:10] if r.created_at else '—' }}</td>
+          <td style="font-weight:600;font-size:.85rem;">{{ r.agent_name or '—' }}</td>
+          <td style="font-size:.82rem;">
+            {% if r.ticket_id %}<span style="color:#6b7280;">#{{ r.ticket_id }}</span>{% endif %}
+            {% if r.ticket_subject %}
+            <div style="font-size:.78rem;color:#374151;">{{ r.ticket_subject[:40] }}{% if r.ticket_subject|length > 40 %}…{% endif %}</div>
+            {% endif %}
+          </td>
+          <td style="font-size:.82rem;">{{ r.customer_name or '—' }}</td>
+          <td>
+            <div style="display:flex;flex-wrap:wrap;gap:.25rem;">
+              {% for cat in cats %}
+              <span style="font-size:.65rem;font-weight:600;padding:.15rem .45rem;border-radius:99px;background:#fee2e2;color:#991b1b;">
+                {{ cat | replace('_',' ') | title }}
+              </span>
+              {% endfor %}
+            </div>
+          </td>
+          <td style="text-align:center;">
+            <span style="font-size:.72rem;font-weight:700;padding:.2rem .55rem;border-radius:99px;
+              background:{% if prob=='high' %}#dcfce7{% elif prob=='medium' %}#fef9c3{% elif prob=='low' %}#fee2e2{% else %}#f3f4f6{% endif %};
+              color:{% if prob=='high' %}#166534{% elif prob=='medium' %}#854d0e{% elif prob=='low' %}#991b1b{% else %}#6b7280{% endif %};">
+              {{ prob | title if prob else '—' }}
+            </span>
+          </td>
+          <td style="font-size:.78rem;color:#6b7280;max-width:180px;">
+            {% if r.improvements_comment %}
+            {{ r.improvements_comment[:80] }}{% if r.improvements_comment|length > 80 %}…{% endif %}
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endif %}
+
+<script>
+function filterTable(q) {
+  const lower = q.toLowerCase();
+  document.querySelectorAll('#analyses-table tbody tr').forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(lower) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}
