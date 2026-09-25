@@ -42,6 +42,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 import { logoutAction } from "@/app/(dashboard)/actions";
 import type { OrgRole } from "@/generated/prisma/client";
 
@@ -87,6 +88,11 @@ export type NavItem = {
   /** Sidebar section heading; items without one fall under "Workspace". */
   group?: string;
 };
+
+const PRODUCTS = [
+  { label: "CRM", href: "/dashboard" },
+  { label: "QA Sentinel", href: "/qa" },
+] as const;
 
 function initials(name: string): string {
   return name
@@ -138,6 +144,29 @@ export function AppSidebar({
             <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-sidebar-muted">{groupLabel}</p>
           </div>
         </div>
+        {/* Switch between products. Links go to each product's home; its layout
+            redirects to billing if the org doesn't have access yet. */}
+        <nav
+          aria-label="Products"
+          className="mx-2 grid grid-cols-2 gap-0.5 rounded-md bg-sidebar-accent p-0.5 group-data-[collapsible=icon]:hidden"
+        >
+          {PRODUCTS.map((product) => {
+            const active = product.href === "/qa" ? pathname.startsWith("/qa") : !pathname.startsWith("/qa");
+            return (
+              <Link
+                key={product.href}
+                href={product.href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "rounded-[5px] px-2 py-1.5 text-center text-xs font-medium text-sidebar-muted transition-colors hover:text-sidebar-foreground",
+                  active && "bg-sidebar-badge text-sidebar-foreground",
+                )}
+              >
+                {product.label}
+              </Link>
+            );
+          })}
+        </nav>
       </SidebarHeader>
       <SidebarContent>
         {[...groups].map(([label, items]) => (

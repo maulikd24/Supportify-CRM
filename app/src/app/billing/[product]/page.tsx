@@ -3,11 +3,12 @@ import { Sparkles, Users } from "lucide-react";
 
 import { requireOrg } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
-import { plansForProduct, PRODUCT_LABELS } from "@/lib/billing/plans";
+import { plansForProduct, PRODUCT_LABELS, TRIAL_DAYS } from "@/lib/billing/plans";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { Product } from "@/generated/prisma/client";
 import { CheckoutButton } from "./checkout-button";
+import { StartTrialButton } from "./start-trial-button";
 
 const PRODUCT_ICON = {
   QA_SENTINEL: Sparkles,
@@ -46,6 +47,18 @@ export default async function ProductBillingPage({ params }: { params: Promise<{
           </p>
         </div>
       </div>
+
+      {!subscription && ["OWNER", "ADMIN"].includes(session.user.orgRole) && (
+        <Card className="border-primary/40 bg-primary/5">
+          <CardContent className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="font-heading font-semibold">Try {PRODUCT_LABELS[product]} free for {TRIAL_DAYS} days</p>
+              <p className="text-sm text-muted-foreground">No card required. Pick a plan any time before the trial ends.</p>
+            </div>
+            <StartTrialButton product={product} />
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-3">
         {plans.map((plan) => {

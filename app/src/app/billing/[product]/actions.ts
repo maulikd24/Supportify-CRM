@@ -5,12 +5,47 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { requireOrg } from "@/lib/auth/require-role";
 import { getStripe } from "@/lib/billing/stripe";
-import { planById, stripePriceIdFor, PRODUCT_LABELS } from "@/lib/billing/plans";
+import { planById, stripePriceIdFor, PRODUCT_LABELS, TRIAL_DAYS } from "@/lib/billing/plans";
+import { DEFAULT_STAGE_DEFINITIONS } from "@/lib/stage-engine/stages";
 import type { Product } from "@/generated/prisma/client";
 
 function parseProduct(value: string): Product {
   if (value === "QA_SENTINEL" || value === "CRM") return value;
   throw new Error(`Unknown product: ${value}`);
+}
+
+/**
+ * Starts the same free trial signup gives, for a product the org picked not to
+ * trial at signup. Only once per product: any existing subscription row (even a
+ * lapsed trial) means the trial has already been used.
+ */
+export async function startTrialAction(productParam: string) {
+  const session = await requireOrg(["OWNER", "ADMIN"]);
+  const product = parseProduct(productParam);
+  const organizationId = session.user.organizationId;
+
+  const existing = await prisma.productSubscription.findUnique({
+    where: { organizationId_product: { organizationId, product } },
+  });
+  if (existing) throw new Error(`Your organization has already used its ${PRODUCT_LABELS[product]} trial.`);
+
+  await prisma.productSubscription.create({
+    data: {
+      organizationId,
+      product,
+      status: "TRIALING",
+      trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  // CRM needs a pipeline to be usable — seed the default stages if the org has none.
+  if (product === "CRM" && (await prisma.stage.count({ where: { organizationId } })) === 0) {
+    await prisma.stage.createMany({
+      data: DEFAULT_STAGE_DEFINITIONS.map((stage) => ({ ...stage, organizationId })),
+    });
+  }
+
+  redirect(product === "CRM" ? "/dashboard" : "/qa");
 }
 
 export async function startCheckoutAction(productParam: string, planId: string) {
