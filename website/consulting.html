@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consulting Services — Supportify</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<nav id="mainNav">
+  <a class="nav-logo" href="index.html">
+    <div class="nav-logo-icon">
+      <svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2 5C2 3.9 2.9 3 4 3h10c1.1 0 2 .9 2 2v6c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V5z" stroke="#FF4D5E" stroke-width="1.5"/>
+        <path d="M6 3v2M9 3v2M12 3v2" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M4 8h10M4 10.5h6" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="3" fill="#FF4D5E"/>
+        <path d="M13 14h2M14 13v2" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+    </div>
+    Supportify
+  </a>
+  <ul class="nav-links" id="navLinks">
+    <li><a href="index.html">Home</a></li>
+    <li><a onclick="showPage('team')" id="nav-team">Team Setup</a></li>
+    <li><a onclick="showPage('templates')" id="nav-templates">Best Practices</a></li>
+    <li><a onclick="showPage('crm')" id="nav-crm">CRM & Ticketing</a></li>
+    <li><a onclick="showPage('contact')" id="nav-contact" class="nav-cta">Get a Quote</a></li>
+  </ul>
+  <button class="hamburger" id="hamburger" onclick="toggleMenu()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- ======================== CONSULTING OVERVIEW ======================== -->
+<div class="page active" id="page-home">
+
+  <section class="hero">
+    <div class="hero-bg-grid"></div>
+    <div class="hero-content">
+      <div class="hero-badge">Customer Support Consulting</div>
+      <h1>Build support teams that<br><em>actually scale</em></h1>
+      <p>From zero to a full-stack support operation — we help startups set up their customer support and calling teams, define best practices, and implement the right CRM & ticketing systems.</p>
+      <div class="hero-actions">
+        <button class="btn-primary" onclick="showPage('contact')">
+          Request a Free Consultation
+          <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:16px;height:16px"><path d="M4 10h12M12 6l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="btn-outline-white" onclick="showPage('team')">
+          Explore Services
+        </button>
+      </div>
+      <div class="hero-stats">
+        <div class="stat-item">
+          <div class="stat-number">50<span>+</span></div>
+          <div class="stat-label">Startups consulted</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number">3<span>x</span></div>
+          <div class="stat-label">Avg CSAT improvement</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number">48<span>hr</span></div>
+          <div class="stat-label">Typical onboarding</div>
+        </div>
+      </div>
+    </div>
+    <svg class="hero-wave" viewBox="0 0 1440 120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M0,80 C360,40 720,100 1080,60 C1260,40 1380,70 1440,80 L1440,120 L0,120 Z" fill="#F8F7F4"/>
+    </svg>
+  </section>
+
+  <section>
+    <div class="reveal">
+      <div class="section-eyebrow">What we do</div>
+      <h2 class="section-title">Consulting services built for <em>growing startups</em></h2>
+      <p class="section-sub">Every growing company hits a wall with customer support. We've built the playbooks, the systems, and the teams that break through it.</p>
+    </div>
+    <div class="services-grid">
+      <a class="service-card reveal" onclick="showPage('team')">
+        <div class="service-icon icon-blue">
+          <svg viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM3 21v-1a6 6 0 0 1 12 0v1M16 8a4 4 0 1 1 0 8M22 21v-1a6 6 0 0 0-4.5-5.8" stroke="#99A9FF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h3>Team Setup & Scaling</h3>
+        <p>We help you hire, train, and structure your customer support and calling teams from the ground up — with org design, SOPs, and KPI frameworks tailored to your stage.</p>
+        <span class="card-link">Learn more <svg viewBox="0 0 14 14" fill="none"><path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </a>
+      <a class="service-card reveal" onclick="showPage('templates')">
+        <div class="service-icon icon-orange">
+          <svg viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 6h10M8 10h10M8 14h6" stroke="#FF4D5E" stroke-width="1.6" stroke-linecap="round"/>
+            <rect x="3" y="3" width="20" height="20" rx="3" stroke="#FF4D5E" stroke-width="1.6"/>
+          </svg>
+        </div>
+        <h3>Best Practice Templates</h3>
+        <p>Battle-tested playbooks, response templates, escalation matrices, and SOP documents — everything your team needs to deliver consistent, high-quality support from day one.</p>
+        <span class="card-link">Learn more <svg viewBox="0 0 14 14" fill="none"><path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </a>
+      <a class="service-card reveal" onclick="showPage('crm')">
+        <div class="service-icon icon-teal">
+          <svg viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="8" width="8" height="6" rx="1.5" stroke="#0F6E56" stroke-width="1.6"/>
+            <rect x="15" y="3" width="8" height="6" rx="1.5" stroke="#0F6E56" stroke-width="1.6"/>
+            <rect x="15" y="17" width="8" height="6" rx="1.5" stroke="#0F6E56" stroke-width="1.6"/>
+            <path d="M11 11h2m0 0v-5m0 5v6" stroke="#0F6E56" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <h3>CRM & Ticketing Setup</h3>
+        <p>We evaluate, configure, and deploy the right CRM and helpdesk tools for your business — Freshdesk, Zendesk, Zoho, HubSpot and more — with automation, routing, and dashboards.</p>
+        <span class="card-link">Learn more <svg viewBox="0 0 14 14" fill="none"><path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </a>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <section class="why-section">
+    <div class="reveal">
+      <div class="section-eyebrow">Why Supportify</div>
+      <h2 class="section-title">We've been <em>where you are</em></h2>
+    </div>
+    <div class="why-grid">
+      <div class="why-item reveal">
+        <div class="why-num">01</div>
+        <div>
+          <h4>Startup-native expertise</h4>
+          <p>We understand the chaos of early-stage growth. Our frameworks are designed to work with small teams, tight budgets, and changing priorities.</p>
+        </div>
+      </div>
+      <div class="why-item reveal">
+        <div class="why-num">02</div>
+        <div>
+          <h4>End-to-end engagement</h4>
+          <p>From strategy to execution, we stay hands-on. We don't hand you a deck and disappear — we work alongside your team.</p>
+        </div>
+      </div>
+      <div class="why-item reveal">
+        <div class="why-num">03</div>
+        <div>
+          <h4>Tool-agnostic advice</h4>
+          <p>We recommend what's right for your business, not what earns us a referral. We work across all major CRM and ticketing platforms.</p>
+        </div>
+      </div>
+      <div class="why-item reveal">
+        <div class="why-num">04</div>
+        <div>
+          <h4>Custom pricing, always</h4>
+          <p>No rigid packages. Every engagement is scoped to your actual needs — so you pay for what you use, nothing more.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="cta-band">
+    <h2>Ready to build a support team <em>you're proud of</em>?</h2>
+    <p>Tell us about your business and we'll put together a scoped proposal — at no cost.</p>
+    <button class="btn-primary" onclick="showPage('contact')">Get a Free Consultation</button>
+  </div>
+
+  <footer>
+    <div class="footer-top">
+      <div class="footer-brand">
+        <div class="nav-logo" style="cursor:default">
+          <div class="nav-logo-icon">
+            <svg viewBox="0 0 18 18" fill="none"><path d="M2 5C2 3.9 2.9 3 4 3h10c1.1 0 2 .9 2 2v6c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V5z" stroke="#FF4D5E" stroke-width="1.5"/><path d="M6 3v2M9 3v2M12 3v2" stroke="white" stroke-width="1.5" stroke-linecap="round"/><path d="M4 8h10M4 10.5h6" stroke="white" stroke-width="1.2" stroke-linecap="round"/><circle cx="14" cy="14" r="3" fill="#FF4D5E"/><path d="M13 14h2M14 13v2" stroke="white" stroke-width="1.2" stroke-linecap="round"/></svg>
+          </div>
+          <span style="color:white;font-family:'Sora',sans-serif;font-weight:700;font-size:1.1rem">Supportify</span>
+        </div>
+        <p>Customer support consulting for startups — from team building to CRM setup.</p>
+      </div>
+      <div class="footer-col">
+        <h5>Services</h5>
+        <a onclick="showPage('team')">Team Setup & Scaling</a>
+        <a onclick="showPage('templates')">Best Practice Templates</a>
+        <a onclick="showPage('crm')">CRM & Ticketing</a>
+      </div>
+      <div class="footer-col">
+        <h5>Company</h5>
+        <a href="index.html">Home</a>
+        <a onclick="showPage('contact')">Contact Us</a>
+        <a onclick="showPage('contact')">Request a Quote</a>
+      </div>
+      <div class="footer-col">
+        <h5>Contact</h5>
+        <a>hello@supportify.co.in</a>
+        <a>India · Remote-first</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Supportify. All rights reserved.</span>
+    </div>
+  </footer>
+</div>
+
+<!-- ======================== TEAM SETUP PAGE ======================== -->
+<div class="page" id="page-team">
+  <div class="page-hero">
+    <div class="page-hero-bg"></div>
+    <div class="page-hero-content">
+      <div class="hero-badge">Service 01</div>
+      <h1>Setting up & scaling your<br><em>Support & Calling Team</em></h1>
+      <p>From your first support hire to a full-fledged 50-person team, we design the structure, processes, and culture that make support a competitive advantage.</p>
+    </div>
+  </div>
+
+  <div class="detail-section">
+    <div class="two-col">
+      <div>
+        <div class="section-eyebrow">The challenge</div>
+        <h2 class="detail-title">Most startups build support reactively</h2>
+        <p class="detail-body">A single agent handling everything in a shared inbox. No triage, no escalation path, no training, no SLAs. It works — until it doesn't. When volume spikes, quality collapses, agents burn out, and customers churn.</p>
+        <p class="detail-body">We help you get ahead of that curve with a purpose-built support structure that scales with your growth.</p>
+        <div class="highlight-box">
+          <h4>Who this is for</h4>
+          <p>Founders or Ops leads at seed-to-Series B startups who are ready to move beyond the "everyone does support" phase and build a proper team — whether that's 2 people or 20.</p>
+        </div>
+      </div>
+      <div>
+        <div class="section-eyebrow">What we deliver</div>
+        <h2 class="detail-title">A support org built to last</h2>
+        <ul class="checklist">
+          <li><div class="check-icon"><svg viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="#99A9FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Support org chart and team structure design</li>
+          <li><div class="check-icon"><svg viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="#99A9FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Role definitions: Tier-1, Tier-2, Team Lead, QA, Trainer</li>
+          <li><div class="check-icon"><svg viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="#99A9FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Hiring process: JDs, interview scorecards, sourcing strategy</li>
+          <li><div class="check-icon"><svg viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="#99A9FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>30/60/90 day onboarding and training plans</li>
+          <li><div class="check-icon"><svg viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="#99A9FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>KPI framework: CSAT, FRT, AHT, FCR benchmarks</li>
+          <li><div class="check-icon"><svg viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="#99A9FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Shift planning and capacity modelling</li>
+          <li><div class="check-icon"><svg viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="#99A9FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Inbound calling team setup: IVR, call routing, scripts</li>
+          <li><div class="check-icon"><svg viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="#99A9FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Quality monitoring and coaching frameworks</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="detail-section">
+    <div class="section-eyebrow">Our process</div>
+    <h2 class="detail-title">How we work with you</h2>
+    <div style="max-width: 600px; margin-top: 1.5rem;">
+      <div class="process-steps">
+        <div class="process-step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Discovery & audit</h4>
+            <p>We spend time understanding your product, customer base, ticket volumes, and current support pain points through structured interviews and data review.</p>
+          </div>
+        </div>
+        <div class="process-step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Design & planning</h4>
+            <p>We design your team structure, define roles, map out processes, and create a phased hiring and training plan aligned with your growth roadmap.</p>
+          </div>
+        </div>
+        <div class="process-step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4>Documentation handover</h4>
+            <p>You receive a complete playbook — SOPs, hiring kits, onboarding tracks, and KPI dashboards — ready to execute from day one.</p>
+          </div>
+        </div>
+        <div class="process-step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <h4>Ongoing advisory (optional)</h4>
+            <p>We offer retainer-based advisory to review metrics, coach team leads, and adapt your strategy as you scale further.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pricing-note">
+      <div class="pricing-note-icon">
+        <svg viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="9" stroke="white" stroke-width="1.6"/><path d="M11 7v5l3 3" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <h4>Pricing is custom & on request</h4>
+        <p>Every engagement is scoped individually based on team size, complexity, and timelines. We'll put together a transparent proposal after a free 30-minute discovery call — no commitment required.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta-band">
+    <h2>Let's design your support team</h2>
+    <p>Tell us where you are today and where you need to be — we'll build a plan to get you there.</p>
+    <button class="btn-primary" onclick="showPage('contact')">Book a Discovery Call</button>
+  </div>
+
+  <footer>
+    <div class="footer-top">
+      <div class="footer-brand">
+        <div class="nav-logo" style="cursor:default"><div class="nav-logo-icon"><svg viewBox="0 0 18 18" fill="none"><path d="M2 5C2 3.9 2.9 3 4 3h10c1.1 0 2 .9 2 2v6c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V5z" stroke="#FF4D5E" stroke-width="1.5"/><path d="M4 8h10M4 10.5h6" stroke="white" stroke-width="1.2" stroke-linecap="round"/></svg></div><span style="color:white;font-family:'Sora',sans-serif;font-weight:700;font-size:1.1rem">Supportify</span></div>
+        <p>Customer support consulting for startups — from team building to CRM setup.</p>
+      </div>
+      <div class="footer-col"><h5>Services</h5><a onclick="showPage('team')">Team Setup & Scaling</a><a onclick="showPage('templates')">Best Practice Templates</a><a onclick="showPage('crm')">CRM & Ticketing</a></div>
+      <div class="footer-col"><h5>Company</h5><a href="index.html">Home</a><a onclick="showPage('contact')">Contact Us</a></div>
+      <div class="footer-col"><h5>Contact</h5><a>hello@supportify.co.in</a></div>
+    </div>
+    <div class="footer-bottom"><span>© 2026 Supportify. All rights reserved.</span></div>
+  </footer>
+</div>
+
+<!-- ======================== TEMPLATES PAGE ======================== -->
+<div class="page" id="page-templates">
+  <div class="page-hero">
+    <div class="page-hero-bg"></div>
+    <div class="page-hero-content">
+      <div class="hero-badge">Service 02</div>
+      <h1>Templates for<br><em>Support Best Practices</em></h1>
+      <p>Stop reinventing the wheel every time you onboard someone or handle a tough ticket. We build your team's entire playbook library — ready to use and easy to maintain.</p>
+    </div>
+  </div>
+
+  <div class="detail-section">
+    <div class="two-col">
+      <div>
+        <div class="section-eyebrow">Why it matters</div>
+        <h2 class="detail-title">Consistency is the foundation of great support</h2>
+        <p class="detail-body">Without documented processes, every agent handles tickets differently. Quality depends on who's working that day. New hires take months to ramp. Customer experience is unpredictable.</p>
+        <p class="detail-body">Our template packages give your team a shared language, a clear process, and the confidence to handle anything that comes their way.</p>
+        <div class="highlight-box">
+          <h4>Delivered as editable documents</h4>
+          <p>All templates are delivered in formats your team can actually use — Google Docs, Notion, or your preferred tool. We customize the tone and content to match your brand and product.</p>
+        </div>
+      </div>
+      <div>
+        <div class="section-eyebrow">Template library</div>
+        <h2 class="detail-title">What's included</h2>
+        <div class="template-grid">
+          <div class="template-card">
+            <span class="template-tag tag-blue">Response templates</span>
+            <h4>Macros & canned responses</h4>
+            <p>50+ pre-written responses for your most common ticket types, with tone guidance and customization notes.</p>
+          </div>
+          <div class="template-card">
+            <span class="template-tag tag-orange">SOPs</span>
+            <h4>Escalation playbook</h4>
+            <p>Clear decision trees for when and how to escalate — from Tier 1 to Tier 2 to Product/Engineering.</p>
+          </div>
+          <div class="template-card">
+            <span class="template-tag tag-teal">Onboarding</span>
+            <h4>New agent training guide</h4>
+            <p>A structured 30-day onboarding track with quizzes, shadowing schedules, and readiness criteria.</p>
+          </div>
+          <div class="template-card">
+            <span class="template-tag tag-purple">Quality</span>
+            <h4>QA scorecard & rubric</h4>
+            <p>A conversation quality framework with scoring dimensions, calibration guidance, and coaching templates.</p>
+          </div>
+          <div class="template-card">
+            <span class="template-tag tag-blue">Calling</span>
+            <h4>Call scripts & objection handling</h4>
+            <p>Opening scripts, discovery questions, objection responses, and closing patterns for inbound & outbound calls.</p>
+          </div>
+          <div class="template-card">
+            <span class="template-tag tag-orange">Reporting</span>
+            <h4>Weekly metrics report template</h4>
+            <p>A standardized report format to track CSAT, FRT, backlog, and team performance week-over-week.</p>
+          </div>
+          <div class="template-card">
+            <span class="template-tag tag-teal">Knowledge base</span>
+            <h4>Help center article templates</h4>
+            <p>Structured article formats for FAQs, how-to guides, troubleshooting flows, and policy pages.</p>
+          </div>
+          <div class="template-card">
+            <span class="template-tag tag-purple">People ops</span>
+            <h4>Performance review template</h4>
+            <p>A support-specific review framework with quantitative KPIs and qualitative competency ratings.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pricing-note" style="margin-top:3rem">
+      <div class="pricing-note-icon">
+        <svg viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="9" stroke="white" stroke-width="1.6"/><path d="M11 7v5l3 3" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <h4>Custom-built for your business, priced on request</h4>
+        <p>Template packages are scoped by volume and complexity. We can deliver a starter pack or a full enterprise playbook library — reach out and we'll quote accordingly.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta-band">
+    <h2>Get your team's playbook built</h2>
+    <p>We'll audit what you have, identify the gaps, and deliver a complete template library tailored to your product and tone.</p>
+    <button class="btn-primary" onclick="showPage('contact')">Request a Template Audit</button>
+  </div>
+
+  <footer>
+    <div class="footer-top">
+      <div class="footer-brand">
+        <div class="nav-logo" style="cursor:default"><div class="nav-logo-icon"><svg viewBox="0 0 18 18" fill="none"><path d="M2 5C2 3.9 2.9 3 4 3h10c1.1 0 2 .9 2 2v6c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V5z" stroke="#FF4D5E" stroke-width="1.5"/><path d="M4 8h10M4 10.5h6" stroke="white" stroke-width="1.2" stroke-linecap="round"/></svg></div><span style="color:white;font-family:'Sora',sans-serif;font-weight:700;font-size:1.1rem">Supportify</span></div>
+        <p>Customer support consulting for startups — from team building to CRM setup.</p>
+      </div>
+      <div class="footer-col"><h5>Services</h5><a onclick="showPage('team')">Team Setup & Scaling</a><a onclick="showPage('templates')">Best Practice Templates</a><a onclick="showPage('crm')">CRM & Ticketing</a></div>
+      <div class="footer-col"><h5>Company</h5><a href="index.html">Home</a><a onclick="showPage('contact')">Contact Us</a></div>
+      <div class="footer-col"><h5>Contact</h5><a>hello@supportify.co.in</a></div>
+    </div>
+    <div class="footer-bottom"><span>© 2026 Supportify. All rights reserved.</span></div>
+  </footer>
+</div>
+
+<!-- ======================== CRM PAGE ======================== -->
+<div class="page" id="page-crm">
+  <div class="page-hero">
+    <div class="page-hero-bg"></div>
+    <div class="page-hero-content">
+      <div class="hero-badge">Service 03</div>
+      <h1>CRM & Ticketing<br><em>Setup & Configuration</em></h1>
+      <p>The right tool, configured the right way. We help you pick, set up, and optimize your CRM and helpdesk — so your team can focus on customers, not admin.</p>
+    </div>
+  </div>
+
+  <div class="detail-section">
+    <div class="two-col">
+      <div>
+        <div class="section-eyebrow">The problem</div>
+        <h2 class="detail-title">Bad setup creates bad data — and bad support</h2>
+        <p class="detail-body">Many teams pick a tool quickly, set it up in an afternoon, and never revisit it. The result: tickets fall through cracks, automation breaks, reports are meaningless, and agents work around the tool instead of with it.</p>
+        <p class="detail-body">We take your CRM setup seriously — because it's the backbone of every customer interaction your team has.</p>
+        <div class="highlight-box">
+          <h4>Tools we work with</h4>
+          <div class="tools-grid">
+            <div class="tool-pill">Freshdesk<span>Helpdesk</span></div>
+            <div class="tool-pill">Zendesk<span>Helpdesk</span></div>
+            <div class="tool-pill">Zoho CRM<span>CRM</span></div>
+            <div class="tool-pill">HubSpot<span>CRM</span></div>
+            <div class="tool-pill">Salesforce<span>CRM</span></div>
+            <div class="tool-pill">Intercom<span>Messaging</span></div>
+            <div class="tool-pill">Leadsquared<span>CRM</span></div>
+            <div class="tool-pill">Freshsales<span>CRM</span></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="section-eyebrow">What we set up</div>
+        <h2 class="detail-title">End-to-end implementation</h2>
+        <ul class="checklist">
+          <li><div class="check-icon"><svg viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="#99A9FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Tool evaluation and recommendation for your stack</li>
+          <li><div class="check-icon"><svg viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="#99A9FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Channel setup: email, chat, phone, WhatsApp, social</li>
+          <li><div class="check-icon"><svg viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="#99A9FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Ticket categorisation, tagging, and priority rules</li>
+          <li><div class="check-icon"><svg viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="#99A9FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Automation: auto-assign, SLA rules, escalation triggers</li>
+          <li><div class="check-icon"><svg viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="#99A9FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>CSAT survey setup and response rate optimisation</li>
+          <li><div class="check-icon"><svg viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="#99A9FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Reporting dashboards: volume, SLAs, agent performance</li>
+          <li><div class="check-icon"><svg viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="#99A9FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>CRM pipeline setup: lead stages, deal flows, custom fields</li>
+          <li><div class="check-icon"><svg viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="#99A9FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Integration: connect your CRM with helpdesk, billing, product</li>
+          <li><div class="check-icon"><svg viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="#99A9FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Team training and admin handover documentation</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="detail-section">
+    <div class="section-eyebrow">Engagement model</div>
+    <h2 class="detail-title">How our CRM implementation works</h2>
+    <div style="max-width: 600px; margin-top: 1.5rem;">
+      <div class="process-steps">
+        <div class="process-step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Needs assessment</h4>
+            <p>We map your current tools, workflows, team structure, and integrations to understand your exact requirements before recommending anything.</p>
+          </div>
+        </div>
+        <div class="process-step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Tool selection & scoping</h4>
+            <p>If you haven't chosen a tool yet, we evaluate options against your needs and budget. If you already have one, we audit your current setup and create an optimisation roadmap.</p>
+          </div>
+        </div>
+        <div class="process-step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4>Build & configure</h4>
+            <p>We handle the full setup — channels, automations, pipelines, dashboards, integrations. You get a working system, not just a plan.</p>
+          </div>
+        </div>
+        <div class="process-step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <h4>Train & handover</h4>
+            <p>We train your team, document every configuration, and hand over admin access with full context. You'll own it completely after we're done.</p>
+          </div>
+        </div>
+        <div class="process-step">
+          <div class="step-num">5</div>
+          <div class="step-content">
+            <h4>Post-launch support</h4>
+            <p>We offer a hyper-care period after launch to fix teething issues, and optional ongoing retainer support for changes and scale-ups.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pricing-note">
+      <div class="pricing-note-icon">
+        <svg viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="9" stroke="white" stroke-width="1.6"/><path d="M11 7v5l3 3" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <h4>Pricing depends on scope — always transparent</h4>
+        <p>Implementation cost varies based on the tool, number of channels, integrations, and team size. We'll scope it clearly upfront with no surprises. Get in touch for a custom quote.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta-band">
+    <h2>Get your CRM set up properly</h2>
+    <p>Share your current setup and we'll tell you exactly what needs to change — and what it'll cost.</p>
+    <button class="btn-primary" onclick="showPage('contact')">Request a CRM Audit</button>
+  </div>
+
+  <footer>
+    <div class="footer-top">
+      <div class="footer-brand">
+        <div class="nav-logo" style="cursor:default"><div class="nav-logo-icon"><svg viewBox="0 0 18 18" fill="none"><path d="M2 5C2 3.9 2.9 3 4 3h10c1.1 0 2 .9 2 2v6c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V5z" stroke="#FF4D5E" stroke-width="1.5"/><path d="M4 8h10M4 10.5h6" stroke="white" stroke-width="1.2" stroke-linecap="round"/></svg></div><span style="color:white;font-family:'Sora',sans-serif;font-weight:700;font-size:1.1rem">Supportify</span></div>
+        <p>Customer support consulting for startups — from team building to CRM setup.</p>
+      </div>
+      <div class="footer-col"><h5>Services</h5><a onclick="showPage('team')">Team Setup & Scaling</a><a onclick="showPage('templates')">Best Practice Templates</a><a onclick="showPage('crm')">CRM & Ticketing</a></div>
+      <div class="footer-col"><h5>Company</h5><a href="index.html">Home</a><a onclick="showPage('contact')">Contact Us</a></div>
+      <div class="footer-col"><h5>Contact</h5><a>hello@supportify.co.in</a></div>
+    </div>
+    <div class="footer-bottom"><span>© 2026 Supportify. All rights reserved.</span></div>
+  </footer>
+</div>
+
+<!-- ======================== CONTACT PAGE ======================== -->
+<div class="page" id="page-contact">
+  <div class="page-hero">
+    <div class="page-hero-bg"></div>
+    <div class="page-hero-content">
+      <div class="hero-badge">Let's talk</div>
+      <h1>Get a <em>custom quote</em><br>for your business</h1>
+      <p>Tell us what you're working on — whether it's building a team from scratch, cleaning up your CRM, or just figuring out where to start. We'll get back to you within 24 hours.</p>
+    </div>
+  </div>
+
+  <div class="contact-layout">
+    <div class="contact-info">
+      <h2>Why talk to us first?</h2>
+      <p>Every engagement starts with a free 30-minute discovery call. No commitment, no pitch — just an honest conversation about your challenges and what's possible. Most people leave with three useful ideas even if we don't end up working together.</p>
+
+      <div class="contact-detail">
+        <div class="contact-detail-icon"><svg viewBox="0 0 18 18" fill="none"><path d="M9 1a8 8 0 1 0 0 16A8 8 0 0 0 9 1z" stroke="#030416" stroke-width="1.5"/><path d="M9 5v5l3 2" stroke="#030416" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+        <div class="contact-detail-text">
+          <strong>Response time</strong>
+          <span>We reply within 24 hours on business days</span>
+        </div>
+      </div>
+      <div class="contact-detail">
+        <div class="contact-detail-icon"><svg viewBox="0 0 18 18" fill="none"><path d="M3 4h12v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4z" stroke="#030416" stroke-width="1.5"/><path d="M3 4l6 6 6-6" stroke="#030416" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="contact-detail-text">
+          <strong>Email us directly</strong>
+          <span>hello@supportify.co.in</span>
+        </div>
+      </div>
+      <div class="contact-detail">
+        <div class="contact-detail-icon"><svg viewBox="0 0 18 18" fill="none"><path d="M9 2C6.24 2 4 4.24 4 7c0 4.5 5 9 5 9s5-4.5 5-9c0-2.76-2.24-5-5-5z" stroke="#030416" stroke-width="1.5"/><circle cx="9" cy="7" r="2" stroke="#030416" stroke-width="1.5"/></svg></div>
+        <div class="contact-detail-text">
+          <strong>Location</strong>
+          <span>India · Remote-first, available across time zones</span>
+        </div>
+      </div>
+
+      <div style="margin-top: 2.5rem; padding: 1.5rem; background: var(--off-white); border-radius: var(--radius-md);">
+        <p style="font-size: 0.85rem; font-weight: 600; color: var(--navy); margin-bottom: 0.5rem;">All pricing is on request</p>
+        <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.65;">We don't believe in one-size-fits-all packages. After understanding your needs, we'll send a clear, itemised proposal with no hidden costs.</p>
+      </div>
+    </div>
+
+    <div class="contact-form-wrap" id="contactFormWrap">
+      <h3>Tell us about your project</h3>
+      <p>Fill in the form below and we'll follow up with a personalised response.</p>
+      <div class="form-row">
+        <div class="form-group">
+          <label>First name</label>
+          <input type="text" placeholder="Priya" id="fname">
+        </div>
+        <div class="form-group">
+          <label>Last name</label>
+          <input type="text" placeholder="Sharma" id="lname">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Work email</label>
+        <input type="email" placeholder="priya@yourcompany.com" id="email">
+      </div>
+      <div class="form-group">
+        <label>Company name</label>
+        <input type="text" placeholder="Acme Technologies" id="company">
+      </div>
+      <div class="form-group">
+        <label>Service you're interested in</label>
+        <select id="service">
+          <option value="">Select a service…</option>
+          <option>Team Setup & Scaling</option>
+          <option>Best Practice Templates</option>
+          <option>CRM & Ticketing Setup</option>
+          <option>Multiple services / not sure yet</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Tell us about your challenge</label>
+        <textarea id="message" placeholder="We're a 30-person startup and just hired our first 3 support agents. We have no processes in place and tickets are piling up…"></textarea>
+      </div>
+      <button class="form-submit" onclick="submitForm()">
+        Send enquiry
+        <svg viewBox="0 0 18 18" fill="none" style="width:16px;height:16px"><path d="M3 9h12M11 5l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="form-success" id="formSuccess">
+        <svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20" stroke="#0F6E56" stroke-width="2"/><path d="M16 24l6 6 10-12" stroke="#0F6E56" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <h4>We've received your enquiry!</h4>
+        <p>Expect a reply at your email within one business day. Talk soon.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-top">
+      <div class="footer-brand">
+        <div class="nav-logo" style="cursor:default"><div class="nav-logo-icon"><svg viewBox="0 0 18 18" fill="none"><path d="M2 5C2 3.9 2.9 3 4 3h10c1.1 0 2 .9 2 2v6c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V5z" stroke="#FF4D5E" stroke-width="1.5"/><path d="M4 8h10M4 10.5h6" stroke="white" stroke-width="1.2" stroke-linecap="round"/></svg></div><span style="color:white;font-family:'Sora',sans-serif;font-weight:700;font-size:1.1rem">Supportify</span></div>
+        <p>Customer support consulting for startups — from team building to CRM setup.</p>
+      </div>
+      <div class="footer-col"><h5>Services</h5><a onclick="showPage('team')">Team Setup & Scaling</a><a onclick="showPage('templates')">Best Practice Templates</a><a onclick="showPage('crm')">CRM & Ticketing</a></div>
+      <div class="footer-col"><h5>Company</h5><a href="index.html">Home</a><a onclick="showPage('contact')">Get a Quote</a></div>
+      <div class="footer-col"><h5>Contact</h5><a>hello@supportify.co.in</a></div>
+    </div>
+    <div class="footer-bottom"><span>© 2026 Supportify. All rights reserved.</span></div>
+  </footer>
+</div>
+
+<script>
+  function showPage(name) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    const navEl = document.getElementById('nav-' + name);
+    if (navEl) navEl.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.getElementById('navLinks').classList.remove('open');
+    initReveal();
+  }
+
+  function toggleMenu() {
+    document.getElementById('navLinks').classList.toggle('open');
+  }
+
+  window.addEventListener('scroll', () => {
+    document.getElementById('mainNav').classList.toggle('scrolled', window.scrollY > 20);
+    checkReveal();
+  });
+
+  function initReveal() {
+    setTimeout(checkReveal, 80);
+  }
+
+  function checkReveal() {
+    document.querySelectorAll('.reveal').forEach(el => {
+      const rect = el.getBoundingClientRect();
+      if (rect.top < window.innerHeight - 60) el.classList.add('visible');
+    });
+  }
+
+  function submitForm() {
+    const fname = document.getElementById('fname').value.trim();
+    const email = document.getElementById('email').value.trim();
+    if (!fname || !email) {
+      alert('Please fill in at least your name and email.');
+      return;
+    }
+    const formFields = document.querySelectorAll('#contactFormWrap .form-group, #contactFormWrap h3, #contactFormWrap > p, .form-submit');
+    formFields.forEach(el => el.style.display = 'none');
+    document.getElementById('formSuccess').style.display = 'block';
+  }
+
+  initReveal();
+</script>
+</body>
+</html>
