@@ -2,6 +2,8 @@
 
 import { Area, Bar, ComposedChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 
+import { formatCompact } from "@/lib/utils/date-buckets";
+
 export type TrendPoint = { label: string; value: number; bar?: number };
 
 /**
@@ -12,13 +14,15 @@ export function TrendChart({
   data,
   valueLabel,
   barLabel,
-  formatValue = (v) => String(v),
+  valueFormat = "plain",
 }: {
   data: TrendPoint[];
   valueLabel: string;
   barLabel?: string;
-  formatValue?: (v: number) => string;
+  /** A key, not a function — functions can't be passed from Server Components. */
+  valueFormat?: "plain" | "compact";
 }) {
+  const formatValue = (v: number) => (valueFormat === "compact" ? formatCompact(v) : String(v));
   return (
     <div className="h-40 w-full">
       <ResponsiveContainer width="100%" height="100%">

@@ -89,7 +89,7 @@ export async function OverviewRow({ clientFilter, taskFilter }: { clientFilter: 
             </span>
           </div>
         </div>
-        <TrendChart data={trend} valueLabel="Value added" barLabel="Clients won" formatValue={formatCompact} />
+        <TrendChart data={trend} valueLabel="Value added" barLabel="Clients won" valueFormat="compact" />
       </Panel>
     </div>
   );
