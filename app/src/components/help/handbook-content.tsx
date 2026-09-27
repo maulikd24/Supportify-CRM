@@ -209,12 +209,12 @@ export function HandbookContent() {
       <div className="flex min-w-0 flex-1 flex-col gap-8">
         {GROUPS.map((group) => (
           <div key={group.id} className="flex flex-col gap-4">
-            <h2 className="font-heading text-lg font-semibold">{group.label}</h2>
+            <h2 className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">{group.label}</h2>
             <div className="flex flex-col gap-4">
               {group.sections.map((section) => (
                 <Card key={section.id} id={section.id} className="scroll-mt-20">
                   <CardHeader>
-                    <CardTitle className="text-base">{section.title}</CardTitle>
+                    <CardTitle>{section.title}</CardTitle>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
                     {section.body.map((paragraph, i) => (

@@ -5,12 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CommentForm } from "./comment-form";
-
-function probabilityVariant(prob: string | null): "default" | "secondary" | "destructive" {
-  if (prob === "high") return "default";
-  if (prob === "medium") return "secondary";
-  return "destructive";
-}
+import { probabilityVariant } from "@/lib/qa/score";
 
 export default async function DsatDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireOrg();
@@ -30,7 +25,7 @@ export default async function DsatDetailPage({ params }: { params: Promise<{ id:
   const followUp = (analysis.followUpResponse as { subject: string; body: string } | null) ?? null;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
@@ -38,7 +33,7 @@ export default async function DsatDetailPage({ params }: { params: Promise<{ id:
             <CardDescription>
               {analysis.ticketId ? `Ticket #${analysis.ticketId} · ` : ""}
               {analysis.customerName ? `${analysis.customerName} · ` : ""}
-              {analysis.createdAt.toLocaleString()}
+              {analysis.createdAt.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
             </CardDescription>
           </div>
           <Badge variant={probabilityVariant(analysis.recoveryProbability)} className="capitalize">
@@ -47,24 +42,24 @@ export default async function DsatDetailPage({ params }: { params: Promise<{ id:
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div>
-            <h3 className="mb-1 text-sm font-medium">What went wrong</h3>
-            <p className="text-sm">{analysis.whatWentWrong}</p>
+            <h3 className="mb-1 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">What went wrong</h3>
+            <p className="text-[13px] leading-relaxed">{analysis.whatWentWrong}</p>
           </div>
           <div>
-            <h3 className="mb-1 text-sm font-medium">Customer impact</h3>
-            <p className="text-sm">{analysis.customerImpact}</p>
+            <h3 className="mb-1 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Customer impact</h3>
+            <p className="text-[13px] leading-relaxed">{analysis.customerImpact}</p>
           </div>
           <div>
-            <h3 className="mb-1 text-sm font-medium">Recovery rationale</h3>
-            <p className="text-sm">{analysis.recoveryRationale}</p>
+            <h3 className="mb-1 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Recovery rationale</h3>
+            <p className="text-[13px] leading-relaxed">{analysis.recoveryRationale}</p>
           </div>
 
           {rootCauses.length > 0 && (
             <div>
-              <h3 className="mb-2 text-sm font-medium">Root causes</h3>
+              <h3 className="mb-2 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Root causes</h3>
               <ul className="flex flex-col gap-2">
                 {rootCauses.map((rc, i) => (
-                  <li key={i} className="rounded border p-2 text-sm">
+                  <li key={i} className="rounded-md border border-border p-3 text-[13px]">
                     <span className="font-medium">{rc.issue}</span>{" "}
                     <span className="text-muted-foreground">
                       ({rc.severity} · {rc.category.replace(/_/g, " ")})
@@ -77,10 +72,10 @@ export default async function DsatDetailPage({ params }: { params: Promise<{ id:
 
           {recommendations.length > 0 && (
             <div>
-              <h3 className="mb-2 text-sm font-medium">Recovery recommendations</h3>
+              <h3 className="mb-2 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Recovery recommendations</h3>
               <ul className="flex flex-col gap-2">
                 {recommendations.map((rec, i) => (
-                  <li key={i} className="rounded border p-2 text-sm">
+                  <li key={i} className="rounded-md border border-border p-3 text-[13px]">
                     <div className="font-medium">{rec.action}</div>
                     <div className="text-muted-foreground">
                       {rec.priority} · owner: {rec.owner}
@@ -94,7 +89,7 @@ export default async function DsatDetailPage({ params }: { params: Promise<{ id:
 
           {preventionTips.length > 0 && (
             <div>
-              <h3 className="mb-1 text-sm font-medium">Prevention tips</h3>
+              <h3 className="mb-1 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Prevention tips</h3>
               <ul className="list-disc pl-5 text-sm">
                 {preventionTips.map((tip, i) => (
                   <li key={i}>{tip}</li>
@@ -105,7 +100,7 @@ export default async function DsatDetailPage({ params }: { params: Promise<{ id:
 
           {followUp && (
             <div>
-              <h3 className="mb-1 text-sm font-medium">Suggested follow-up</h3>
+              <h3 className="mb-1 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">Suggested follow-up</h3>
               <div className="rounded border p-3 text-sm">
                 <div className="font-medium">{followUp.subject}</div>
                 <p className="mt-1 whitespace-pre-wrap">{followUp.body}</p>

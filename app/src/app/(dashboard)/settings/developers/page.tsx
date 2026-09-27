@@ -18,17 +18,17 @@ export default async function DevelopersSettingsPage() {
   ]);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-lg font-semibold">Developers</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground uppercase">Settings</p>
+        <p className="mt-1 max-w-prose text-xs text-muted-foreground">
           API keys and webhooks for integrating Supportify with your own systems.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">API Keys</CardTitle>
+          <CardTitle>API Keys</CardTitle>
           <CardDescription>
             Authenticate requests to the REST API with{" "}
             <code className="rounded bg-muted px-1 py-0.5 text-xs">Authorization: Bearer &lt;key&gt;</code>. See{" "}
@@ -44,7 +44,7 @@ export default async function DevelopersSettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Webhooks</CardTitle>
+          <CardTitle>Webhooks</CardTitle>
           <CardDescription>
             Get notified when things happen in Supportify. Each delivery is signed with HMAC-SHA256 in the{" "}
             <code className="rounded bg-muted px-1 py-0.5 text-xs">X-Supportify-Signature</code> header.

@@ -2,30 +2,39 @@ import Link from "next/link";
 
 import { requireOrg } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { NewReviewDialog } from "./new-review-dialog";
-
-function scoreVariant(score: number | null): "default" | "secondary" | "destructive" {
-  if (score === null) return "secondary";
-  if (score >= 75) return "default";
-  if (score >= 50) return "secondary";
-  return "destructive";
-}
+import { Panel } from "@/components/dashboard/panel";
+import { ScoreChip } from "@/components/dashboard/score-chip";
+import { formatDate } from "@/lib/utils/format";
+import { TableEmpty } from "@/components/page/table-empty";
 
 export default async function QaReviewsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ agent?: string }>;
+  searchParams: Promise<{ agent?: string; q?: string; new?: string }>;
 }) {
   const session = await requireOrg();
   const organizationId = session.user.organizationId;
-  const { agent } = await searchParams;
+  const { agent, q, new: openNew } = await searchParams;
+  const query = q?.trim();
 
   const [reviews, sops, hasZendesk] = await Promise.all([
     prisma.ticketReview.findMany({
-      where: { organizationId, ...(agent ? { agentEmail: agent } : {}) },
+      where: {
+        organizationId,
+        ...(agent ? { agentEmail: agent } : {}),
+        ...(query
+          ? {
+              OR: [
+                { ticketId: { contains: query, mode: "insensitive" } },
+                { ticketSubject: { contains: query, mode: "insensitive" } },
+                { agentName: { contains: query, mode: "insensitive" } },
+                { agentEmail: { contains: query, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+      },
       orderBy: { createdAt: "desc" },
       take: 50,
     }),
@@ -34,25 +43,29 @@ export default async function QaReviewsPage({
   ]);
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Ticket Reviews{agent ? ` — ${agent}` : ""}</CardTitle>
-        <NewReviewDialog sops={sops.map((s) => ({ id: s.id, name: s.name }))} disabled={!hasZendesk} />
-      </CardHeader>
-      <CardContent>
-        {agent && (
-          <p className="mb-4 text-sm">
-            Filtered to {agent} ·{" "}
-            <Link href="/qa/reviews" className="underline">
-              Clear filter
-            </Link>
-          </p>
-        )}
-        {!hasZendesk && (
-          <p className="mb-4 text-sm text-muted-foreground">
-            Connect Zendesk in <Link href="/qa/settings" className="underline">Settings</Link> to run reviews.
-          </p>
-        )}
+    <Panel eyebrow="Quality" title={<>Ticket reviews{agent ? ` — ${agent}` : ""}</>} action={<><NewReviewDialog sops={sops.map((s) => ({ id: s.id, name: s.name }))} disabled={!hasZendesk} defaultOpen={openNew === "1"} /></>}>
+      {(agent || query || !hasZendesk) && (
+        <div className="flex flex-col gap-1 px-5 pb-4 text-xs text-muted-foreground">
+          {(agent || query) && (
+            <p>
+              Filtered to <span className="font-semibold text-foreground">{query ? `“${query}”` : agent}</span> ·{" "}
+              <Link href="/qa/reviews" className="font-bold text-primary hover:underline">
+                Clear filter
+              </Link>
+            </p>
+          )}
+          {!hasZendesk && (
+            <p>
+              Connect Zendesk in{" "}
+              <Link href="/qa/settings" className="font-bold text-primary hover:underline">
+                Settings
+              </Link>{" "}
+              to run reviews.
+            </p>
+          )}
+        </div>
+      )}
+      <div className="overflow-x-auto border-t border-border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -67,32 +80,26 @@ export default async function QaReviewsPage({
             {reviews.map((review) => (
               <TableRow key={review.id}>
                 <TableCell>
-                  <Link href={`/qa/reviews/${review.id}`} className="font-medium hover:underline">
+                  <Link href={`/qa/reviews/${review.id}`} className="font-semibold hover:underline">
                     #{review.ticketId} {review.ticketSubject}
                   </Link>
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">{review.agentName}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">
+                <TableCell className="text-muted-foreground">{review.agentName}</TableCell>
+                <TableCell className="text-muted-foreground">
                   {Array.isArray(review.sopNames) ? (review.sopNames as string[]).join(", ") : ""}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={scoreVariant(review.overallScore)}>{review.overallScore ?? "—"}</Badge>
+                  <ScoreChip score={review.overallScore} />
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {review.createdAt.toLocaleDateString()}
+                <TableCell className="text-muted-foreground">
+                  {formatDate(review.createdAt)}
                 </TableCell>
               </TableRow>
             ))}
-            {reviews.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  No reviews yet.
-                </TableCell>
-              </TableRow>
-            )}
+            {reviews.length === 0 && <TableEmpty colSpan={5}>{query || agent ? "No reviews match this filter." : "No reviews yet."}</TableEmpty>}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+      </div>
+    </Panel>
   );
 }

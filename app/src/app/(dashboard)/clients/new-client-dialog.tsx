@@ -35,11 +35,14 @@ type DuplicateInfo = { id: string; name: string; clientCode: string; mobile: str
 export function NewClientDialog({
   users,
   customFieldDefinitions,
+  defaultOpen = false,
 }: {
   users: UserOption[];
   customFieldDefinitions: CustomFieldDefinition[];
+  /** Open on mount — set when arriving via the header's "New client" (?new=1). */
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [pending, setPending] = useState(false);
   const [duplicate, setDuplicate] = useState<DuplicateInfo | null>(null);
   const formRef = useRef<HTMLFormElement>(null);

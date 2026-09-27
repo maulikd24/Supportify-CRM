@@ -2,11 +2,13 @@ import Link from "next/link";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/utils/format";
+import { Panel } from "@/components/dashboard/panel";
+import { Pagination } from "@/components/page/pagination";
+import { TableEmpty } from "@/components/page/table-empty";
 
 const PAGE_SIZE = 50;
 
@@ -62,7 +64,6 @@ export default async function AuditLogPage({
     }),
   ]);
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   function buildPageHref(page: number): string {
     const usp = new URLSearchParams();
@@ -73,13 +74,8 @@ export default async function AuditLogPage({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Audit Log</CardTitle>
-        <CardDescription>A record of every change made to your organization's data.</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="flex flex-wrap gap-2">
+    <Panel eyebrow="Compliance" title="Audit Log" description={<>A record of every change made to your organization&apos;s data.</>}>
+      <div className="flex flex-wrap gap-2 px-5 pb-4">
           <Button size="sm" variant={!params.entity ? "default" : "outline"} render={<Link href="/settings/audit-log" />}>
             All
           </Button>
@@ -93,8 +89,8 @@ export default async function AuditLogPage({
               {e.entity}
             </Button>
           ))}
-        </div>
-
+      </div>
+      <div className="overflow-x-auto border-t border-border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -108,14 +104,14 @@ export default async function AuditLogPage({
           <TableBody>
             {entries.map((entry) => (
               <TableRow key={entry.id}>
-                <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                <TableCell className="text-muted-foreground">
                   {formatDateTime(entry.timestamp)}
                 </TableCell>
-                <TableCell className="text-sm">{entry.user.name}</TableCell>
+                <TableCell>{entry.user.name}</TableCell>
                 <TableCell>
                   <Badge variant="outline">{entry.entity}</Badge>
                 </TableCell>
-                <TableCell className="text-sm">{ACTION_LABELS[entry.action] ?? entry.action}</TableCell>
+                <TableCell>{ACTION_LABELS[entry.action] ?? entry.action}</TableCell>
                 <TableCell className="text-xs text-muted-foreground max-w-md">
                   {entry.reason && <div>Reason: {entry.reason}</div>}
                   {entry.oldValue != null && <div>From: {summarizeValue(entry.oldValue)}</div>}
@@ -124,43 +120,13 @@ export default async function AuditLogPage({
               </TableRow>
             ))}
             {entries.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  No activity recorded yet.
-                </TableCell>
-              </TableRow>
+              <TableEmpty colSpan={5}>No activity recorded yet.</TableEmpty>
             )}
           </TableBody>
         </Table>
 
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <p>
-            {totalCount === 0
-              ? "0 entries"
-              : `${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(currentPage * PAGE_SIZE, totalCount)} of ${totalCount}`}
-          </p>
-          <div className="flex gap-2">
-            {currentPage <= 1 ? (
-              <Button size="sm" variant="outline" disabled>
-                Previous
-              </Button>
-            ) : (
-              <Button size="sm" variant="outline" render={<Link href={buildPageHref(currentPage - 1)} />}>
-                Previous
-              </Button>
-            )}
-            {currentPage >= totalPages ? (
-              <Button size="sm" variant="outline" disabled>
-                Next
-              </Button>
-            ) : (
-              <Button size="sm" variant="outline" render={<Link href={buildPageHref(currentPage + 1)} />}>
-                Next
-              </Button>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+      <Pagination page={currentPage} pageSize={PAGE_SIZE} total={totalCount} noun="entries" hrefFor={buildPageHref} />
+    </Panel>
   );
 }

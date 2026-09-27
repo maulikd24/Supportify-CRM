@@ -2,6 +2,6 @@
 
 import { RouteError } from "@/components/route-error";
 
-export default function ReportsError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  return <RouteError reset={reset} />;
+export default function ReportsError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  return <RouteError error={error} reset={reset} />;
 }

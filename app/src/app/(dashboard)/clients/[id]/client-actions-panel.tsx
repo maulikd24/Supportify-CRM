@@ -175,7 +175,7 @@ export function ClientActionsPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Actions</CardTitle>
+        <CardTitle>Actions</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <Field>

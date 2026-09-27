@@ -47,7 +47,7 @@ export function StageActionCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Current Stage: {client.currentStage.name}</CardTitle>
+        <CardTitle>Current Stage: {client.currentStage.name}</CardTitle>
         <CardDescription>
           {client.status === "COMPLETED"
             ? "This deal is complete."

@@ -11,10 +11,10 @@ export function WaitNode({ data, selected }: NodeProps & { data: WaitNodeData })
 
   return (
     <div
-      className={`rounded-lg border-2 bg-card px-3 py-2 shadow-sm min-w-40 ${selected ? "border-primary" : "border-orange-400"}`}
+      className={`rounded-lg border-2 bg-card px-3 py-2 shadow-sm min-w-40 ${selected ? "border-primary" : "border-chart-5"}`}
     >
       <Handle type="target" position={Position.Top} />
-      <div className="flex items-center gap-1.5 text-xs font-medium text-orange-600">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-chart-5">
         <Clock className="size-3.5" />
         WAIT
       </div>

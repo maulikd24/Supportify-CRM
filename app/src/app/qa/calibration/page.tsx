@@ -2,10 +2,11 @@ import Link from "next/link";
 
 import { requireOrg } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/utils/format";
+import { Panel } from "@/components/dashboard/panel";
+import { TableEmpty } from "@/components/page/table-empty";
 
 export default async function CalibrationListPage() {
   const session = await requireOrg();
@@ -21,15 +22,9 @@ export default async function CalibrationListPage() {
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Calibration Sessions</CardTitle>
-        <CardDescription>
-          Multiple reviewers independently score the same ticket to check how consistently the team applies your
-          SOPs. Start one from any review&apos;s detail page.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <Panel eyebrow="Consistency" title="Calibration Sessions" description={<>Multiple reviewers independently score the same ticket to check how consistently the team applies your
+          SOPs. Start one from any review&apos;s detail page.</>}>
+      <div className="overflow-x-auto border-t border-border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -44,28 +39,24 @@ export default async function CalibrationListPage() {
             {sessions.map((s) => (
               <TableRow key={s.id}>
                 <TableCell>
-                  <Link href={`/qa/calibration/${s.id}`} className="font-medium hover:underline">
+                  <Link href={`/qa/calibration/${s.id}`} className="font-semibold hover:underline">
                     #{s.review.ticketId} {s.review.ticketSubject}
                   </Link>
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">{s.createdBy.name}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{s._count.entries}</TableCell>
+                <TableCell className="text-muted-foreground">{s.createdBy.name}</TableCell>
+                <TableCell className="text-muted-foreground">{s._count.entries}</TableCell>
                 <TableCell>
-                  <Badge variant={s.status === "OPEN" ? "secondary" : "outline"}>{s.status}</Badge>
+                  <Badge variant={s.status === "OPEN" ? "warning" : "secondary"}>{s.status === "OPEN" ? "Open" : "Closed"}</Badge>
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">{formatDateTime(s.createdAt)}</TableCell>
+                <TableCell className="text-muted-foreground">{formatDateTime(s.createdAt)}</TableCell>
               </TableRow>
             ))}
             {sessions.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                  No calibration sessions yet.
-                </TableCell>
-              </TableRow>
+              <TableEmpty colSpan={5}>No calibration sessions yet.</TableEmpty>
             )}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+      </div>
+    </Panel>
   );
 }

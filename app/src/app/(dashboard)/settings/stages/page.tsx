@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StageRow } from "./stage-row";
 import { NewStageDialog } from "./new-stage-dialog";
+import { Panel } from "@/components/dashboard/panel";
 
 export default async function StagesSettingsPage() {
   const session = await requireRole(["ADMIN"]);
@@ -14,18 +14,9 @@ export default async function StagesSettingsPage() {
   });
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Pipeline Stages</CardTitle>
-          <CardDescription>
-            Your sales pipeline — rename stages, set SLA hours, and mark a stage &quot;Terminal&quot; so clients that
-            reach it are automatically marked Completed.
-          </CardDescription>
-        </div>
-        <NewStageDialog />
-      </CardHeader>
-      <CardContent>
+    <Panel eyebrow="Pipeline" title="Pipeline Stages" description={<>Your sales pipeline — rename stages, set SLA hours, and mark a stage &quot;Terminal&quot; so clients that
+            reach it are automatically marked Completed.</>} action={<><NewStageDialog /></>}>
+      <div className="overflow-x-auto border-t border-border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -43,7 +34,7 @@ export default async function StagesSettingsPage() {
             ))}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+      </div>
+    </Panel>
   );
 }

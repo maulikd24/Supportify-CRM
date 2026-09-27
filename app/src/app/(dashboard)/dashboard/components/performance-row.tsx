@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CalendarDays } from "lucide-react";
 
 import { prisma } from "@/lib/db/prisma";
 import { Panel, PanelEmpty } from "@/components/dashboard/panel";
@@ -40,17 +41,22 @@ export async function PerformanceRow({ clientFilter, taskFilter }: { clientFilte
 
   return (
     <div className="grid gap-4 lg:grid-cols-12">
-      <Panel className="lg:col-span-7" title="Performance" action={<span className="text-xs text-muted-foreground">This month</span>} bodyClassName="grid gap-6 px-5 pt-2 pb-5 sm:grid-cols-3">
+      <Panel className="lg:col-span-7" eyebrow="This month" title="Performance" bodyClassName="grid gap-6 px-5 pt-2 pb-5 sm:grid-cols-3">
         <ProgressStat label="Tasks closed" value={doneNow} {...compare(doneNow, donePrev)} />
         <ProgressStat label="Clients won" value={wonNow} {...compare(wonNow, wonPrev)} />
         <ProgressStat label="New clients" value={newNow} {...compare(newNow, newPrev)} />
       </Panel>
       <Panel
         className="lg:col-span-5"
+        eyebrow="Next up"
         title="Today’s schedule"
         action={
-          <Link href="/tasks" className="text-xs font-semibold text-primary hover:underline">
-            All tasks
+          <Link
+            href="/tasks"
+            aria-label="All tasks"
+            className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-mist/60 hover:text-foreground"
+          >
+            <CalendarDays className="size-4" />
           </Link>
         }
         bodyClassName="px-3 pb-3"

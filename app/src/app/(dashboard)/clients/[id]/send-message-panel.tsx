@@ -70,7 +70,7 @@ export function SendMessagePanel({ clientId, templates }: { clientId: string; te
   return (
     <Card id="send-message">
       <CardHeader>
-        <CardTitle className="text-base">Send Message</CardTitle>
+        <CardTitle>Send Message</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <Field>

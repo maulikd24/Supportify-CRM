@@ -1,24 +1,15 @@
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatTile } from "@/components/dashboard/stat-tile";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StageFunnelChartLoader } from "./stage-funnel-chart-loader";
 import { computeSlaStatus } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { getStageDurations } from "@/lib/reports/stage-durations";
 import type { Prisma } from "@/generated/prisma/client";
-
-function Kpi({ label, value }: { label: string; value: string | number }) {
-  return (
-    <Card size="sm">
-      <CardContent className="flex flex-col gap-1 px-4">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="font-heading text-2xl font-semibold">{value}</p>
-      </CardContent>
-    </Card>
-  );
-}
+import { Panel } from "@/components/dashboard/panel";
+import { TableEmpty } from "@/components/page/table-empty";
 
 export default async function ReportsPage() {
   const session = await requireRole(["ADMIN", "MANAGER"]);
@@ -173,32 +164,29 @@ export default async function ReportsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kpi label="Total Leads" value={totalLeads} />
-        <Kpi label="Active Onboarding" value={activeClients} />
-        <Kpi label="Completed" value={completedClients} />
-        <Kpi label="Not Proceeding" value={notProceedingClients} />
-        <Kpi label="On Hold" value={onHoldClients} />
-        <Kpi label="Overdue" value={overdueCount} />
-        <Kpi label="SLA Compliance" value={`${slaCompliance}%`} />
-        <Kpi label="Avg Onboarding Time" value={avgOnboardingDays > 0 ? `${avgOnboardingDays}d` : "—"} />
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <StatTile label="Total leads" value={totalLeads} />
+        <StatTile label="Active onboarding" value={activeClients} />
+        <StatTile label="Completed" tone="success" value={completedClients} />
+        <StatTile label="Not proceeding" value={notProceedingClients} />
+        <StatTile label="On hold" value={onHoldClients} />
+        <StatTile label="Overdue" tone="destructive" value={overdueCount} />
+        <StatTile label="SLA compliance" value={`${slaCompliance}%`} />
+        <StatTile label="Avg onboarding time" value={avgOnboardingDays > 0 ? `${avgOnboardingDays}d` : "—"} />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Stage Funnel</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <Panel eyebrow="Pipeline" title="Stage Funnel">
+
+        <div className="px-5 pb-5">
           <StageFunnelChartLoader data={funnelData} />
-        </CardContent>
-      </Card>
+
+        </div>
+
+      </Panel>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Stage Conversion</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <Panel eyebrow="Conversion" title="Stage Conversion">
+          <div className="overflow-x-auto border-t border-border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -210,21 +198,19 @@ export default async function ReportsPage() {
               <TableBody>
                 {conversionData.map((row) => (
                   <TableRow key={row.stage}>
-                    <TableCell className="text-sm">{row.stage}</TableCell>
+                    <TableCell>{row.stage}</TableCell>
                     <TableCell>{row.reached}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{row.pct}%</TableCell>
+                    <TableCell className="text-muted-foreground">{row.pct}%</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+          </div>
+        </Panel>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Bottleneck Analysis</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <Panel eyebrow="Bottlenecks" title="Bottleneck Analysis">
+
+          <div className="overflow-x-auto border-t border-border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -236,7 +222,7 @@ export default async function ReportsPage() {
               <TableBody>
                 {stageDurations.map((row) => (
                   <TableRow key={row.stageId}>
-                    <TableCell className="text-sm">{row.stageName}</TableCell>
+                    <TableCell>{row.stageName}</TableCell>
                     <TableCell className={row.avgHours > 72 ? "text-destructive" : ""}>
                       {row.avgHours < 24 ? `${Math.round(row.avgHours)}h` : `${Math.round((row.avgHours / 24) * 10) / 10}d`}
                     </TableCell>
@@ -245,14 +231,14 @@ export default async function ReportsPage() {
                 ))}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Lost Reasons</CardTitle>
-          </CardHeader>
-          <CardContent>
+          </div>
+
+        </Panel>
+
+        <Panel eyebrow="Losses" title="Lost Reasons">
+
+          <div className="overflow-x-auto border-t border-border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -263,27 +249,23 @@ export default async function ReportsPage() {
               <TableBody>
                 {lostReasonGroups.map((row) => (
                   <TableRow key={row.reason ?? "unspecified"}>
-                    <TableCell className="text-sm">{row.reason ?? "Unspecified"}</TableCell>
+                    <TableCell>{row.reason ?? "Unspecified"}</TableCell>
                     <TableCell>{row._count._all}</TableCell>
                   </TableRow>
                 ))}
                 {lostReasonGroups.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={2} className="text-center text-muted-foreground py-6">
-                      No clients marked not proceeding yet.
-                    </TableCell>
-                  </TableRow>
+                  <TableEmpty colSpan={2}>No clients marked not proceeding yet.</TableEmpty>
                 )}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Source Performance</CardTitle>
-          </CardHeader>
-          <CardContent>
+          </div>
+
+        </Panel>
+
+        <Panel eyebrow="Sources" title="Source Performance">
+
+          <div className="overflow-x-auto border-t border-border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -296,32 +278,28 @@ export default async function ReportsPage() {
               <TableBody>
                 {sourcePerformance.map((row) => (
                   <TableRow key={row.source}>
-                    <TableCell className="text-sm">{row.source}</TableCell>
+                    <TableCell>{row.source}</TableCell>
                     <TableCell>{row.total}</TableCell>
                     <TableCell>{row.completed}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                    <TableCell className="text-muted-foreground">
                       {row.total > 0 ? Math.round((row.completed / row.total) * 100) : 0}%
                     </TableCell>
                   </TableRow>
                 ))}
                 {sourcePerformance.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
-                      No lead source data yet.
-                    </TableCell>
-                  </TableRow>
+                  <TableEmpty colSpan={4}>No lead source data yet.</TableEmpty>
                 )}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+
+          </div>
+
+        </Panel>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>RM Performance</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <Panel eyebrow="Team" title="RM Performance">
+
+        <div className="overflow-x-auto border-t border-border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -350,16 +328,14 @@ export default async function ReportsPage() {
                 </TableRow>
               ))}
               {rmPerformance.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                    No RMs to report on yet.
-                  </TableCell>
-                </TableRow>
+                <TableEmpty colSpan={7}>No RMs to report on yet.</TableEmpty>
               )}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+
+        </div>
+
+      </Panel>
     </div>
   );
 }

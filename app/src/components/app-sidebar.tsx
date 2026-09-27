@@ -38,6 +38,7 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
@@ -87,6 +88,8 @@ export type NavItem = {
   icon: IconKey;
   /** Sidebar section heading; items without one fall under "Workspace". */
   group?: string;
+  /** Count shown on the right of the row (hidden when 0/undefined). */
+  badge?: number;
 };
 
 const PRODUCTS = [
@@ -186,6 +189,7 @@ export function AppSidebar({
                         <Icon className="size-4" />
                         <span>{item.label}</span>
                       </SidebarMenuButton>
+                      {item.badge ? <SidebarMenuBadge>{item.badge.toLocaleString("en-IN")}</SidebarMenuBadge> : null}
                     </SidebarMenuItem>
                   );
                 })}
@@ -195,7 +199,7 @@ export function AppSidebar({
         ))}
       </SidebarContent>
       <SidebarFooter>
-        <div className="flex items-center gap-2.5 rounded-lg bg-sidebar-accent p-2 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0">
+        <div className="flex items-center gap-3 rounded-lg border border-sidebar-border bg-sidebar-accent p-3 group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0">
           <Avatar className="size-8 rounded-md after:rounded-md group-data-[collapsible=icon]:hidden">
             <AvatarFallback className="rounded-md bg-sidebar-badge text-xs font-semibold text-sidebar-foreground">
               {initials(user.name)}

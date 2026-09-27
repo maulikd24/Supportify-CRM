@@ -1,19 +1,15 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 
 import { requireOrg } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AuditorCommentForm } from "./auditor-comment-form";
 import { StartCalibrationButton } from "./start-calibration-button";
-
-function scoreVariant(score: number | null): "default" | "secondary" | "destructive" {
-  if (score === null) return "secondary";
-  if (score >= 75) return "default";
-  if (score >= 50) return "secondary";
-  return "destructive";
-}
+import { Eyebrow, Panel, PanelList, PanelRow } from "@/components/dashboard/panel";
+import { ProgressStat } from "@/components/dashboard/progress-stat";
+import { LOW_SCORE } from "@/lib/qa/score";
+import { formatDateTime } from "@/lib/utils/format";
+import { cn } from "@/lib/utils";
 
 export default async function ReviewDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireOrg();
@@ -31,99 +27,110 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ i
   const improvements = (review.improvements as string[] | null) ?? [];
   const sopViolations = (review.sopViolations as string[] | null) ?? [];
 
+  const findings: { label: string; tone: "primary" | "warning" | "destructive"; items: string[] }[] = [
+    { label: "Strengths", tone: "primary", items: strengths },
+    { label: "Improvements", tone: "warning", items: improvements },
+    { label: "SOP violations", tone: "destructive", items: sopViolations },
+  ];
+
   return (
-    <div className="flex flex-col gap-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>
-              Ticket #{review.ticketId} — {review.ticketSubject}
-            </CardTitle>
-            <CardDescription>
-              Agent: {review.agentName} ({review.agentEmail}) · Reviewed {review.createdAt.toLocaleString()}
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
+    <div className="flex flex-col gap-4">
+      <div className="grid gap-4 lg:grid-cols-12">
+        <section
+          className={cn(
+            "flex flex-col justify-between rounded-xl bg-ink p-5 text-ink-foreground lg:col-span-4 xl:col-span-3",
+          )}
+        >
+          <p className="text-[10px] font-medium tracking-[0.12em] text-ink-foreground/55 uppercase">Overall score</p>
+          <p className="mt-3 font-serif text-7xl leading-[0.85] tabular-nums">
+            {review.overallScore ?? "—"}
+            {review.overallScore != null && <span className="ml-1 text-2xl text-ink-foreground/55">/100</span>}
+          </p>
+          <p
+            className={cn(
+              "mt-4 text-xs font-semibold",
+              review.overallScore != null && review.overallScore < LOW_SCORE ? "text-destructive" : "text-ink-foreground/70",
+            )}
+          >
+            {review.overallScore == null ? "Not scored" : review.overallScore < LOW_SCORE ? "Needs coaching" : "Meets the bar"}
+          </p>
+        </section>
+
+        <section className="rounded-xl border border-border bg-card p-5 lg:col-span-8 xl:col-span-9">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <Eyebrow>Ticket #{review.ticketId}</Eyebrow>
+              <h2 className="mt-1 font-heading text-[19px] font-extrabold">{review.ticketSubject || "Untitled ticket"}</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {review.agentName} ({review.agentEmail}) · Reviewed {formatDateTime(review.createdAt)}
+              </p>
+            </div>
             {isAdmin && <StartCalibrationButton reviewId={review.id} />}
-            <Badge variant={scoreVariant(review.overallScore)} className="text-lg px-3 py-1">
-              {review.overallScore ?? "—"}
-            </Badge>
           </div>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <p>{review.summary}</p>
+          {review.summary && <p className="mt-4 max-w-prose text-[13px] leading-relaxed">{review.summary}</p>}
+        </section>
+      </div>
 
-          <div>
-            <h3 className="mb-2 text-sm font-medium">Criteria scores</h3>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {Object.entries(criteriaScores).map(([key, value]) => (
-                <div key={key} className="rounded border p-2 text-sm">
-                  <div className="text-muted-foreground capitalize">{key.replace(/_/g, " ")}</div>
-                  <div className="text-lg font-semibold">{value}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {strengths.length > 0 && (
-            <div>
-              <h3 className="mb-1 text-sm font-medium">Strengths</h3>
-              <ul className="list-disc pl-5 text-sm">
-                {strengths.map((s, i) => (
-                  <li key={i}>{s}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {improvements.length > 0 && (
-            <div>
-              <h3 className="mb-1 text-sm font-medium">Improvements</h3>
-              <ul className="list-disc pl-5 text-sm">
-                {improvements.map((s, i) => (
-                  <li key={i}>{s}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {sopViolations.length > 0 && (
-            <div>
-              <h3 className="mb-1 text-sm font-medium text-destructive">SOP violations</h3>
-              <ul className="list-disc pl-5 text-sm">
-                {sopViolations.map((s, i) => (
-                  <li key={i}>{s}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Auditor comment</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <AuditorCommentForm reviewId={review.id} initialComment={review.auditorComment ?? ""} />
-        </CardContent>
-      </Card>
-
-      {review.calibrationSessions.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Calibration sessions</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {review.calibrationSessions.map((s) => (
-              <Link key={s.id} href={`/qa/calibration/${s.id}`} className="flex items-center gap-2 text-sm hover:underline">
-                <Badge variant={s.status === "OPEN" ? "secondary" : "outline"}>{s.status}</Badge>
-                View session
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
+      {Object.keys(criteriaScores).length > 0 && (
+        <Panel eyebrow="Rubric" title="Criteria scores" bodyClassName="grid gap-6 px-5 pt-2 pb-5 sm:grid-cols-2 lg:grid-cols-3">
+          {Object.entries(criteriaScores).map(([key, value]) => (
+            <ProgressStat
+              key={key}
+              label={key.replace(/_/g, " ")}
+              value={value}
+              progress={Number(value) / 100}
+              hint={Number(value) < LOW_SCORE ? "Below target" : undefined}
+            />
+          ))}
+        </Panel>
       )}
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        {findings
+          .filter((f) => f.items.length > 0)
+          .map((f) => (
+            <Panel key={f.label} eyebrow="Findings" title={f.label}>
+              <PanelList>
+                {f.items.map((item, i) => (
+                  <li key={i} className="flex gap-3 px-5 py-3">
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "mt-1.5 size-2 shrink-0 rounded-full",
+                        f.tone === "primary" && "bg-primary",
+                        f.tone === "warning" && "bg-warning",
+                        f.tone === "destructive" && "bg-destructive",
+                      )}
+                    />
+                    <p className="text-[13px] leading-relaxed">{item}</p>
+                  </li>
+                ))}
+              </PanelList>
+            </Panel>
+          ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-12">
+        <Panel eyebrow="Notes" title="Auditor comment" className="lg:col-span-8" bodyClassName="px-5 pb-5">
+          <AuditorCommentForm reviewId={review.id} initialComment={review.auditorComment ?? ""} />
+        </Panel>
+        {review.calibrationSessions.length > 0 && (
+          <Panel eyebrow="Consistency" title="Calibration sessions" className="lg:col-span-4">
+            <PanelList>
+              {review.calibrationSessions.map((s) => (
+                <PanelRow
+                  key={s.id}
+                  tone={s.status === "OPEN" ? "warning" : "muted"}
+                  title={s.status === "OPEN" ? "Open session" : "Closed session"}
+                  trailing={<Badge variant={s.status === "OPEN" ? "warning" : "secondary"}>{s.status === "OPEN" ? "Open" : "Closed"}</Badge>}
+                  href={`/qa/calibration/${s.id}`}
+                  hrefLabel="Open calibration session"
+                />
+              ))}
+            </PanelList>
+          </Panel>
+        )}
+      </div>
     </div>
   );
 }

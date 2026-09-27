@@ -5,14 +5,15 @@ import { toast } from "sonner";
 
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { humanize } from "@/lib/crm/badges";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/utils/format";
 import type { Task, Client, User } from "@/generated/prisma/client";
 import { completeTaskAction } from "./actions";
 
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  PENDING: "outline",
-  DONE: "secondary",
+const STATUS_VARIANT: Record<string, "success" | "warning" | "destructive" | "secondary"> = {
+  PENDING: "warning",
+  DONE: "success",
   OVERDUE: "destructive",
   CANCELLED: "secondary",
 };
@@ -38,16 +39,16 @@ export function TaskRow({ task }: { task: TaskRowData }) {
 
   return (
     <TableRow>
-      <TableCell className={isDone ? "line-through text-muted-foreground" : ""}>{task.title}</TableCell>
-      <TableCell className="text-sm">
+      <TableCell className={isDone ? "font-semibold text-muted-foreground line-through" : "font-semibold"}>{task.title}</TableCell>
+      <TableCell>
         <a href={`/clients/${task.clientId}`} className="hover:underline">
           {task.client.name}
         </a>
       </TableCell>
-      <TableCell className="text-sm">{task.assignedTo.name}</TableCell>
-      <TableCell className="text-sm text-muted-foreground">{formatDateTime(task.dueAt)}</TableCell>
+      <TableCell>{task.assignedTo.name}</TableCell>
+      <TableCell className="text-muted-foreground">{formatDateTime(task.dueAt)}</TableCell>
       <TableCell>
-        <Badge variant={STATUS_VARIANT[optimisticStatus]}>{optimisticStatus}</Badge>
+        <Badge variant={STATUS_VARIANT[optimisticStatus]}>{humanize(optimisticStatus)}</Badge>
       </TableCell>
       <TableCell>
         {!isDone && (

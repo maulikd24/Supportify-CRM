@@ -78,7 +78,7 @@ export function IntegrationCard({
     <Card>
       <CardHeader className="flex flex-row items-start justify-between">
         <div>
-          <CardTitle className="text-base">{meta.label}</CardTitle>
+          <CardTitle>{meta.label}</CardTitle>
           <CardDescription>{meta.description}</CardDescription>
         </div>
         <Badge variant={mode === "live" ? "default" : "outline"}>{mode === "live" ? "Live" : "Mock"}</Badge>
@@ -119,7 +119,7 @@ export function IntegrationCard({
               </p>
             )}
             {testResult && (
-              <p className={`text-xs ${testResult.ok ? "text-green-600" : "text-destructive"}`}>
+              <p className={`text-xs ${testResult.ok ? "text-success" : "text-destructive"}`}>
                 {testResult.ok ? "Connection OK" : testResult.message}
               </p>
             )}
@@ -137,7 +137,7 @@ export function IntegrationCard({
           </p>
         )}
         {mode === "mock" && meta.supportsTest && testResult && (
-          <p className={`text-xs ${testResult.ok ? "text-green-600" : "text-destructive"}`}>
+          <p className={`text-xs ${testResult.ok ? "text-success" : "text-destructive"}`}>
             {testResult.message}
           </p>
         )}

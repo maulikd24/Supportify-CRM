@@ -20,10 +20,10 @@ const LABELS: Record<ActionNodeData["actionType"], string> = {
 export function ActionNode({ data, selected }: NodeProps & { data: ActionNodeData }) {
   return (
     <div
-      className={`rounded-lg border-2 bg-card px-3 py-2 shadow-sm min-w-40 ${selected ? "border-primary" : "border-blue-400"}`}
+      className={`rounded-lg border-2 bg-card px-3 py-2 shadow-sm min-w-40 ${selected ? "border-primary" : "border-chart-4"}`}
     >
       <Handle type="target" position={Position.Top} />
-      <div className="flex items-center gap-1.5 text-xs font-medium text-blue-600">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-chart-4">
         <Bolt className="size-3.5" />
         ACTION
       </div>

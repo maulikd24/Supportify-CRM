@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { NewUserDialog } from "./new-user-dialog";
 import { UserRowActions } from "./user-row-actions";
+import { Panel } from "@/components/dashboard/panel";
 
 export default async function UsersSettingsPage() {
   const session = await requireRole(["ADMIN"]);
@@ -16,12 +16,8 @@ export default async function UsersSettingsPage() {
   });
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Users</CardTitle>
-        <NewUserDialog users={users} />
-      </CardHeader>
-      <CardContent>
+    <Panel eyebrow="Team" title="Users" action={<><NewUserDialog users={users} /></>}>
+      <div className="overflow-x-auto border-t border-border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -37,11 +33,11 @@ export default async function UsersSettingsPage() {
             {users.map((user) => (
               <TableRow key={user.id}>
                 <TableCell className="font-medium">{user.name}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{user.email}</TableCell>
+                <TableCell className="text-muted-foreground">{user.email}</TableCell>
                 <TableCell>
                   <Badge variant="outline">{user.role}</Badge>
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">{user.manager?.name ?? "—"}</TableCell>
+                <TableCell className="text-muted-foreground">{user.manager?.name ?? "—"}</TableCell>
                 <TableCell>
                   <Badge variant={user.isActive ? "default" : "destructive"}>
                     {user.isActive ? "Active" : "Inactive"}
@@ -58,7 +54,7 @@ export default async function UsersSettingsPage() {
             ))}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+      </div>
+    </Panel>
   );
 }

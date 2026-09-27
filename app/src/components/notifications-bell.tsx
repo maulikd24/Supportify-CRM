@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Bell } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -72,15 +71,10 @@ export function NotificationsBell({ unreadCount }: { unreadCount: number }) {
     <DropdownMenu onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger
         render={
-          <Button variant="ghost" size="icon-sm" className="relative">
+          <Button variant="outline" size="icon-bordered" className="relative" aria-label={`Notifications${unreadCount ? ` (${unreadCount} unread)` : ""}`}>
             <Bell className="size-4" />
             {unreadCount > 0 && (
-              <Badge
-                variant="destructive"
-                className="absolute -top-1 -right-1 size-4 justify-center rounded-full p-0 text-[10px]"
-              >
-                {unreadCount}
-              </Badge>
+              <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary ring-2 ring-background" aria-hidden />
             )}
           </Button>
         }

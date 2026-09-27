@@ -6,10 +6,15 @@ import { SlaNotificationPoller } from "@/components/sla-notification-poller";
 import { VerifyEmailBanner } from "@/components/verify-email-banner";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppHeader } from "@/components/app-header";
+import { HeaderSearch } from "@/components/header-search";
+import { Button } from "@/components/ui/button";
+import { getVisibleUserIds } from "@/lib/auth/visibility";
+import Link from "next/link";
+import { Plus } from "lucide-react";
 import type { Role } from "@/generated/prisma/client";
 
 const CRM_NAV_ITEMS: (NavItem & { roles: Role[] })[] = [
-  { href: "/dashboard", label: "Dashboard", icon: "dashboard", roles: ["ADMIN", "MANAGER", "RM"] },
+  { href: "/dashboard", label: "Command center", icon: "dashboard", roles: ["ADMIN", "MANAGER", "RM"] },
   { href: "/copilot", label: "Co-pilot", icon: "copilot", roles: ["ADMIN", "MANAGER", "RM"] },
   { href: "/clients", label: "Clients", icon: "users", roles: ["ADMIN", "MANAGER", "RM"] },
   { href: "/tasks", label: "Tasks", icon: "tasks", roles: ["ADMIN", "MANAGER", "RM"] },
@@ -32,12 +37,22 @@ const CRM_NAV_ITEMS: (NavItem & { roles: Role[] })[] = [
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await requireProductAccess("CRM");
 
-  const [unreadCount, user] = await Promise.all([
-    prisma.notification.count({ where: { userId: session.user.id, readAt: null } }),
-    prisma.user.findUniqueOrThrow({ where: { id: session.user.id }, select: { emailVerifiedAt: true } }),
+  const { id: userId, role, organizationId } = session.user;
+  const visibleUserIds = await getVisibleUserIds(userId, role, organizationId);
+  const scope = visibleUserIds ? { organizationId, assignedToId: { in: visibleUserIds } } : { organizationId };
+
+  const [unreadCount, user, activeClients, myOpenTasks] = await Promise.all([
+    prisma.notification.count({ where: { userId, readAt: null } }),
+    prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { emailVerifiedAt: true } }),
+    prisma.client.count({ where: { ...scope, status: "ACTIVE", mergedIntoId: null } }),
+    prisma.task.count({ where: { organizationId, assignedToId: userId, status: { in: ["PENDING", "OVERDUE"] } } }),
   ]);
 
-  const navItems = CRM_NAV_ITEMS.filter((item) => item.roles.includes(session.user.role));
+  const badges: Record<string, number> = { "/clients": activeClients, "/tasks": myOpenTasks };
+  const navItems = CRM_NAV_ITEMS.filter((item) => item.roles.includes(role)).map((item) => ({
+    ...item,
+    badge: badges[item.href],
+  }));
 
   return (
     <SidebarProvider>
@@ -45,8 +60,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <SidebarInset>
         {!user.emailVerifiedAt && <VerifyEmailBanner />}
         <AppHeader navItems={navItems} fallbackTitle="CRM">
-          <SlaNotificationPoller role={session.user.role} />
+          <SlaNotificationPoller role={role} />
+          <HeaderSearch action="/clients" placeholder="Search clients" />
           <NotificationsBell unreadCount={unreadCount} />
+          <Button render={<Link href="/clients?new=1" />} className="hidden sm:inline-flex">
+            <Plus /> New client
+          </Button>
         </AppHeader>
         <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">{children}</main>
       </SidebarInset>

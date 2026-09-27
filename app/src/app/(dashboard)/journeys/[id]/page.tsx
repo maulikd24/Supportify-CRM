@@ -35,8 +35,9 @@ export default async function JourneyBuilderPage({
   return (
     <div className="flex flex-col gap-3">
       <div>
-        <h1 className="text-lg font-semibold">{journey.name}</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground uppercase">Journey</p>
+        <h2 className="mt-0.5 font-heading text-[19px] font-extrabold">{journey.name}</h2>
+        <p className="text-xs text-muted-foreground">
           Version {journey.version} · {inFlightCount} lead(s) currently in this journey
         </p>
       </div>

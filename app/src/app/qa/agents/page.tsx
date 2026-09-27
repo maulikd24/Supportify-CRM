@@ -2,16 +2,10 @@ import Link from "next/link";
 
 import { requireOrg } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-
-function scoreVariant(score: number | null): "default" | "secondary" | "destructive" {
-  if (score === null) return "secondary";
-  if (score >= 75) return "default";
-  if (score >= 50) return "secondary";
-  return "destructive";
-}
+import { Panel } from "@/components/dashboard/panel";
+import { TableEmpty } from "@/components/page/table-empty";
+import { ScoreChip } from "@/components/dashboard/score-chip";
 
 export default async function QaAgentsPage() {
   const session = await requireOrg();
@@ -66,12 +60,8 @@ export default async function QaAgentsPage() {
     .sort((a, b) => (a.avgScore ?? 0) - (b.avgScore ?? 0));
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Agent Scorecards</CardTitle>
-        <CardDescription>Aggregate QA performance per agent, sorted lowest average score first.</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <Panel eyebrow="Team" title="Agent Scorecards" description={<>Aggregate QA performance per agent, sorted lowest average score first.</>}>
+      <div className="overflow-x-auto border-t border-border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -86,16 +76,16 @@ export default async function QaAgentsPage() {
             {rows.map((row) => (
               <TableRow key={row.email}>
                 <TableCell>
-                  <Link href={`/qa/reviews?agent=${encodeURIComponent(row.email)}`} className="font-medium hover:underline">
+                  <Link href={`/qa/reviews?agent=${encodeURIComponent(row.email)}`} className="font-semibold hover:underline">
                     {row.name}
                   </Link>
                   <p className="text-xs text-muted-foreground">{row.email}</p>
                 </TableCell>
-                <TableCell className="text-sm">{row.totalReviews}</TableCell>
+                <TableCell>{row.totalReviews}</TableCell>
                 <TableCell>
-                  <Badge variant={scoreVariant(row.avgScore)}>{row.avgScore ?? "—"}</Badge>
+                  <ScoreChip score={row.avgScore} />
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
+                <TableCell className="text-muted-foreground">
                   {row.last30Count > 0 ? `${row.last30Avg} (${row.last30Count} reviews)` : "No recent reviews"}
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
@@ -104,15 +94,11 @@ export default async function QaAgentsPage() {
               </TableRow>
             ))}
             {rows.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  No reviews yet.
-                </TableCell>
-              </TableRow>
+              <TableEmpty colSpan={5}>No reviews yet.</TableEmpty>
             )}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+      </div>
+    </Panel>
   );
 }

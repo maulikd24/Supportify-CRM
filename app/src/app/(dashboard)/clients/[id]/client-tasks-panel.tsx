@@ -54,7 +54,7 @@ export function ClientTasksPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Tasks</CardTitle>
+        <CardTitle>Tasks</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">

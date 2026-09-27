@@ -33,14 +33,14 @@ export default async function ProductBillingPage({ params }: { params: Promise<{
   const Icon = PRODUCT_ICON[product];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <div className="flex items-start gap-3">
         <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Icon className="size-5" />
         </div>
         <div>
-          <h1 className="font-heading text-xl font-semibold">{PRODUCT_LABELS[product]} plans</h1>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="font-heading text-[19px] font-extrabold">{PRODUCT_LABELS[product]} plans</h2>
+          <p className="text-xs text-muted-foreground">
             {subscription?.status === "TRIALING" && subscription.trialEndsAt
               ? `Your trial ends ${subscription.trialEndsAt.toLocaleDateString()}.`
               : "Pick the plan that fits your team — switch or cancel any time."}

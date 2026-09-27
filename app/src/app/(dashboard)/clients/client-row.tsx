@@ -5,29 +5,10 @@ import { useRouter } from "next/navigation";
 
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { CLIENT_STATUS_VARIANT, PRIORITY_VARIANT, SLA_VARIANT, humanize } from "@/lib/crm/badges";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
 import type { SlaStatus } from "@/lib/stage-engine/sla-status";
 import type { Priority, ClientStatus } from "@/generated/prisma/client";
-
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  ACTIVE: "default",
-  ON_HOLD: "secondary",
-  COMPLETED: "default",
-  NOT_PROCEEDING: "destructive",
-};
-
-const PRIORITY_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  HIGH: "destructive",
-  MEDIUM: "secondary",
-  LOW: "outline",
-};
-
-const SLA_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  ON_TRACK: "default",
-  DUE_SOON: "secondary",
-  OVERDUE: "destructive",
-  NOT_APPLICABLE: "outline",
-};
 
 export function ClientRow({
   id,
@@ -65,39 +46,39 @@ export function ClientRow({
   return (
     <TableRow
       onClick={() => router.push(`/clients/${id}`)}
-      className="cursor-pointer hover:bg-muted/50"
+      className="cursor-pointer"
     >
       <TableCell>
         <Link
           href={`/clients/${id}`}
-          className="font-medium hover:underline"
+          className="font-semibold hover:underline"
           onClick={(e) => e.stopPropagation()}
         >
           {name}
         </Link>
-        <p className="text-xs text-muted-foreground font-mono">{clientCode}</p>
+        <p className="font-mono text-[11px] text-muted-foreground">{clientCode}</p>
       </TableCell>
-      <TableCell className="text-sm">{mobile}</TableCell>
-      <TableCell className="text-sm">{stageName}</TableCell>
-      <TableCell className="text-xs text-muted-foreground">
+      <TableCell>{mobile}</TableCell>
+      <TableCell>{stageName}</TableCell>
+      <TableCell className="text-muted-foreground">
         {ageHours < 24 ? `${Math.round(ageHours)}h` : `${Math.round(ageHours / 24)}d`}
       </TableCell>
       <TableCell>
-        <Badge variant={PRIORITY_VARIANT[priority]}>{priority}</Badge>
+        <Badge variant={PRIORITY_VARIANT[priority]}>{humanize(priority)}</Badge>
       </TableCell>
-      <TableCell className="text-sm max-w-40 truncate">{nextActionTitle ?? "—"}</TableCell>
-      <TableCell className="text-xs text-muted-foreground">
+      <TableCell className="max-w-40 truncate">{nextActionTitle ?? "—"}</TableCell>
+      <TableCell className="text-muted-foreground">
         {nextActionDueAt ? formatDateTime(nextActionDueAt) : "—"}
       </TableCell>
       <TableCell>
-        <Badge variant={SLA_VARIANT[slaStatus]}>{slaStatus.replace(/_/g, " ")}</Badge>
+        <Badge variant={SLA_VARIANT[slaStatus]}>{humanize(slaStatus)}</Badge>
       </TableCell>
       <TableCell>
-        <Badge variant={STATUS_VARIANT[status]}>{status.replace(/_/g, " ")}</Badge>
+        <Badge variant={CLIENT_STATUS_VARIANT[status]}>{humanize(status)}</Badge>
       </TableCell>
-      <TableCell className="text-sm">{assignedToName ?? "Unassigned"}</TableCell>
-      <TableCell className="text-muted-foreground text-sm">{formatDate(createdAt)}</TableCell>
-      <TableCell className="text-xs text-muted-foreground">
+      <TableCell>{assignedToName ?? "Unassigned"}</TableCell>
+      <TableCell className="text-muted-foreground">{formatDate(createdAt)}</TableCell>
+      <TableCell className="text-muted-foreground">
         {lastActivityAt ? formatDateTime(lastActivityAt) : "—"}
       </TableCell>
     </TableRow>

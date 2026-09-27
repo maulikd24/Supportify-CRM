@@ -5,10 +5,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { CopilotQuickActions } from "@/components/copilot/quick-actions";
 import type { WorklistEntry } from "@/lib/copilot/worklist";
+import { Panel } from "@/components/dashboard/panel";
+import { TableEmpty } from "@/components/page/table-empty";
 
-const HEALTH_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  HEALTHY: "default",
-  AT_RISK: "secondary",
+const HEALTH_VARIANT: Record<string, "success" | "warning" | "destructive"> = {
+  HEALTHY: "success",
+  AT_RISK: "warning",
   CRITICAL: "destructive",
 };
 
@@ -20,11 +22,8 @@ export function CopilotWorklist({
   users: { id: string; name: string }[];
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Prioritized Worklist</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <Panel eyebrow="Prioritised for you" title="Worklist">
+      <div className="overflow-x-auto border-t border-border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -39,26 +38,26 @@ export function CopilotWorklist({
           <TableBody>
             {entries.map((entry) => (
               <TableRow key={entry.client.id}>
-                <TableCell className="text-sm">
-                  <Link href={`/clients/${entry.client.id}`} className="font-medium hover:underline">
+                <TableCell>
+                  <Link href={`/clients/${entry.client.id}`} className="font-semibold hover:underline">
                     {entry.client.name}
                   </Link>
-                  <p className="text-xs text-muted-foreground font-mono">{entry.client.clientCode}</p>
+                  <p className="font-mono text-[11px] text-muted-foreground">{entry.client.clientCode}</p>
                 </TableCell>
-                <TableCell className="text-sm">{entry.client.stageName}</TableCell>
+                <TableCell>{entry.client.stageName}</TableCell>
                 <TableCell>
                   <Badge variant={HEALTH_VARIANT[entry.health.status]}>{entry.health.status.replace("_", " ")}</Badge>
                   {entry.health.reasons[0] && (
                     <p className="text-xs text-muted-foreground mt-0.5">{entry.health.reasons[0]}</p>
                   )}
                 </TableCell>
-                <TableCell className="text-sm">
+                <TableCell>
                   <span className="font-medium">{entry.priority.score}</span>
                   {entry.priority.reasons[0] && (
                     <p className="text-xs text-muted-foreground">{entry.priority.reasons[0]}</p>
                   )}
                 </TableCell>
-                <TableCell className="text-sm max-w-56">
+                <TableCell className="max-w-56 whitespace-normal">
                   <p>{entry.nba.label}</p>
                   <p className="text-xs text-muted-foreground">{entry.nba.detail}</p>
                 </TableCell>
@@ -74,16 +73,12 @@ export function CopilotWorklist({
               </TableRow>
             ))}
             {entries.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                  Nothing needs attention right now.
-                </TableCell>
-              </TableRow>
+              <TableEmpty colSpan={6}>Nothing needs attention right now.</TableEmpty>
             )}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+      </div>
+    </Panel>
   );
 }
 

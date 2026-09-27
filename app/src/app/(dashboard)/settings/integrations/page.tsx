@@ -32,10 +32,10 @@ export default async function IntegrationsSettingsPage() {
   const configByProvider = new Map(configs.map((c) => [c.provider, c]));
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-lg font-semibold">Integrations</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground uppercase">Settings</p>
+        <p className="mt-1 max-w-prose text-xs text-muted-foreground">
           Each integration runs in Mock mode until you add real credentials — journeys and manual actions
           work fully against mock data in the meantime.
         </p>
@@ -85,7 +85,7 @@ export default async function IntegrationsSettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Webhook URLs</CardTitle>
+          <CardTitle>Webhook URLs</CardTitle>
           <CardDescription>
             Point each provider&apos;s outbound webhooks/automations at these URLs to feed events back into
             Supportify. Each URL is unique to your organization — don&apos;t share it with other tenants of the

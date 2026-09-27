@@ -6,10 +6,10 @@ import type { ConditionNodeData } from "@/lib/journeys/types";
 export function ConditionNode({ data, selected }: NodeProps & { data: ConditionNodeData }) {
   return (
     <div
-      className={`rounded-lg border-2 bg-card px-3 py-2 shadow-sm min-w-44 ${selected ? "border-primary" : "border-violet-400"}`}
+      className={`rounded-lg border-2 bg-card px-3 py-2 shadow-sm min-w-44 ${selected ? "border-primary" : "border-chart-2"}`}
     >
       <Handle type="target" position={Position.Top} />
-      <div className="flex items-center gap-1.5 text-xs font-medium text-violet-600">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-chart-2">
         <GitBranch className="size-3.5" />
         CONDITION
       </div>

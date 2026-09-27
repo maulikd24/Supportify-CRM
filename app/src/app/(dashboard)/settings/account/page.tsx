@@ -12,17 +12,17 @@ export default async function AccountSettingsPage() {
   });
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-lg font-semibold">Account</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground uppercase">Settings</p>
+        <p className="mt-1 max-w-prose text-xs text-muted-foreground">
           Signed in as {session.user.name} ({session.user.email})
         </p>
       </div>
 
       <Card className="max-w-md">
         <CardHeader>
-          <CardTitle className="text-base">Change Password</CardTitle>
+          <CardTitle>Change Password</CardTitle>
           <CardDescription>Update the password used to sign in.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -32,7 +32,7 @@ export default async function AccountSettingsPage() {
 
       <Card className="max-w-md">
         <CardHeader>
-          <CardTitle className="text-base">Two-Factor Authentication</CardTitle>
+          <CardTitle>Two-Factor Authentication</CardTitle>
           <CardDescription>
             {user.twoFactorEnabled
               ? "Enabled — an authenticator code is required at sign-in."

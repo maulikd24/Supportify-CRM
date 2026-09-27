@@ -1,17 +1,18 @@
 import Link from "next/link";
 
 import { prisma } from "@/lib/db/prisma";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { PRODUCT_LABELS } from "@/lib/billing/plans";
 import { formatDateTime } from "@/lib/utils/format";
 import type { SubscriptionStatus } from "@/generated/prisma/client";
+import { Panel } from "@/components/dashboard/panel";
+import { TableEmpty } from "@/components/page/table-empty";
 
-function statusVariant(status: SubscriptionStatus | undefined): "default" | "secondary" | "destructive" | "outline" {
-  if (!status) return "outline";
-  if (status === "ACTIVE") return "default";
-  if (status === "TRIALING") return "secondary";
+function statusVariant(status: SubscriptionStatus | undefined): "success" | "warning" | "destructive" | "secondary" {
+  if (!status) return "secondary";
+  if (status === "ACTIVE") return "success";
+  if (status === "TRIALING") return "warning";
   return "destructive";
 }
 
@@ -25,15 +26,9 @@ export default async function AdminOrganizationsPage() {
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Organizations</CardTitle>
-        <CardDescription>
-          {organizations.length} organization{organizations.length === 1 ? "" : "s"} · aggregate metrics only, no
-          customer data
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <Panel eyebrow="Platform" title="Organizations" description={<>{organizations.length} organization{organizations.length === 1 ? "" : "s"} · aggregate metrics only, no
+          customer data</>}>
+      <div className="overflow-x-auto border-t border-border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -49,7 +44,7 @@ export default async function AdminOrganizationsPage() {
             {organizations.map((org) => (
               <TableRow key={org.id}>
                 <TableCell>
-                  <Link href={`/admin/organizations/${org.id}`} className="font-medium hover:underline">
+                  <Link href={`/admin/organizations/${org.id}`} className="font-semibold hover:underline">
                     {org.name}
                   </Link>
                   <div className="text-xs text-muted-foreground">{org.slug}</div>
@@ -72,19 +67,15 @@ export default async function AdminOrganizationsPage() {
                 <TableCell>{org._count.members}</TableCell>
                 <TableCell>{org._count.clients}</TableCell>
                 <TableCell>{org._count.ticketReviews}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{formatDateTime(org.createdAt)}</TableCell>
+                <TableCell className="text-muted-foreground">{formatDateTime(org.createdAt)}</TableCell>
               </TableRow>
             ))}
             {organizations.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                  No organizations yet.
-                </TableCell>
-              </TableRow>
+              <TableEmpty colSpan={6}>No organizations yet.</TableEmpty>
             )}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+      </div>
+    </Panel>
   );
 }

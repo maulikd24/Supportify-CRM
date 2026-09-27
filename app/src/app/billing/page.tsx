@@ -29,7 +29,7 @@ function statusLabel(status: string, trialEndsAt: Date | null): string {
 function UsageMeter({ label, used, total }: { label: string; used: number; total: number | null }) {
   if (total == null) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         {label}: <span className="font-medium text-foreground">{used}</span> (unlimited)
       </p>
     );
@@ -43,7 +43,7 @@ function UsageMeter({ label, used, total }: { label: string; used: number; total
           {used} / {total}
         </span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-mist">
         <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
       </div>
     </div>
@@ -62,10 +62,10 @@ export default async function BillingOverviewPage() {
   const byProduct = new Map(subscriptions.map((s) => [s.product, s]));
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-heading text-xl font-semibold">Billing</h1>
+          <h2 className="font-heading text-[19px] font-extrabold">Billing</h2>
           <p className="text-sm text-muted-foreground">Manage your plan and usage for each product.</p>
         </div>
         <ManageBillingButton />

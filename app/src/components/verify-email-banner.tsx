@@ -24,7 +24,7 @@ export function VerifyEmailBanner() {
   }
 
   return (
-    <div className="flex items-center justify-between gap-4 border-b bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+    <div className="flex items-center justify-between gap-4 border-b border-warning/25 bg-warning/10 px-4 py-2 text-xs font-medium text-foreground md:px-6">
       <span>Verify your email address to unlock billing and subscriptions.</span>
       <Button size="xs" variant="outline" disabled={pending || sent} onClick={handleResend}>
         {sent ? "Sent" : pending ? "Sending..." : "Resend email"}

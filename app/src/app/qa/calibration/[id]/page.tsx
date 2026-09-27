@@ -32,7 +32,7 @@ export default async function CalibrationDetailPage({ params }: { params: Promis
     : [];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
@@ -44,7 +44,7 @@ export default async function CalibrationDetailPage({ params }: { params: Promis
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant={calibration.status === "OPEN" ? "secondary" : "outline"}>{calibration.status}</Badge>
+            <Badge variant={calibration.status === "OPEN" ? "warning" : "secondary"}>{calibration.status === "OPEN" ? "Open" : "Closed"}</Badge>
             {isAdmin && calibration.status === "OPEN" && <CloseSessionButton sessionId={calibration.id} />}
           </div>
         </CardHeader>
@@ -53,9 +53,9 @@ export default async function CalibrationDetailPage({ params }: { params: Promis
             <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
               Show conversation ({conversation.length} messages)
             </summary>
-            <div className="mt-3 flex max-h-96 flex-col gap-2 overflow-y-auto rounded-md border p-3">
+            <div className="mt-3 flex max-h-96 flex-col gap-2 overflow-y-auto rounded-md border border-border p-3">
               {conversation.map((turn, i) => (
-                <div key={i} className={`rounded-md p-2 text-sm ${turn.role === "agent" ? "bg-muted/60" : "bg-muted/20"}`}>
+                <div key={i} className={`max-w-[85%] rounded-lg px-3 py-2 text-[13px] ${turn.role === "agent" ? "ml-auto bg-mist" : "border border-border bg-card"}`}>
                   <div className="mb-1 text-xs font-medium text-muted-foreground capitalize">
                     {turn.role}
                     {turn.author ? ` — ${turn.author}` : ""}
@@ -90,7 +90,7 @@ export default async function CalibrationDetailPage({ params }: { params: Promis
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Score this ticket</CardTitle>
+            <CardTitle>Score this ticket</CardTitle>
             <CardDescription>
               Score independently — other reviewers&apos; scores (and the AI&apos;s) stay hidden until you submit
               yours, or the session is closed. {calibration.entries.length} reviewer(s) have submitted so far.

@@ -1,7 +1,6 @@
-import Link from "next/link";
 
 import { prisma } from "@/lib/db/prisma";
-import { Panel, PanelEmpty, PanelList, PanelRow } from "@/components/dashboard/panel";
+import { Panel, PanelEmpty, PanelLink, PanelList, PanelRow, RowLink } from "@/components/dashboard/panel";
 import { addDays, formatAge, formatTime, startOfDay } from "@/lib/utils/date-buckets";
 import { formatDate } from "@/lib/utils/format";
 import type { Prisma } from "@/generated/prisma/client";
@@ -17,8 +16,9 @@ export async function ActionsRow({ taskFilter }: { taskFilter: Prisma.TaskWhereI
     prisma.task.findMany({
       where: { ...openWhere, dueAt: { gte: now } },
       include: { client: clientSelect },
-      orderBy: { dueAt: "asc" },
-      take: 30,
+      // Urgent first: high-priority clients, then soonest due.
+      orderBy: [{ client: { priority: "desc" } }, { dueAt: "asc" }],
+      take: 4,
     }),
     prisma.task.count({ where: { ...openWhere, dueAt: { gte: now } } }),
     prisma.task.findMany({
@@ -35,7 +35,6 @@ export async function ActionsRow({ taskFilter }: { taskFilter: Prisma.TaskWhereI
     title: t.title,
     clientId: t.clientId,
     clientName: t.client.name,
-    dueToday: t.dueAt < tomorrow,
     dueLabel: t.dueAt < tomorrow ? formatTime(t.dueAt) : formatDate(t.dueAt),
     highPriority: t.client.priority === "HIGH",
   }));
@@ -46,11 +45,7 @@ export async function ActionsRow({ taskFilter }: { taskFilter: Prisma.TaskWhereI
       <Panel
         eyebrow="Service levels"
         title="Overdue follow-ups"
-        action={
-          <Link href="/tasks" className="text-xs font-semibold text-primary hover:underline">
-            Review queue
-          </Link>
-        }
+        action={<PanelLink href="/tasks">Review queue</PanelLink>}
         footer={`${overdueTotal} overdue · oldest first`}
       >
         {overdue.length === 0 ? (
@@ -65,12 +60,10 @@ export async function ActionsRow({ taskFilter }: { taskFilter: Prisma.TaskWhereI
                 meta={t.client.name}
                 trailing={
                   <>
-                    <span className="font-semibold text-primary tabular-nums" title={`Due ${formatDate(t.dueAt)}`}>
+                    <span className="font-bold text-primary tabular-nums" title={`Due ${formatDate(t.dueAt)}`}>
                       {formatAge(t.dueAt, now)}
                     </span>
-                    <Link href={`/clients/${t.clientId}`} className="font-semibold text-primary hover:underline">
-                      Do now
-                    </Link>
+                    <RowLink href={`/clients/${t.clientId}`}>Do now</RowLink>
                   </>
                 }
               />

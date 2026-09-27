@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { NewCustomFieldDialog } from "./new-custom-field-dialog";
 import { CustomFieldRowActions } from "./custom-field-row-actions";
+import { Panel } from "@/components/dashboard/panel";
+import { TableEmpty } from "@/components/page/table-empty";
 
 export default async function CustomFieldsSettingsPage() {
   const session = await requireRole(["ADMIN"]);
@@ -15,15 +16,8 @@ export default async function CustomFieldsSettingsPage() {
   });
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Custom Fields</CardTitle>
-          <CardDescription>Extra fields shown on every client, specific to how your team works.</CardDescription>
-        </div>
-        <NewCustomFieldDialog />
-      </CardHeader>
-      <CardContent>
+    <Panel eyebrow="Configuration" title="Custom Fields" description={<>Extra fields shown on every client, specific to how your team works.</>} action={<><NewCustomFieldDialog /></>}>
+      <div className="overflow-x-auto border-t border-border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -47,15 +41,11 @@ export default async function CustomFieldsSettingsPage() {
               </TableRow>
             ))}
             {fields.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                  No custom fields yet. Add one to capture something specific to your business.
-                </TableCell>
-              </TableRow>
+              <TableEmpty colSpan={4}>No custom fields yet. Add one to capture something specific to your business.</TableEmpty>
             )}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+      </div>
+    </Panel>
   );
 }

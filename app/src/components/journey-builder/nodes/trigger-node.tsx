@@ -14,9 +14,9 @@ const LABELS: Record<TriggerNodeData["triggerType"], string> = {
 export function TriggerNode({ data, selected }: NodeProps & { data: TriggerNodeData }) {
   return (
     <div
-      className={`rounded-lg border-2 bg-card px-3 py-2 shadow-sm min-w-40 ${selected ? "border-primary" : "border-amber-400"}`}
+      className={`rounded-lg border-2 bg-card px-3 py-2 shadow-sm min-w-40 ${selected ? "border-primary" : "border-chart-3"}`}
     >
-      <div className="flex items-center gap-1.5 text-xs font-medium text-amber-600">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-chart-3">
         <Zap className="size-3.5" />
         TRIGGER
       </div>

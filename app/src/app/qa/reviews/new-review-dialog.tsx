@@ -21,8 +21,17 @@ import {
 } from "@/components/ui/dialog";
 import { createReviewAction, createBulkReviewAction, type BulkReviewSummary } from "./actions";
 
-export function NewReviewDialog({ sops, disabled }: { sops: { id: string; name: string }[]; disabled: boolean }) {
-  const [open, setOpen] = useState(false);
+export function NewReviewDialog({
+  sops,
+  disabled,
+  defaultOpen = false,
+}: {
+  sops: { id: string; name: string }[];
+  disabled: boolean;
+  /** Open on mount — set when arriving via the header's "New review" (?new=1). */
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen && !disabled);
   const [mode, setMode] = useState<"single" | "bulk">("single");
   const [pending, setPending] = useState(false);
   const [bulkSummary, setBulkSummary] = useState<BulkReviewSummary | null>(null);

@@ -2,16 +2,12 @@ import Link from "next/link";
 
 import { requireOrg } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { NewDsatDialog } from "./new-dsat-dialog";
-
-function probabilityVariant(prob: string | null): "default" | "secondary" | "destructive" {
-  if (prob === "high") return "default";
-  if (prob === "medium") return "secondary";
-  return "destructive";
-}
+import { Panel } from "@/components/dashboard/panel";
+import { TableEmpty } from "@/components/page/table-empty";
+import { probabilityVariant } from "@/lib/qa/score";
 
 export default async function QaDsatPage() {
   const session = await requireOrg();
@@ -23,12 +19,8 @@ export default async function QaDsatPage() {
   ]);
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>DSAT Analyses</CardTitle>
-        <NewDsatDialog hasZendesk={hasZendesk} />
-      </CardHeader>
-      <CardContent>
+    <Panel eyebrow="Customer recovery" title="DSAT Analyses" action={<><NewDsatDialog hasZendesk={hasZendesk} /></>}>
+      <div className="overflow-x-auto border-t border-border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -42,32 +34,28 @@ export default async function QaDsatPage() {
             {analyses.map((analysis) => (
               <TableRow key={analysis.id}>
                 <TableCell>
-                  <Link href={`/qa/dsat/${analysis.id}`} className="font-medium hover:underline">
+                  <Link href={`/qa/dsat/${analysis.id}`} className="font-semibold hover:underline">
                     {analysis.ticketId ? `#${analysis.ticketId} ` : ""}
                     {analysis.ticketSubject || "Untitled"}
                   </Link>
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">{analysis.agentName || "—"}</TableCell>
+                <TableCell className="text-muted-foreground">{analysis.agentName || "—"}</TableCell>
                 <TableCell>
                   <Badge variant={probabilityVariant(analysis.recoveryProbability)} className="capitalize">
                     {analysis.recoveryProbability || "unknown"}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
+                <TableCell className="text-muted-foreground">
                   {analysis.createdAt.toLocaleDateString()}
                 </TableCell>
               </TableRow>
             ))}
             {analyses.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                  No DSAT analyses yet.
-                </TableCell>
-              </TableRow>
+              <TableEmpty colSpan={4}>No DSAT analyses yet.</TableEmpty>
             )}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+      </div>
+    </Panel>
   );
 }

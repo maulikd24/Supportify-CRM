@@ -2,12 +2,13 @@ import Link from "next/link";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/utils/format";
 import { NewJourneyDialog } from "./new-journey-dialog";
 import { JourneyRowActions } from "./journey-row-actions";
+import { Panel } from "@/components/dashboard/panel";
+import { TableEmpty } from "@/components/page/table-empty";
 
 export default async function JourneysPage() {
   const session = await requireRole(["ADMIN", "MANAGER"]);
@@ -22,12 +23,8 @@ export default async function JourneysPage() {
   });
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Journeys</CardTitle>
-        <NewJourneyDialog />
-      </CardHeader>
-      <CardContent>
+    <Panel eyebrow="Automation" title="Journeys" action={<><NewJourneyDialog /></>}>
+      <div className="overflow-x-auto border-t border-border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -42,17 +39,17 @@ export default async function JourneysPage() {
             {journeys.map((journey) => (
               <TableRow key={journey.id}>
                 <TableCell>
-                  <Link href={`/journeys/${journey.id}`} className="font-medium hover:underline">
+                  <Link href={`/journeys/${journey.id}`} className="font-semibold hover:underline">
                     {journey.name}
                   </Link>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={journey.isActive ? "default" : "outline"}>
+                  <Badge variant={journey.isActive ? "success" : "secondary"}>
                     {journey.isActive ? "Active" : "Inactive"}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-sm">{journey._count.runs}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">
+                <TableCell>{journey._count.runs}</TableCell>
+                <TableCell className="text-muted-foreground">
                   {formatDateTime(journey.updatedAt)}
                 </TableCell>
                 <TableCell className="text-right">
@@ -66,15 +63,11 @@ export default async function JourneysPage() {
               </TableRow>
             ))}
             {journeys.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  No journeys yet. Create one to define how new clients move through your process.
-                </TableCell>
-              </TableRow>
+              <TableEmpty colSpan={5}>No journeys yet. Create one to define how new clients move through your process.</TableEmpty>
             )}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+      </div>
+    </Panel>
   );
 }

@@ -45,7 +45,7 @@ export function ClientCopilotPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Co-pilot</CardTitle>
+        <CardTitle>Co-pilot</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex items-center gap-2">

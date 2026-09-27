@@ -4,7 +4,9 @@ import { Check } from "lucide-react";
 import { requireOrg } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
 import { InkStatTile } from "@/components/dashboard/ink-stat-tile";
-import { Eyebrow, Panel, PanelEmpty, PanelList, PanelRow } from "@/components/dashboard/panel";
+import { Eyebrow, Panel, PanelEmpty, PanelLink, PanelList, PanelRow } from "@/components/dashboard/panel";
+import { ScoreChip } from "@/components/dashboard/score-chip";
+import { LOW_SCORE } from "@/lib/qa/score";
 import { ProgressStat } from "@/components/dashboard/progress-stat";
 import { TrendChart } from "@/components/dashboard/trend-chart";
 import { addDays, bucketize, formatDelta, startOfDay } from "@/lib/utils/date-buckets";
@@ -12,7 +14,6 @@ import { formatDate } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
 
 const WEEKS = 8;
-const LOW_SCORE = 70;
 
 export default async function QaOverviewPage() {
   const session = await requireOrg();
@@ -71,8 +72,7 @@ export default async function QaOverviewPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">Quality overview</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           {organization.name} ·{" "}
           {subscription?.status === "TRIALING" && subscription.trialEndsAt
             ? `Trial active until ${formatDate(subscription.trialEndsAt)}`
@@ -125,9 +125,7 @@ export default async function QaOverviewPage() {
           eyebrow="Latest"
           title="Recent reviews"
           action={
-            <Link href="/qa/reviews" className="text-xs font-semibold text-primary hover:underline">
-              View all
-            </Link>
+            <PanelLink href="/qa/reviews">All reviews</PanelLink>
           }
         >
           {recent.length === 0 ? (
@@ -140,14 +138,9 @@ export default async function QaOverviewPage() {
                   tone={r.overallScore != null && r.overallScore < LOW_SCORE ? "destructive" : "primary"}
                   title={r.ticketSubject || `Ticket #${r.ticketId}`}
                   meta={`${r.agentName ?? "Unknown agent"} · ${formatDate(r.createdAt)}`}
-                  trailing={
-                    <>
-                      <ScoreChip score={r.overallScore} />
-                      <Link href={`/qa/reviews/${r.id}`} className="font-semibold text-primary hover:underline">
-                        Open
-                      </Link>
-                    </>
-                  }
+                  trailing={<ScoreChip score={r.overallScore} />}
+                  href={`/qa/reviews/${r.id}`}
+                  hrefLabel="Open review"
                 />
               ))}
             </PanelList>
@@ -165,14 +158,9 @@ export default async function QaOverviewPage() {
                   tone="destructive"
                   title={r.ticketSubject || `Ticket #${r.ticketId}`}
                   meta={`Low score · ${r.agentName ?? "Unknown agent"}`}
-                  trailing={
-                    <>
-                      <ScoreChip score={r.overallScore} />
-                      <Link href={`/qa/reviews/${r.id}`} className="font-semibold text-primary hover:underline">
-                        Coach
-                      </Link>
-                    </>
-                  }
+                  trailing={<ScoreChip score={r.overallScore} />}
+                  href={`/qa/reviews/${r.id}`}
+                  hrefLabel="Coach agent"
                 />
               ))}
               {recentDsat.map((d) => (
@@ -181,11 +169,8 @@ export default async function QaOverviewPage() {
                   tone="muted"
                   title={d.ticketSubject || (d.ticketId ? `Ticket #${d.ticketId}` : "DSAT analysis")}
                   meta={`DSAT · ${d.customerName ?? "Customer"} · ${formatDate(d.createdAt)}`}
-                  trailing={
-                    <Link href={`/qa/dsat/${d.id}`} className="font-semibold text-primary hover:underline">
-                      Review
-                    </Link>
-                  }
+                  href={`/qa/dsat/${d.id}`}
+                  hrefLabel="Open DSAT analysis"
                 />
               ))}
             </PanelList>
@@ -228,16 +213,3 @@ export default async function QaOverviewPage() {
   );
 }
 
-function ScoreChip({ score }: { score: number | null }) {
-  if (score == null) return <span className="text-muted-foreground">—</span>;
-  return (
-    <span
-      className={cn(
-        "rounded-md px-1.5 py-0.5 font-heading font-semibold tabular-nums",
-        score < LOW_SCORE ? "bg-destructive/10 text-destructive" : "bg-primary/12 text-primary",
-      )}
-    >
-      {score}
-    </span>
-  );
-}

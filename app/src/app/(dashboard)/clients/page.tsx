@@ -1,11 +1,10 @@
-import Link from "next/link";
-
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Panel } from "@/components/dashboard/panel";
+import { TableEmpty } from "@/components/page/table-empty";
+import { Pagination } from "@/components/page/pagination";
 import { NewClientDialog } from "./new-client-dialog";
 import { ImportClientsDialog } from "./import-clients-dialog";
 import { ClientFilters } from "./client-filters";
@@ -28,6 +27,8 @@ type SearchParams = {
   createdFrom?: string;
   createdTo?: string;
   page?: string;
+  /** Set by the header's "New client" button to open the dialog on arrival. */
+  new?: string;
 };
 
 export default async function ClientsPage({
@@ -121,7 +122,6 @@ export default async function ClientsPage({
   }
 
   const pageClientIds = pageClients.map((c) => c.id);
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   const [[stages, users, customFieldDefinitions], exceptionsForPage, nextTasks, lastActivities] = await Promise.all([
     filtersPromise,
@@ -159,7 +159,7 @@ export default async function ClientsPage({
   function buildPageHref(page: number): string {
     const usp = new URLSearchParams();
     for (const [key, value] of Object.entries(params)) {
-      if (key !== "page" && value) usp.set(key, value);
+      if (key !== "page" && key !== "new" && value) usp.set(key, value);
     }
     if (page > 1) usp.set("page", String(page));
     const qs = usp.toString();
@@ -167,97 +167,68 @@ export default async function ClientsPage({
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-4">
-        <CardTitle>Clients</CardTitle>
-        <div className="flex gap-2">
+    <Panel
+      eyebrow="Pipeline"
+      title={`${totalCount.toLocaleString("en-IN")} client${totalCount === 1 ? "" : "s"}`}
+      action={
+        <>
           <ImportClientsDialog />
-          <NewClientDialog users={users} customFieldDefinitions={customFieldDefinitions} />
-        </div>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+          <NewClientDialog users={users} customFieldDefinitions={customFieldDefinitions} defaultOpen={params.new === "1"} />
+        </>
+      }
+    >
+      <div className="px-5 pb-4">
         <ClientFilters stages={stages} users={users} />
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Client</TableHead>
-                <TableHead>Mobile</TableHead>
-                <TableHead>Stage</TableHead>
-                <TableHead>Stage Age</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Next Action</TableHead>
-                <TableHead>Next Action Date</TableHead>
-                <TableHead>SLA Status</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Assigned RM</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Last Activity</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pageClients.map((client) => {
-                const ageHours = stageAgeHours(client.stageEnteredAt);
-                const slaStatus = slaStatusFor(client);
-                const nextTask = nextTaskByClient.get(client.id);
-                const lastActivity = lastActivityByClient.get(client.id);
-                return (
-                  <ClientRow
-                    key={client.id}
-                    id={client.id}
-                    clientCode={client.clientCode}
-                    name={client.name}
-                    mobile={client.mobile}
-                    stageName={client.currentStage.name}
-                    ageHours={ageHours}
-                    priority={client.priority}
-                    nextActionTitle={nextTask?.title ?? null}
-                    nextActionDueAt={nextTask?.dueAt ?? null}
-                    slaStatus={slaStatus}
-                    status={client.status}
-                    assignedToName={client.assignedTo?.name ?? null}
-                    createdAt={client.createdAt}
-                    lastActivityAt={lastActivity?.createdAt ?? null}
-                  />
-                );
-              })}
-              {pageClients.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
-                    No clients match these filters.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <p>
-            {totalCount === 0 ? "0 clients" : `${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(currentPage * PAGE_SIZE, totalCount)} of ${totalCount}`}
-          </p>
-          <div className="flex gap-2">
-            {currentPage <= 1 ? (
-              <Button size="sm" variant="outline" disabled>
-                Previous
-              </Button>
-            ) : (
-              <Button size="sm" variant="outline" render={<Link href={buildPageHref(currentPage - 1)} />}>
-                Previous
-              </Button>
-            )}
-            {currentPage >= totalPages ? (
-              <Button size="sm" variant="outline" disabled>
-                Next
-              </Button>
-            ) : (
-              <Button size="sm" variant="outline" render={<Link href={buildPageHref(currentPage + 1)} />}>
-                Next
-              </Button>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+      <div className="overflow-x-auto border-t border-border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Client</TableHead>
+              <TableHead>Mobile</TableHead>
+              <TableHead>Stage</TableHead>
+              <TableHead>Stage age</TableHead>
+              <TableHead>Priority</TableHead>
+              <TableHead>Next action</TableHead>
+              <TableHead>Due</TableHead>
+              <TableHead>SLA</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Assigned RM</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead>Last activity</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {pageClients.map((client) => {
+              const ageHours = stageAgeHours(client.stageEnteredAt);
+              const slaStatus = slaStatusFor(client);
+              const nextTask = nextTaskByClient.get(client.id);
+              const lastActivity = lastActivityByClient.get(client.id);
+              return (
+                <ClientRow
+                  key={client.id}
+                  id={client.id}
+                  clientCode={client.clientCode}
+                  name={client.name}
+                  mobile={client.mobile}
+                  stageName={client.currentStage.name}
+                  ageHours={ageHours}
+                  priority={client.priority}
+                  nextActionTitle={nextTask?.title ?? null}
+                  nextActionDueAt={nextTask?.dueAt ?? null}
+                  slaStatus={slaStatus}
+                  status={client.status}
+                  assignedToName={client.assignedTo?.name ?? null}
+                  createdAt={client.createdAt}
+                  lastActivityAt={lastActivity?.createdAt ?? null}
+                />
+              );
+            })}
+            {pageClients.length === 0 && <TableEmpty colSpan={12}>No clients match these filters.</TableEmpty>}
+          </TableBody>
+        </Table>
+      </div>
+      <Pagination page={currentPage} pageSize={PAGE_SIZE} total={totalCount} noun="clients" hrefFor={buildPageHref} />
+    </Panel>
   );
 }

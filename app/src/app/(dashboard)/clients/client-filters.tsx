@@ -74,7 +74,7 @@ export function ClientFilters({ stages, users }: { stages: StageOption[]; users:
         <Input
           defaultValue={searchParams.get("q") ?? ""}
           placeholder="Search name, mobile, email, client ID..."
-          className="w-80"
+          className="w-full sm:w-80"
           onChange={(e) => debouncedSetParam("q", e.target.value)}
         />
         {hasFilters && (

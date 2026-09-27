@@ -12,10 +12,10 @@ export default async function SsoSettingsPage() {
   const connected = Boolean(organization.workosOrganizationId);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-lg font-semibold">Single Sign-On</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground uppercase">Settings</p>
+        <p className="mt-1 max-w-prose text-xs text-muted-foreground">
           Let your team sign in with your company&apos;s identity provider (Okta, Azure AD, Google Workspace, and
           others) instead of a password.
         </p>
@@ -23,7 +23,7 @@ export default async function SsoSettingsPage() {
 
       <Card className="max-w-lg">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
+          <CardTitle className="flex items-center gap-2">
             SSO Domain
             <Badge variant={connected ? "default" : "outline"}>{connected ? "Configured" : "Not set up"}</Badge>
           </CardTitle>
@@ -42,7 +42,7 @@ export default async function SsoSettingsPage() {
       {connected && (
         <Card className="max-w-lg">
           <CardHeader>
-            <CardTitle className="text-base">Identity Provider Connection</CardTitle>
+            <CardTitle>Identity Provider Connection</CardTitle>
             <CardDescription>
               Configure the actual SAML or OIDC connection to your identity provider in WorkOS&apos;s hosted setup
               flow — upload your IdP&apos;s metadata there, not here.

@@ -1,20 +1,24 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Panel } from "@/components/dashboard/panel";
 import { Button } from "@/components/ui/button";
 
-export function RouteError({ reset }: { reset: () => void }) {
+/**
+ * In-app error card for route segments. Shows the error digest so a failure
+ * seen in production can be matched to its entry in the server logs.
+ */
+export function RouteError({ error, reset }: { error?: Error & { digest?: string }; reset: () => void }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Something went wrong</CardTitle>
-        <CardDescription>This section failed to load. You can try again.</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <Panel
+      eyebrow="Error"
+      title="Something went wrong"
+      description="This section failed to load. You can try again."
+      action={
         <Button variant="outline" size="sm" onClick={() => reset()}>
           Try again
         </Button>
-      </CardContent>
-    </Card>
+      }
+      footer={error?.digest ? `Error reference ${error.digest} — share this with support.` : undefined}
+    />
   );
 }

@@ -45,7 +45,7 @@ export function ComparisonTable({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Comparison</CardTitle>
+        <CardTitle>Comparison</CardTitle>
         <CardDescription>
           {submitted.length} reviewer{submitted.length === 1 ? "" : "s"} scored this ticket, plus the AI&apos;s
           original review. Columns with a spread over {DISAGREEMENT_THRESHOLD} points are flagged for discussion.
@@ -61,7 +61,7 @@ export function ComparisonTable({
                   <div className="flex items-center gap-1.5">
                     Overall
                     {overallSpread > DISAGREEMENT_THRESHOLD && (
-                      <Badge variant="destructive" className="text-xs">
+                      <Badge variant="warning">
                         ±{overallSpread}
                       </Badge>
                     )}
@@ -72,7 +72,7 @@ export function ComparisonTable({
                     <div className="flex items-center gap-1.5">
                       {label}
                       {criteriaSpreads[key] > DISAGREEMENT_THRESHOLD && (
-                        <Badge variant="destructive" className="text-xs">
+                        <Badge variant="warning">
                           ±{criteriaSpreads[key]}
                         </Badge>
                       )}
@@ -101,7 +101,7 @@ export function ComparisonTable({
             {submitted
               .filter((e) => e.notes)
               .map((e) => (
-                <div key={e.id} className="rounded-md border p-3 text-sm">
+                <div key={e.id} className="rounded-md border border-border p-3 text-sm">
                   <div className="mb-1 font-medium">{e.reviewerName}</div>
                   <p className="text-muted-foreground">{e.notes}</p>
                 </div>
