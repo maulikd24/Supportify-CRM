@@ -57,7 +57,11 @@ export function NewReviewDialog({
     }
 
     try {
-      const { reviewId } = await createReviewAction(formData);
+      const { reviewId, error } = await createReviewAction(formData);
+      if (error) {
+        toast.error(error);
+        return;
+      }
       toast.success("Review complete");
       setOpen(false);
       formRef.current?.reset();

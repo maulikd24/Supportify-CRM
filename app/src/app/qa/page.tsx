@@ -184,7 +184,13 @@ export default async function QaOverviewPage() {
             label="AI reviews used"
             value={quota != null ? `${used}/${quota}` : used}
             progress={quota ? used / quota : 0}
-            hint={quota != null ? `${Math.max(0, quota - used)} remaining` : "No quota set"}
+            hint={
+              quota == null
+                ? "Unlimited on your plan"
+                : subscription?.overageReviewsThisPeriod
+                  ? `+${subscription.overageReviewsThisPeriod} overage this period`
+                  : `${Math.max(0, quota - used)} remaining`
+            }
           />
           <ProgressStat label="SOPs" value={sopCount} progress={sopCount > 0 ? 1 : 0} hint="Rubrics reviews grade against" />
           <ProgressStat label="DSAT cases" value={dsatCount} progress={reviewCount ? Math.min(1, dsatCount / reviewCount) : 0} hint="Root-cause analyses run" />

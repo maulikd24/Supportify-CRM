@@ -135,6 +135,28 @@ export class ZendeskClient {
     return data.results ?? [];
   }
 
+  /**
+   * Follows search pagination up to `maxResults` (Zendesk's search API itself
+   * stops at 1,000 results per query).
+   */
+  async searchAllTickets(query: string, maxResults = 1000): Promise<Record<string, unknown>[]> {
+    const url = new URL(`${this.baseUrl}/search.json`);
+    url.searchParams.set("query", query);
+    url.searchParams.set("per_page", "100");
+    url.searchParams.set("sort_by", "updated_at");
+    url.searchParams.set("sort_order", "asc");
+    let next: string | null = url.toString();
+    const results: Record<string, unknown>[] = [];
+    while (next && results.length < maxResults) {
+      const resp: Response = await fetch(next, { headers: this.headers });
+      await this.handleResponseError(resp, this.subdomainFromBaseUrl());
+      const data = (await resp.json()) as { results?: Record<string, unknown>[]; next_page?: string | null };
+      results.push(...(data.results ?? []));
+      next = data.next_page ?? null;
+    }
+    return results.slice(0, maxResults);
+  }
+
   /** Lightweight connectivity check used when a customer connects/tests their Zendesk credentials. */
   async testConnection(): Promise<{ ok: boolean; error?: string }> {
     try {

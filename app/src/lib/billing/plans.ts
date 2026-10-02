@@ -94,6 +94,23 @@ export function stripePriceIdFor(plan: PlanTier): string | undefined {
 
 export const TRIAL_DAYS = 14;
 
+/**
+ * QA Sentinel usage-based overage: reviews beyond the plan quota, billed per review
+ * through a Stripe Billing Meter. Opt-in per org (allowOverage + optional cap).
+ * Requires a Stripe meter (event name below) and a metered Price attached to it.
+ */
+export const QA_OVERAGE = {
+  priceLabel: "$0.25",
+  meterEventEnvVar: "STRIPE_METER_EVENT_QA_REVIEW",
+  stripePriceEnvVar: "STRIPE_PRICE_QA_OVERAGE",
+} as const;
+
+export function qaOverageConfig(): { meterEventName: string; priceId: string } | null {
+  const meterEventName = process.env[QA_OVERAGE.meterEventEnvVar];
+  const priceId = process.env[QA_OVERAGE.stripePriceEnvVar];
+  return meterEventName && priceId ? { meterEventName, priceId } : null;
+}
+
 /** Days a PAST_DUE subscription keeps access while the customer fixes payment. */
 export const PAST_DUE_GRACE_DAYS = 7;
 

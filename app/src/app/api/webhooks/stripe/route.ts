@@ -28,7 +28,9 @@ async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription) {
           ? "TRIALING"
           : "CANCELED";
 
-  const item = subscription.items.data[0];
+  // The plan's licensed item; QA subscriptions may also carry a metered overage item.
+  const item =
+    subscription.items.data.find((i) => i.price.recurring?.usage_type !== "metered") ?? subscription.items.data[0];
   const currentPeriodEnd = item?.current_period_end ? new Date(item.current_period_end * 1000) : null;
 
   const existing = await prisma.productSubscription.findUnique({
@@ -56,7 +58,7 @@ async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription) {
 
   await prisma.productSubscription.upsert({
     where: { organizationId_product: { organizationId, product } },
-    update: { ...data, ...(newPeriod ? { reviewsUsedThisPeriod: 0 } : {}) },
+    update: { ...data, ...(newPeriod ? { reviewsUsedThisPeriod: 0, overageReviewsThisPeriod: 0 } : {}) },
     create: { organizationId, product, ...data, planId },
   });
 }

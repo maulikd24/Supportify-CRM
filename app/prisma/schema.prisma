@@ -79,6 +79,8 @@ model Organization {
   sopDocuments      SopDocument[]
   ticketReviews     TicketReview[]
   dsatAnalyses      DsatAnalysis[]
+  autoReviewConfig  AutoReviewConfig?
+  autoReviewJobs    AutoReviewJob[]
 
   apiKeys             ApiKey[]
   webhookEndpoints    WebhookEndpoint[]
@@ -160,8 +162,13 @@ model ProductSubscription {
   currentPeriodEnd DateTime?
   trialEndsAt      DateTime?
   pastDueSince     DateTime? // first failed payment; access continues for PAST_DUE_GRACE_DAYS
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+
+  // QA Sentinel usage-based overages (opt-in by an org admin, capped per period).
+  allowOverage             Boolean  @default(false)
+  overageCap               Int? // max overage reviews per billing period; null = no cap
+  overageReviewsThisPeriod Int      @default(0)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 
   @@unique([organizationId, product])
 }
@@ -603,7 +610,7 @@ model IntegrationConfig {
   // (see src/app/api/webhooks/[provider]/[token]/route.ts) so the URL itself
   // identifies the tenant — inbound webhooks never have to guess/fall back to
   // an arbitrary org's config.
-  webhookToken String @unique @default(cuid())
+  webhookToken   String       @unique @default(cuid())
 
   @@unique([organizationId, provider])
 }
@@ -759,6 +766,9 @@ model TicketReview {
   tokensOutput  Int?
   tokensCostUsd Decimal?
 
+  source    String  @default("manual") // "manual" | "bulk" | "auto"
+  isOverage Boolean @default(false) // billed as a usage-based overage review
+
   createdAt DateTime @default(now())
 
   calibrationSessions CalibrationSession[]
@@ -838,4 +848,50 @@ model DsatAnalysis {
 
   @@index([organizationId, ticketId])
   @@index([organizationId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// QA auto-review: periodically pull newly solved Zendesk tickets, sample them by
+// the org's rules, queue them, and score them in the background.
+// ---------------------------------------------------------------------------
+
+model AutoReviewConfig {
+  id                  String       @id @default(cuid())
+  organizationId      String       @unique
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  enabled             Boolean      @default(false)
+  sopId               String? // rubric used for auto reviews
+  samplePercent       Int          @default(20) // % of solved tickets reviewed at random (deterministic per ticket)
+  alwaysReviewBadCsat Boolean      @default(true) // always review tickets rated "bad" by the customer
+  includeTags         String[] // only tickets with at least one of these tags (empty = all)
+  excludeTags         String[] // never tickets with any of these tags
+  lastPolledAt        DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+}
+
+enum AutoReviewJobStatus {
+  QUEUED
+  PROCESSING
+  DONE
+  SKIPPED
+  FAILED
+}
+
+model AutoReviewJob {
+  id             String              @id @default(cuid())
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ticketId       String
+  reason         String // why it was picked: "sample" | "bad_csat"
+  status         AutoReviewJobStatus @default(QUEUED)
+  attempts       Int                 @default(0)
+  lastError      String?
+  reviewId       String?
+  createdAt      DateTime            @default(now())
+  startedAt      DateTime?
+  processedAt    DateTime?
+
+  @@unique([organizationId, ticketId])
+  @@index([status, createdAt])
 }

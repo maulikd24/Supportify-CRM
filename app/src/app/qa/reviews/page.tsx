@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { NewReviewDialog } from "./new-review-dialog";
 import { Panel } from "@/components/dashboard/panel";
+import { Badge } from "@/components/ui/badge";
 import { ScoreChip } from "@/components/dashboard/score-chip";
 import { formatDate } from "@/lib/utils/format";
 import { TableEmpty } from "@/components/page/table-empty";
@@ -83,6 +84,16 @@ export default async function QaReviewsPage({
                   <Link href={`/qa/reviews/${review.id}`} className="font-semibold hover:underline">
                     #{review.ticketId} {review.ticketSubject}
                   </Link>
+                  {review.source === "auto" && (
+                    <Badge variant="soft" className="ml-2">
+                      Auto
+                    </Badge>
+                  )}
+                  {review.isOverage && (
+                    <Badge variant="secondary" className="ml-1">
+                      Overage
+                    </Badge>
+                  )}
                 </TableCell>
                 <TableCell className="text-muted-foreground">{review.agentName}</TableCell>
                 <TableCell className="text-muted-foreground">

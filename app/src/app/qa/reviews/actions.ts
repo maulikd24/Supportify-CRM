@@ -5,72 +5,15 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireOrg } from "@/lib/auth/require-role";
-import { decryptJson } from "@/lib/security/crypto";
-import { ZendeskClient, type ZendeskCredentials } from "@/lib/qa/zendesk-client";
-import { assessTicket } from "@/lib/qa/assessor";
-import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
-import type { Prisma, SopDocument, ZendeskConnection } from "@/generated/prisma/client";
+import { runReview } from "@/lib/qa/run-review";
+import { claimReviewSlot, releaseReviewSlot, reportOverageReview } from "@/lib/qa/usage";
 
 const reviewSchema = z.object({
   ticketId: z.string().min(1, "Ticket ID is required"),
   sopId: z.string().min(1, "Select a SOP"),
 });
 
-/** Core single-ticket review: fetches the conversation, scores it, and stores the result. No quota check — callers own that. */
-async function runReview(
-  organizationId: string,
-  connection: ZendeskConnection,
-  sop: SopDocument,
-  ticketId: string,
-) {
-  const credentials = decryptJson<ZendeskCredentials>(connection.encryptedToken);
-  const zendesk = new ZendeskClient(credentials);
-  const ticketData = await zendesk.getTicketWithConversation(ticketId);
-
-  const ticket = ticketData.ticket as { subject?: string; status?: string; priority?: string };
-  const { result, usage } = await assessTicket({
-    ticket,
-    conversation: ticketData.conversation,
-    sops: [{ name: sop.name, content: sop.content }],
-  });
-
-  const review = await prisma.ticketReview.create({
-    data: {
-      organizationId,
-      ticketId,
-      ticketSubject: ticket.subject ?? "",
-      agentName: ticketData.agentName,
-      agentEmail: ticketData.agentEmail,
-      primarySopId: sop.id,
-      sopIds: [sop.id],
-      sopNames: [sop.name],
-      overallScore: result.overall_score,
-      criteriaScores: result.criteria_scores as Prisma.InputJsonValue,
-      sentiment: result.sentiment?.overall,
-      summary: result.summary,
-      strengths: result.strengths as Prisma.InputJsonValue,
-      improvements: result.improvements as Prisma.InputJsonValue,
-      sopViolations: result.sop_violations as Prisma.InputJsonValue,
-      accuracyDetail: result.accuracy_detail as Prisma.InputJsonValue,
-      rawConversation: JSON.stringify(ticketData.conversation),
-      tokensInput: usage.input_tokens,
-      tokensOutput: usage.output_tokens,
-      tokensCostUsd: usage.cost_usd,
-    },
-  });
-
-  void dispatchWebhookEvent(organizationId, "review.completed", {
-    id: review.id,
-    ticketId: review.ticketId,
-    agentEmail: review.agentEmail,
-    overallScore: review.overallScore,
-    sentiment: review.sentiment,
-  });
-
-  return review;
-}
-
-export async function createReviewAction(formData: FormData) {
+export async function createReviewAction(formData: FormData): Promise<{ reviewId: string; error?: undefined } | { error: string; reviewId?: undefined }> {
   const session = await requireOrg();
   const organizationId = session.user.organizationId;
 
@@ -79,28 +22,27 @@ export async function createReviewAction(formData: FormData) {
     sopId: formData.get("sopId"),
   });
 
-  const [connection, sop, subscription] = await Promise.all([
+  const [connection, sop] = await Promise.all([
     prisma.zendeskConnection.findUnique({ where: { organizationId } }),
     prisma.sopDocument.findUnique({ where: { id: parsed.sopId, organizationId } }),
-    prisma.productSubscription.findUnique({ where: { organizationId_product: { organizationId, product: "QA_SENTINEL" } } }),
   ]);
 
-  if (!connection) throw new Error("Connect Zendesk in Settings before running a review");
-  if (!sop) throw new Error("SOP not found");
-  if (subscription?.reviewQuota != null && subscription.reviewsUsedThisPeriod >= subscription.reviewQuota) {
-    throw new Error(
-      `You've used all ${subscription.reviewQuota} reviews included in your plan this period. Upgrade in Billing to run more.`,
-    );
-  }
+  // Known problems are returned, not thrown: production builds hide thrown server-action messages.
+  if (!connection) return { error: "Connect Zendesk in Settings before running a review" };
+  if (!sop) return { error: "SOP not found" };
 
-  const review = await runReview(organizationId, connection, sop, parsed.ticketId);
+  const slot = await claimReviewSlot(organizationId);
+  if (!slot.ok) return { error: slot.reason };
 
-  if (subscription) {
-    await prisma.productSubscription.update({
-      where: { id: subscription.id },
-      data: { reviewsUsedThisPeriod: { increment: 1 } },
-    });
+  let review;
+  try {
+    review = await runReview(organizationId, connection, sop, parsed.ticketId, { source: "manual", isOverage: slot.overage });
+  } catch (error) {
+    await releaseReviewSlot(organizationId, slot.overage);
+    console.error("Manual review failed", { organizationId, ticketId: parsed.ticketId, error });
+    return { error: error instanceof Error ? error.message : "The review failed. Please try again." };
   }
+  if (slot.overage) await reportOverageReview(organizationId, review.id);
 
   revalidatePath("/qa/reviews");
   revalidatePath("/qa");
@@ -127,39 +69,38 @@ export async function createBulkReviewAction(ticketIdsRaw: string, sopId: string
     throw new Error(`Bulk review is limited to ${MAX_BULK_TICKETS} tickets at a time (got ${ticketIds.length}).`);
   }
 
-  const [connection, sop, subscription] = await Promise.all([
+  const [connection, sop] = await Promise.all([
     prisma.zendeskConnection.findUnique({ where: { organizationId } }),
     prisma.sopDocument.findUnique({ where: { id: sopId, organizationId } }),
-    prisma.productSubscription.findUnique({ where: { organizationId_product: { organizationId, product: "QA_SENTINEL" } } }),
   ]);
   if (!connection) throw new Error("Connect Zendesk in Settings before running a review");
   if (!sop) throw new Error("SOP not found");
 
-  const remainingQuota =
-    subscription?.reviewQuota != null ? Math.max(0, subscription.reviewQuota - subscription.reviewsUsedThisPeriod) : Infinity;
-
   const summary: BulkReviewSummary = { reviewed: 0, failed: 0, quotaBlocked: 0, errors: [] };
+  let quotaReason: string | null = null;
 
   for (const ticketId of ticketIds) {
-    if (summary.reviewed >= remainingQuota) {
+    if (quotaReason) {
+      summary.quotaBlocked += 1;
+      continue;
+    }
+    const slot = await claimReviewSlot(organizationId);
+    if (!slot.ok) {
+      quotaReason = slot.reason;
       summary.quotaBlocked += 1;
       continue;
     }
     try {
-      await runReview(organizationId, connection, sop, ticketId);
+      const review = await runReview(organizationId, connection, sop, ticketId, { source: "bulk", isOverage: slot.overage });
+      if (slot.overage) await reportOverageReview(organizationId, review.id);
       summary.reviewed += 1;
     } catch (error) {
+      await releaseReviewSlot(organizationId, slot.overage);
       summary.failed += 1;
       summary.errors.push(`Ticket ${ticketId}: ${error instanceof Error ? error.message : "failed"}`);
     }
   }
-
-  if (subscription && summary.reviewed > 0) {
-    await prisma.productSubscription.update({
-      where: { id: subscription.id },
-      data: { reviewsUsedThisPeriod: { increment: summary.reviewed } },
-    });
-  }
+  if (quotaReason) summary.errors.unshift(quotaReason);
 
   revalidatePath("/qa/reviews");
   revalidatePath("/qa");
