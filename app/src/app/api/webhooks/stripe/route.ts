@@ -3,7 +3,8 @@ import type Stripe from "stripe";
 
 import { prisma } from "@/lib/db/prisma";
 import { getStripe } from "@/lib/billing/stripe";
-import type { Product } from "@/generated/prisma/client";
+import { limitsForPlan } from "@/lib/billing/plans";
+import type { Product, SubscriptionStatus } from "@/generated/prisma/client";
 
 function isProduct(value: unknown): value is Product {
   return value === "QA_SENTINEL" || value === "CRM";
@@ -18,7 +19,7 @@ async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription) {
     return;
   }
 
-  const status =
+  const status: SubscriptionStatus =
     subscription.status === "active"
       ? "ACTIVE"
       : subscription.status === "past_due"
@@ -30,26 +31,33 @@ async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription) {
   const item = subscription.items.data[0];
   const currentPeriodEnd = item?.current_period_end ? new Date(item.current_period_end * 1000) : null;
 
+  const existing = await prisma.productSubscription.findUnique({
+    where: { organizationId_product: { organizationId, product } },
+    select: { currentPeriodEnd: true, pastDueSince: true },
+  });
+
+  // Usage resets only when Stripe starts a new billing period (or a trial converts),
+  // not on every subscription.updated event (seat changes, card updates, …).
+  const newPeriod =
+    currentPeriodEnd != null && (existing?.currentPeriodEnd == null || currentPeriodEnd > existing.currentPeriodEnd);
+
+  const data = {
+    status,
+    planId: planId ?? undefined,
+    stripeSubscriptionId: subscription.id,
+    stripePriceId: item?.price.id,
+    currentPeriodEnd,
+    // Self-serve plans carry their limits; contact-sales plans keep what staff set in /admin.
+    ...limitsForPlan(product, planId),
+    pastDueSince: status === "PAST_DUE" ? (existing?.pastDueSince ?? new Date()) : null,
+    // A converted trial is no longer bound by its trial end date.
+    ...(status === "ACTIVE" ? { trialEndsAt: null } : {}),
+  };
+
   await prisma.productSubscription.upsert({
     where: { organizationId_product: { organizationId, product } },
-    update: {
-      status,
-      planId: planId ?? undefined,
-      stripeSubscriptionId: subscription.id,
-      stripePriceId: item?.price.id,
-      currentPeriodEnd,
-      // A renewal (new billing period) resets usage; approximate by resetting whenever this webhook fires with an ACTIVE status.
-      reviewsUsedThisPeriod: status === "ACTIVE" ? 0 : undefined,
-    },
-    create: {
-      organizationId,
-      product,
-      status,
-      planId,
-      stripeSubscriptionId: subscription.id,
-      stripePriceId: item?.price.id,
-      currentPeriodEnd,
-    },
+    update: { ...data, ...(newPeriod ? { reviewsUsedThisPeriod: 0 } : {}) },
+    create: { organizationId, product, ...data, planId },
   });
 }
 
@@ -106,8 +114,13 @@ export async function POST(request: Request) {
         const organizationId = subscription.metadata.organizationId;
         const product = subscription.metadata.product;
         if (organizationId && isProduct(product)) {
+          // Start the grace period on the first failure only.
           await prisma.productSubscription.updateMany({
-            where: { organizationId, product },
+            where: { organizationId, product, pastDueSince: null },
+            data: { status: "PAST_DUE", pastDueSince: new Date() },
+          });
+          await prisma.productSubscription.updateMany({
+            where: { organizationId, product, pastDueSince: { not: null } },
             data: { status: "PAST_DUE" },
           });
         }

@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
+import { assertSeatAvailable, syncCrmSeatQuantity } from "@/lib/billing/seats";
 import type { Role } from "@/generated/prisma/client";
 
 const createUserSchema = z.object({
@@ -35,15 +36,7 @@ export async function createUserAction(formData: FormData) {
   const existing = await prisma.user.findUnique({ where: { email: parsed.email } });
   if (existing) throw new Error("A user with this email already exists");
 
-  const [subscription, seatCount] = await Promise.all([
-    prisma.productSubscription.findUnique({
-      where: { organizationId_product: { organizationId: session.user.organizationId, product: "CRM" } },
-    }),
-    prisma.user.count({ where: { organizationId: session.user.organizationId } }),
-  ]);
-  if (subscription?.seats != null && seatCount >= subscription.seats) {
-    throw new Error(`Your CRM plan includes ${subscription.seats} seats. Upgrade in Billing to add more team members.`);
-  }
+  await assertSeatAvailable(session.user.organizationId);
 
   const tempPassword = generateTempPassword();
   const passwordHash = await bcrypt.hash(tempPassword, 10);
@@ -60,6 +53,7 @@ export async function createUserAction(formData: FormData) {
       capacity: parsed.capacity ?? null,
     },
   });
+  await syncCrmSeatQuantity(session.user.organizationId);
 
   revalidatePath("/settings/users");
   return { tempPassword };
@@ -97,7 +91,17 @@ export async function setUserActiveAction(userId: string, isActive: boolean) {
     throw new Error("You cannot deactivate your own account");
   }
 
+  if (isActive) {
+    const target = await prisma.user.findFirst({
+      where: { id: userId, organizationId: session.user.organizationId },
+      select: { isActive: true },
+    });
+    // Reactivating takes a seat back, so it must fit under the plan's cap.
+    if (target && !target.isActive) await assertSeatAvailable(session.user.organizationId);
+  }
+
   await prisma.user.update({ where: { id: userId, organizationId: session.user.organizationId }, data: { isActive } });
+  await syncCrmSeatQuantity(session.user.organizationId);
 
   revalidatePath("/settings/users");
 }

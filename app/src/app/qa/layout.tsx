@@ -2,6 +2,7 @@ import { requireProductAccess } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
 import { AppSidebar, type NavItem } from "@/components/app-sidebar";
 import { VerifyEmailBanner } from "@/components/verify-email-banner";
+import { PastDueBanner } from "@/components/past-due-banner";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppHeader } from "@/components/app-header";
 import { HeaderSearch } from "@/components/header-search";
@@ -41,6 +42,7 @@ export default async function QaLayout({ children }: { children: React.ReactNode
       <AppSidebar user={session.user} navItems={navItems} groupLabel="QA Sentinel" />
       <SidebarInset>
         {!user.emailVerifiedAt && <VerifyEmailBanner />}
+        <PastDueBanner organizationId={organizationId} product="QA_SENTINEL" />
         <AppHeader navItems={navItems} fallbackTitle="QA Sentinel">
           <HeaderSearch action="/qa/reviews" placeholder="Search reviews" />
           <NotificationsBell unreadCount={unreadCount} />

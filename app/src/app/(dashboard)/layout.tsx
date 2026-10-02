@@ -4,6 +4,7 @@ import { AppSidebar, type NavItem } from "@/components/app-sidebar";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { SlaNotificationPoller } from "@/components/sla-notification-poller";
 import { VerifyEmailBanner } from "@/components/verify-email-banner";
+import { PastDueBanner } from "@/components/past-due-banner";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppHeader } from "@/components/app-header";
 import { HeaderSearch } from "@/components/header-search";
@@ -59,6 +60,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <AppSidebar user={session.user} navItems={navItems} groupLabel="CRM" />
       <SidebarInset>
         {!user.emailVerifiedAt && <VerifyEmailBanner />}
+        <PastDueBanner organizationId={organizationId} product="CRM" />
         <AppHeader navItems={navItems} fallbackTitle="CRM">
           <SlaNotificationPoller role={role} />
           <HeaderSearch action="/clients" placeholder="Search clients" />

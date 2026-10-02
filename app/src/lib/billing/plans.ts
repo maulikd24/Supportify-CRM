@@ -93,3 +93,26 @@ export function stripePriceIdFor(plan: PlanTier): string | undefined {
 }
 
 export const TRIAL_DAYS = 14;
+
+/** Days a PAST_DUE subscription keeps access while the customer fixes payment. */
+export const PAST_DUE_GRACE_DAYS = 7;
+
+/** Limits applied to free trials, so a trial can't run unlimited AI reviews or seats. */
+export const TRIAL_LIMITS = { reviewQuota: 50, seats: 3 } as const;
+
+export type PlanLimits = { seats?: number | null; reviewQuota?: number | null };
+
+/** The limit columns a ProductSubscription should carry for a trial of `product`. */
+export function trialLimitsFor(product: Product): PlanLimits {
+  return product === "CRM" ? { seats: TRIAL_LIMITS.seats } : { reviewQuota: TRIAL_LIMITS.reviewQuota };
+}
+
+/**
+ * The limit columns for a self-serve plan. Returns {} for unknown or
+ * contact-sales plans so limits set by staff in /admin are left untouched.
+ */
+export function limitsForPlan(product: Product, planId: string | null | undefined): PlanLimits {
+  const plan = planId ? planById(product, planId) : undefined;
+  if (!plan || plan.contactSales) return {};
+  return product === "CRM" ? { seats: plan.seats ?? null } : { reviewQuota: plan.reviewQuota ?? null };
+}

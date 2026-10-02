@@ -159,6 +159,7 @@ model ProductSubscription {
 
   currentPeriodEnd DateTime?
   trialEndsAt      DateTime?
+  pastDueSince     DateTime? // first failed payment; access continues for PAST_DUE_GRACE_DAYS
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 

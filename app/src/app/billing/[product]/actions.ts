@@ -5,8 +5,9 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { requireOrg } from "@/lib/auth/require-role";
 import { getStripe } from "@/lib/billing/stripe";
-import { planById, stripePriceIdFor, PRODUCT_LABELS, TRIAL_DAYS } from "@/lib/billing/plans";
+import { planById, stripePriceIdFor, PRODUCT_LABELS, TRIAL_DAYS, trialLimitsFor } from "@/lib/billing/plans";
 import { DEFAULT_STAGE_DEFINITIONS } from "@/lib/stage-engine/stages";
+import { countBillableSeats } from "@/lib/billing/seats";
 import type { Product } from "@/generated/prisma/client";
 
 function parseProduct(value: string): Product {
@@ -35,6 +36,7 @@ export async function startTrialAction(productParam: string) {
       product,
       status: "TRIALING",
       trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
+      ...trialLimitsFor(product),
     },
   });
 
@@ -87,7 +89,8 @@ export async function startCheckoutAction(productParam: string, planId: string) 
   const checkoutSession = await getStripe().checkout.sessions.create({
     customer: stripeCustomerId,
     mode: "subscription",
-    line_items: [{ price: priceId, quantity: 1 }],
+    // CRM is priced per seat: bill every active user. QA Sentinel is a flat plan.
+    line_items: [{ price: priceId, quantity: product === "CRM" ? Math.max(1, await countBillableSeats(org.id)) : 1 }],
     success_url: `${appUrl}/billing/${product}?checkout=success`,
     cancel_url: `${appUrl}/billing/${product}?checkout=canceled`,
     subscription_data: {

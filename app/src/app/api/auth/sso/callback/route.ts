@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db/prisma";
 import { getWorkos, workosClientId } from "@/lib/sso/workos";
 import { issueVerificationToken } from "@/lib/auth/verification-tokens";
+import { remainingSeats, syncCrmSeatQuantity } from "@/lib/billing/seats";
 
 /**
  * WorkOS redirects here after the user authenticates with their IdP. This is
@@ -49,6 +50,10 @@ export async function GET(request: Request) {
   }
 
   let user = await prisma.user.findUnique({ where: { email: profile.email } });
+  if (!user && (await remainingSeats(organization.id)) === 0) {
+    loginUrl.searchParams.set("ssoError", "Your organization has no free seats. Ask your admin to add seats in Billing.");
+    return NextResponse.redirect(loginUrl);
+  }
   if (!user) {
     // JIT provisioning: first SSO login for this person creates their account.
     // They never set a password — the random hash below is unusable and only
@@ -64,6 +69,7 @@ export async function GET(request: Request) {
         emailVerifiedAt: new Date(),
       },
     });
+    await syncCrmSeatQuantity(organization.id);
   } else if (user.organizationId !== organization.id) {
     // An existing account with this email belongs to a different org — never
     // silently move it or sign in as it, that's a cross-tenant identity mixup.
