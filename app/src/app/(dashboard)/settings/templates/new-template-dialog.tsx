@@ -24,6 +24,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { createTemplateAction } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function NewTemplateDialog() {
   const [open, setOpen] = useState(false);
@@ -33,7 +34,7 @@ export function NewTemplateDialog() {
   async function handleSubmit(formData: FormData) {
     setPending(true);
     try {
-      await createTemplateAction(formData);
+      await callAction(createTemplateAction)(formData);
       toast.success("Template created");
       setOpen(false);
       formRef.current?.reset();

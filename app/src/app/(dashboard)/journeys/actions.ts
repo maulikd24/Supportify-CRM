@@ -8,6 +8,7 @@ import { requireRole, requireUser } from "@/lib/auth/require-role";
 import { validateJourneyGraph } from "@/lib/journeys/schema";
 import { enrollClientManually } from "@/lib/journeys/dispatch";
 import type { JourneyGraph } from "@/lib/journeys/types";
+import { UserError, withUserErrors } from "@/lib/actions/user-error";
 
 const EMPTY_GRAPH: JourneyGraph = {
   nodes: [
@@ -21,7 +22,7 @@ const EMPTY_GRAPH: JourneyGraph = {
   edges: [],
 };
 
-export async function createJourneyAction(name: string) {
+export const createJourneyAction = withUserErrors(async function createJourneyAction(name: string) {
   const session = await requireRole(["ADMIN", "MANAGER"]);
 
   const journey = await prisma.journey.create({
@@ -35,9 +36,9 @@ export async function createJourneyAction(name: string) {
 
   revalidatePath("/journeys");
   redirect(`/journeys/${journey.id}`);
-}
+});
 
-export async function saveJourneyGraphAction(journeyId: string, graph: JourneyGraph) {
+export const saveJourneyGraphAction = withUserErrors(async function saveJourneyGraphAction(journeyId: string, graph: JourneyGraph) {
   const session = await requireRole(["ADMIN", "MANAGER"]);
 
   const validated = validateJourneyGraph(graph);
@@ -46,7 +47,7 @@ export async function saveJourneyGraphAction(journeyId: string, graph: JourneyGr
     where: { journeyId, status: { in: ["RUNNING", "WAITING"] } },
   });
   if (inFlightRuns > 0) {
-    throw new Error(
+    throw new UserError(
       `Cannot edit: ${inFlightRuns} client(s) are currently in this journey. Deactivate it first.`,
     );
   }
@@ -57,9 +58,9 @@ export async function saveJourneyGraphAction(journeyId: string, graph: JourneyGr
   });
 
   revalidatePath(`/journeys/${journeyId}`);
-}
+});
 
-export async function setJourneyActiveAction(journeyId: string, isActive: boolean) {
+export const setJourneyActiveAction = withUserErrors(async function setJourneyActiveAction(journeyId: string, isActive: boolean) {
   const session = await requireRole(["ADMIN", "MANAGER"]);
 
   await prisma.journey.update({
@@ -69,22 +70,22 @@ export async function setJourneyActiveAction(journeyId: string, isActive: boolea
 
   revalidatePath("/journeys");
   revalidatePath(`/journeys/${journeyId}`);
-}
+});
 
-export async function deleteJourneyAction(journeyId: string) {
+export const deleteJourneyAction = withUserErrors(async function deleteJourneyAction(journeyId: string) {
   const session = await requireRole(["ADMIN", "MANAGER"]);
 
   const journey = await prisma.journey.findUnique({
     where: { id: journeyId, organizationId: session.user.organizationId },
     select: { id: true },
   });
-  if (!journey) throw new Error("Journey not found");
+  if (!journey) throw new UserError("Journey not found");
 
   const inFlightRuns = await prisma.journeyRun.count({
     where: { journeyId, status: { in: ["RUNNING", "WAITING"] } },
   });
   if (inFlightRuns > 0) {
-    throw new Error(`Cannot delete: ${inFlightRuns} client(s) are currently in this journey.`);
+    throw new UserError(`Cannot delete: ${inFlightRuns} client(s) are currently in this journey.`);
   }
 
   await prisma.journeyRunStep.deleteMany({ where: { run: { journeyId } } });
@@ -93,17 +94,17 @@ export async function deleteJourneyAction(journeyId: string) {
 
   revalidatePath("/journeys");
   redirect("/journeys");
-}
+});
 
-export async function enrollClientInJourneyAction(journeyId: string, clientId: string) {
+export const enrollClientInJourneyAction = withUserErrors(async function enrollClientInJourneyAction(journeyId: string, clientId: string) {
   const session = await requireUser();
 
   const [journey, client] = await Promise.all([
     prisma.journey.findUnique({ where: { id: journeyId, organizationId: session.user.organizationId }, select: { id: true } }),
     prisma.client.findUnique({ where: { id: clientId, organizationId: session.user.organizationId }, select: { id: true } }),
   ]);
-  if (!journey || !client) throw new Error("Journey or client not found");
+  if (!journey || !client) throw new UserError("Journey or client not found");
 
   await enrollClientManually(journeyId, clientId);
   revalidatePath(`/clients/${clientId}`);
-}
+});

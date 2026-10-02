@@ -13,6 +13,7 @@ import { formatDateTime } from "@/lib/utils/format";
 import { createWebhookAction, deleteWebhookAction, toggleWebhookActiveAction } from "./actions";
 import { WEBHOOK_EVENTS } from "@/lib/webhooks/events";
 import type { WebhookEndpoint, WebhookDelivery } from "@/generated/prisma/client";
+import { callAction } from "@/lib/actions/call-action";
 
 type WebhookWithDeliveries = WebhookEndpoint & { deliveries: WebhookDelivery[] };
 
@@ -25,7 +26,7 @@ export function WebhooksPanel({ webhooks }: { webhooks: WebhookWithDeliveries[] 
   async function handleCreate(formData: FormData) {
     setPending(true);
     try {
-      const result = await createWebhookAction(formData);
+      const result = await callAction(createWebhookAction)(formData);
       setNewSecret(result.secret);
       formRef.current?.reset();
     } catch (error) {
@@ -37,7 +38,7 @@ export function WebhooksPanel({ webhooks }: { webhooks: WebhookWithDeliveries[] 
 
   async function handleDelete(id: string) {
     try {
-      await deleteWebhookAction(id);
+      await callAction(deleteWebhookAction)(id);
       toast.success("Webhook deleted");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to delete webhook");
@@ -46,7 +47,7 @@ export function WebhooksPanel({ webhooks }: { webhooks: WebhookWithDeliveries[] 
 
   async function handleToggle(id: string, isActive: boolean) {
     try {
-      await toggleWebhookActiveAction(id, isActive);
+      await callAction(toggleWebhookActiveAction)(id, isActive);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update webhook");
     }

@@ -17,6 +17,7 @@ import type { Role, User } from "@/generated/prisma/client";
 import { setUserRoleAction, setUserManagerAction, setUserCapacityAction } from "./actions";
 import { ResetPasswordDialog } from "./reset-password-dialog";
 import { UserActivationDialog } from "./user-activation-dialog";
+import { callAction } from "@/lib/actions/call-action";
 
 const ROLES: Role[] = ["ADMIN", "MANAGER", "RM", "DEALER"];
 
@@ -43,7 +44,7 @@ export function UserRowActions({
     if (!pendingRole) return;
     setPending(true);
     try {
-      await setUserRoleAction(user.id, pendingRole);
+      await callAction(setUserRoleAction)(user.id, pendingRole);
       toast.success(`${user.name}'s role updated to ${pendingRole}`);
       setPendingRole(null);
     } catch (error) {
@@ -60,7 +61,7 @@ export function UserRowActions({
   async function handleManagerChange(value: string | null) {
     setPending(true);
     try {
-      await setUserManagerAction(user.id, value || null);
+      await callAction(setUserManagerAction)(user.id, value || null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update manager");
     } finally {
@@ -73,7 +74,7 @@ export function UserRowActions({
     if (parsed !== null && (!Number.isInteger(parsed) || parsed <= 0)) return;
     setPending(true);
     try {
-      await setUserCapacityAction(user.id, parsed);
+      await callAction(setUserCapacityAction)(user.id, parsed);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update capacity");
     } finally {

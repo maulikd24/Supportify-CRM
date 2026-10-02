@@ -12,6 +12,7 @@ import { verifyTotpToken, consumeRecoveryCode } from "@/lib/security/two-factor"
 import { consumeVerificationToken } from "@/lib/auth/verification-tokens";
 import { provisionOrganization } from "@/lib/auth/provision-organization";
 import { isLockedOut, registerLoginFailure, resetLoginFailures } from "@/lib/auth/login-lockout";
+import { hashIdentifier, ipFromHeaders, rateLimit } from "@/lib/security/rate-limit";
 
 declare module "next-auth" {
   interface User {
@@ -58,11 +59,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
         code: { label: "Two-factor code", type: "text" },
       },
-      authorize: async (credentials) => {
+      authorize: async (credentials, request) => {
         const email = credentials?.email;
         const password = credentials?.password;
         const code = credentials?.code;
         if (typeof email !== "string" || typeof password !== "string") return null;
+
+        // The NextAuth callback endpoint can be called directly, bypassing loginAction's throttle.
+        const [byIp, byEmail] = await Promise.all([
+          rateLimit("loginByIp", `authorize:${ipFromHeaders(request.headers)}`),
+          rateLimit("loginByEmail", `authorize:${hashIdentifier(email)}`),
+        ]);
+        if (!byIp.allowed || !byEmail.allowed) return null;
 
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user || !user.isActive) return null;

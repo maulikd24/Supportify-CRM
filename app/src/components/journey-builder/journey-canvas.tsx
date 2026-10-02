@@ -28,6 +28,7 @@ import { WaitNode } from "./nodes/wait-node";
 import { NodeConfigPanel } from "./node-config-panel";
 import { saveJourneyGraphAction, setJourneyActiveAction } from "@/app/(dashboard)/journeys/actions";
 import type { JourneyGraph } from "@/lib/journeys/types";
+import { callAction } from "@/lib/actions/call-action";
 
 const nodeTypes = {
   trigger: TriggerNode,
@@ -125,7 +126,7 @@ export function JourneyCanvas({
           sourceHandle: (e.sourceHandle as "true" | "false" | null) ?? null,
         })),
       };
-      await saveJourneyGraphAction(journeyId, graph);
+      await callAction(saveJourneyGraphAction)(journeyId, graph);
       toast.success("Journey saved");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to save journey");
@@ -138,7 +139,7 @@ export function JourneyCanvas({
     const next = !active;
     setActive(next);
     try {
-      await setJourneyActiveAction(journeyId, next);
+      await callAction(setJourneyActiveAction)(journeyId, next);
       toast.success(next ? "Journey activated" : "Journey deactivated");
     } catch (error) {
       setActive(!next);

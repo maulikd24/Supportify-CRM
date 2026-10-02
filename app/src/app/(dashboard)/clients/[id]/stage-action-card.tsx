@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import type { Client, Stage, CustomFieldDefinition } from "@/generated/prisma/client";
 import { recordRmContactAction, moveToStageAction, updateClientDetailsAction } from "../actions";
 import { CustomFieldInputs, parseCustomFieldsFromFormData } from "@/components/clients/custom-field-inputs";
+import { callAction } from "@/lib/actions/call-action";
 
 type FullClient = Omit<Client, "dealValue"> & {
   dealValue: number | null;
@@ -85,7 +86,7 @@ function MoveStageForm({
     if (toStageId === currentStageId) return;
     setPending(true);
     try {
-      await moveToStageAction(clientId, toStageId);
+      await callAction(moveToStageAction)(clientId, toStageId);
       toast.success("Stage updated");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to move stage");
@@ -128,7 +129,7 @@ function RmContactForm({ clientId }: { clientId: string }) {
   async function handleSubmit(formData: FormData) {
     setPending(true);
     try {
-      await recordRmContactAction(clientId, {
+      await callAction(recordRmContactAction)(clientId, {
         contactMethod: formData.get("contactMethod") as never,
         contactOutcome: outcome as never,
         notes: String(formData.get("notes") || "") || undefined,
@@ -214,7 +215,7 @@ function DetailsForm({
     setPending(true);
     try {
       const dealValueRaw = formData.get("dealValue");
-      await updateClientDetailsAction(client.id, {
+      await callAction(updateClientDetailsAction)(client.id, {
         dealValue: dealValueRaw === "" || dealValueRaw === null ? null : Number(dealValueRaw),
         customFields: parseCustomFieldsFromFormData(formData, customFieldDefinitions),
       });

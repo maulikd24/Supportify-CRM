@@ -15,6 +15,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { deleteOrganizationAction } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function DeleteOrganizationDialog({ organizationName }: { organizationName: string }) {
   const [open, setOpen] = useState(false);
@@ -24,7 +25,7 @@ export function DeleteOrganizationDialog({ organizationName }: { organizationNam
   async function handleDelete() {
     setPending(true);
     try {
-      await deleteOrganizationAction(confirmName);
+      await callAction(deleteOrganizationAction)(confirmName);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to delete organization");
       setPending(false);

@@ -4,11 +4,12 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { setTemplateApprovedAction, deleteTemplateAction } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function TemplateRowActions({ templateId, approved }: { templateId: string; approved: boolean }) {
   async function handleToggleApproved() {
     try {
-      await setTemplateApprovedAction(templateId, !approved);
+      await callAction(setTemplateApprovedAction)(templateId, !approved);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update template");
     }
@@ -16,7 +17,7 @@ export function TemplateRowActions({ templateId, approved }: { templateId: strin
 
   async function handleDelete() {
     try {
-      await deleteTemplateAction(templateId);
+      await callAction(deleteTemplateAction)(templateId);
       toast.success("Template deleted");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to delete template");

@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
+import { withUserErrors } from "@/lib/actions/user-error";
 
 const updateStageSchema = z.object({
   name: z.string().min(1),
@@ -13,7 +14,7 @@ const updateStageSchema = z.object({
   isTerminal: z.boolean(),
 });
 
-export async function updateStageAction(
+export const updateStageAction = withUserErrors(async function updateStageAction(
   stageId: string,
   input: { name: string; slaHours: number; isActive: boolean; isTerminal: boolean },
 ) {
@@ -27,14 +28,14 @@ export async function updateStageAction(
   });
 
   revalidatePath("/settings/stages");
-}
+});
 
 const createStageSchema = z.object({
   name: z.string().min(1, "Name is required"),
   slaHours: z.coerce.number().int().min(0),
 });
 
-export async function createStageAction(formData: FormData) {
+export const createStageAction = withUserErrors(async function createStageAction(formData: FormData) {
   const session = await requireRole(["ADMIN"]);
 
   const parsed = createStageSchema.parse({
@@ -57,4 +58,4 @@ export async function createStageAction(formData: FormData) {
   });
 
   revalidatePath("/settings/stages");
-}
+});

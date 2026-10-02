@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireOrg } from "@/lib/auth/require-role";
 import { encryptJson, decryptJson } from "@/lib/security/crypto";
 import { ZendeskClient, type ZendeskCredentials } from "@/lib/qa/zendesk-client";
+import { UserError, withUserErrors } from "@/lib/actions/user-error";
 
 const zendeskSchema = z.object({
   subdomain: z.string().min(1, "Subdomain is required"),
@@ -14,7 +15,7 @@ const zendeskSchema = z.object({
   apiToken: z.string().min(1, "API token is required"),
 });
 
-export async function connectZendeskAction(formData: FormData) {
+export const connectZendeskAction = withUserErrors(async function connectZendeskAction(formData: FormData) {
   const session = await requireOrg();
 
   const parsed = zendeskSchema.parse({
@@ -49,25 +50,25 @@ export async function connectZendeskAction(formData: FormData) {
   revalidatePath("/qa/settings");
 
   if (!test.ok) {
-    throw new Error(test.error ?? "Could not verify the Zendesk connection");
+    throw new UserError(test.error ?? "Could not verify the Zendesk connection");
   }
-}
+});
 
-export async function disconnectZendeskAction() {
+export const disconnectZendeskAction = withUserErrors(async function disconnectZendeskAction() {
   const session = await requireOrg();
 
   await prisma.zendeskConnection.deleteMany({ where: { organizationId: session.user.organizationId } });
 
   revalidatePath("/qa/settings");
-}
+});
 
-export async function retestZendeskConnectionAction() {
+export const retestZendeskConnectionAction = withUserErrors(async function retestZendeskConnectionAction() {
   const session = await requireOrg();
 
   const connection = await prisma.zendeskConnection.findUnique({
     where: { organizationId: session.user.organizationId },
   });
-  if (!connection) throw new Error("No Zendesk connection to test");
+  if (!connection) throw new UserError("No Zendesk connection to test");
 
   const credentials = decryptJson<ZendeskCredentials>(connection.encryptedToken);
   const client = new ZendeskClient(credentials);
@@ -79,8 +80,8 @@ export async function retestZendeskConnectionAction() {
   });
 
   revalidatePath("/qa/settings");
-  if (!test.ok) throw new Error(test.error ?? "Zendesk connection test failed");
-}
+  if (!test.ok) throw new UserError(test.error ?? "Zendesk connection test failed");
+});
 
 const sopSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -88,7 +89,7 @@ const sopSchema = z.object({
   content: z.string().min(1, "Content is required"),
 });
 
-export async function createSopAction(formData: FormData) {
+export const createSopAction = withUserErrors(async function createSopAction(formData: FormData) {
   const session = await requireOrg();
 
   const parsed = sopSchema.parse({
@@ -103,15 +104,15 @@ export async function createSopAction(formData: FormData) {
     });
   } catch (error) {
     if (error instanceof Error && error.message.includes("Unique constraint")) {
-      throw new Error(`A SOP named "${parsed.name}" already exists`);
+      throw new UserError(`A SOP named "${parsed.name}" already exists`);
     }
     throw error;
   }
 
   revalidatePath("/qa/settings");
-}
+});
 
-export async function updateSopAction(sopId: string, formData: FormData) {
+export const updateSopAction = withUserErrors(async function updateSopAction(sopId: string, formData: FormData) {
   const session = await requireOrg();
 
   const parsed = sopSchema.parse({
@@ -126,9 +127,9 @@ export async function updateSopAction(sopId: string, formData: FormData) {
   });
 
   revalidatePath("/qa/settings");
-}
+});
 
-export async function deleteSopAction(sopId: string) {
+export const deleteSopAction = withUserErrors(async function deleteSopAction(sopId: string) {
   const session = await requireOrg();
 
   await prisma.sopDocument.delete({
@@ -136,4 +137,4 @@ export async function deleteSopAction(sopId: string) {
   });
 
   revalidatePath("/qa/settings");
-}
+});

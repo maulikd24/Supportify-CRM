@@ -33,6 +33,7 @@ import {
   searchClientsForMergeAction,
   mergeClientsAction,
 } from "../actions";
+import { callAction } from "@/lib/actions/call-action";
 
 const NOT_PROCEEDING_REASONS = [
   "Not Interested",
@@ -82,7 +83,7 @@ export function ClientActionsPanel({
     setAssignedToId(value);
     startTransition(async () => {
       try {
-        await reassignClientAction(client.id, value);
+        await callAction(reassignClientAction)(client.id, value);
         toast.success("Client reassigned");
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to reassign client");
@@ -92,7 +93,7 @@ export function ClientActionsPanel({
 
   async function handleHoldSubmit(formData: FormData) {
     try {
-      await putOnHoldAction(client.id, {
+      await callAction(putOnHoldAction)(client.id, {
         reason: String(formData.get("reason")),
         notes: String(formData.get("notes") || "") || undefined,
         expectedResumeDate: String(formData.get("expectedResumeDate") || "") || undefined,
@@ -107,7 +108,7 @@ export function ClientActionsPanel({
   function handleResume() {
     startTransition(async () => {
       try {
-        await resumeFromHoldAction(client.id);
+        await callAction(resumeFromHoldAction)(client.id);
         toast.success("Client resumed");
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to resume client");
@@ -117,7 +118,7 @@ export function ClientActionsPanel({
 
   async function handleNotProceedingSubmit(formData: FormData) {
     try {
-      await markNotProceedingAction(client.id, {
+      await callAction(markNotProceedingAction)(client.id, {
         reason: String(formData.get("reason")),
         notes: String(formData.get("notes") || "") || undefined,
       });
@@ -131,7 +132,7 @@ export function ClientActionsPanel({
   function handleReopen() {
     startTransition(async () => {
       try {
-        await reopenClientAction(client.id, { reason: "Reopened by manager" });
+        await callAction(reopenClientAction)(client.id, { reason: "Reopened by manager" });
         toast.success("Client reopened");
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to reopen client");
@@ -147,7 +148,7 @@ export function ClientActionsPanel({
     }
     setMergeSearching(true);
     try {
-      const results = await searchClientsForMergeAction(query, client.id);
+      const results = await callAction(searchClientsForMergeAction)(query, client.id);
       setMergeResults(results);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Search failed");
@@ -159,7 +160,7 @@ export function ClientActionsPanel({
   function handleMerge(duplicateId: string) {
     startTransition(async () => {
       try {
-        await mergeClientsAction(client.id, duplicateId);
+        await callAction(mergeClientsAction)(client.id, duplicateId);
         toast.success("Clients merged");
         setMergeOpen(false);
         setMergeQuery("");

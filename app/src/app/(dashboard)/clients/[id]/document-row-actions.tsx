@@ -4,11 +4,12 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { updateDocumentStatusAction } from "../actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function DocumentRowActions({ documentId, status }: { documentId: string; status: string }) {
   async function setStatus(next: "VERIFIED" | "REJECTED") {
     try {
-      await updateDocumentStatusAction(documentId, { status: next });
+      await callAction(updateDocumentStatusAction)(documentId, { status: next });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update document");
     }

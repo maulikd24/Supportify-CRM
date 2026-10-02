@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { importClientsAction, type ImportSummary } from "./import-actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function ImportClientsDialog() {
   const [open, setOpen] = useState(false);
@@ -31,7 +32,7 @@ export function ImportClientsDialog() {
     setSummary(null);
     try {
       const text = await file.text();
-      const result = await importClientsAction(text);
+      const result = await callAction(importClientsAction)(text);
       setSummary(result);
       if (result.created > 0) toast.success(`Imported ${result.created} client(s)`);
     } catch (error) {

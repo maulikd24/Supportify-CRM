@@ -16,6 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { createStageAction } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function NewStageDialog() {
   const [open, setOpen] = useState(false);
@@ -25,7 +26,7 @@ export function NewStageDialog() {
   async function handleSubmit(formData: FormData) {
     setPending(true);
     try {
-      await createStageAction(formData);
+      await callAction(createStageAction)(formData);
       toast.success("Stage added");
       setOpen(false);
       formRef.current?.reset();

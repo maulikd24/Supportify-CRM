@@ -13,6 +13,7 @@ import {
   disableTwoFactorAction,
   regenerateRecoveryCodesAction,
 } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 type Step = "idle" | "setup" | "recovery-codes" | "disable" | "regenerate";
 
@@ -27,7 +28,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
   async function handleStart() {
     setPending(true);
     try {
-      const result = await startTwoFactorSetupAction();
+      const result = await callAction(startTwoFactorSetupAction)();
       setSecret(result.secret);
       setQrDataUrl(result.qrDataUrl);
       setStep("setup");
@@ -41,7 +42,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
   async function handleConfirm(formData: FormData) {
     setPending(true);
     try {
-      const result = await confirmTwoFactorSetupAction(formData);
+      const result = await callAction(confirmTwoFactorSetupAction)(formData);
       setRecoveryCodes(result.recoveryCodes);
       setStep("recovery-codes");
       toast.success("Two-factor authentication enabled");
@@ -56,7 +57,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
   async function handleDisable(formData: FormData) {
     setPending(true);
     try {
-      await disableTwoFactorAction(formData);
+      await callAction(disableTwoFactorAction)(formData);
       toast.success("Two-factor authentication disabled");
       setStep("idle");
       router.refresh();
@@ -70,7 +71,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
   async function handleRegenerate(formData: FormData) {
     setPending(true);
     try {
-      const result = await regenerateRecoveryCodesAction(formData);
+      const result = await callAction(regenerateRecoveryCodesAction)(formData);
       setRecoveryCodes(result.recoveryCodes);
       setStep("recovery-codes");
       toast.success("Recovery codes regenerated — your old codes no longer work");

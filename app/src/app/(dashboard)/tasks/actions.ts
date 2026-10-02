@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { logActivity } from "@/lib/activities/log-activity";
+import { UserError, withUserErrors } from "@/lib/actions/user-error";
 
 const taskSchema = z.object({
   clientId: z.string().min(1),
@@ -15,7 +16,7 @@ const taskSchema = z.object({
   source: z.string().min(1).optional(),
 });
 
-export async function createTaskAction(formData: FormData) {
+export const createTaskAction = withUserErrors(async function createTaskAction(formData: FormData) {
   const session = await requireUser();
 
   const parsed = taskSchema.parse({
@@ -30,8 +31,8 @@ export async function createTaskAction(formData: FormData) {
     prisma.client.findFirst({ where: { id: parsed.clientId, organizationId: session.user.organizationId }, select: { id: true } }),
     prisma.user.findFirst({ where: { id: parsed.assignedToId, organizationId: session.user.organizationId }, select: { id: true } }),
   ]);
-  if (!client) throw new Error("Client not found");
-  if (!assignee) throw new Error("Assignee not found");
+  if (!client) throw new UserError("Client not found");
+  if (!assignee) throw new UserError("Assignee not found");
 
   const task = await prisma.task.create({
     data: {
@@ -48,9 +49,9 @@ export async function createTaskAction(formData: FormData) {
   revalidatePath(`/clients/${parsed.clientId}`);
   revalidatePath("/copilot");
   return task;
-}
+});
 
-export async function completeTaskAction(taskId: string) {
+export const completeTaskAction = withUserErrors(async function completeTaskAction(taskId: string) {
   const session = await requireUser();
 
   const task = await prisma.task.update({
@@ -68,4 +69,4 @@ export async function completeTaskAction(taskId: string) {
   revalidatePath("/tasks");
   revalidatePath(`/clients/${task.clientId}`);
   return task;
-}
+});

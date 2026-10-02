@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Client, Task, User } from "@/generated/prisma/client";
 import { createTaskAction, completeTaskAction } from "@/app/(dashboard)/tasks/actions";
 import { formatDateTime } from "@/lib/utils/format";
+import { callAction } from "@/lib/actions/call-action";
 
 export function ClientTasksPanel({
   client,
@@ -34,7 +35,7 @@ export function ClientTasksPanel({
   async function handleSubmit(formData: FormData) {
     setPending(true);
     try {
-      await createTaskAction(formData);
+      await callAction(createTaskAction)(formData);
       formRef.current?.reset();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to create task");
@@ -45,7 +46,7 @@ export function ClientTasksPanel({
 
   async function handleComplete(taskId: string) {
     try {
-      await completeTaskAction(taskId);
+      await callAction(completeTaskAction)(taskId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to complete task");
     }

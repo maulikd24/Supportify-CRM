@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { requirePlatformAdmin } from "@/lib/auth/require-role";
 import type { Product } from "@/generated/prisma/client";
+import { withUserErrors } from "@/lib/actions/user-error";
 
 const adjustSubscriptionSchema = z.object({
   organizationId: z.string().min(1),
@@ -23,7 +24,7 @@ const adjustSubscriptionSchema = z.object({
  * logged to the *target org's* AuditLog so a paying customer's admin can see
  * that Supportify staff touched their billing, and why.
  */
-export async function adjustSubscriptionAction(formData: FormData) {
+export const adjustSubscriptionAction = withUserErrors(async function adjustSubscriptionAction(formData: FormData) {
   const session = await requirePlatformAdmin();
 
   const parsed = adjustSubscriptionSchema.parse({
@@ -69,4 +70,4 @@ export async function adjustSubscriptionAction(formData: FormData) {
   });
 
   revalidatePath(`/admin/organizations/${parsed.organizationId}`);
-}
+});

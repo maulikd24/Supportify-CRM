@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 
 import { prisma } from "@/lib/db/prisma";
 import { consumeVerificationToken } from "@/lib/auth/verification-tokens";
+import { clientIp, rateLimit, retryMessage } from "@/lib/security/rate-limit";
 
 export type ResetPasswordState = { error?: string; success?: boolean };
 
@@ -12,6 +13,9 @@ export async function resetPasswordAction(
   _prevState: ResetPasswordState,
   formData: FormData,
 ): Promise<ResetPasswordState> {
+  const limited = await rateLimit("passwordResetByIp", await clientIp());
+  if (!limited.allowed) return { error: `Too many attempts. Try again ${retryMessage(limited.retryAfterSeconds)}.` };
+
   const password = String(formData.get("password") ?? "");
   if (password.length < 8) {
     return { error: "Password must be at least 8 characters." };

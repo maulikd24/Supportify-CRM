@@ -28,6 +28,7 @@ import { createClientAction } from "./actions";
 import { LEAD_SOURCES, CLIENT_TYPES } from "@/lib/clients/options";
 import { CustomFieldInputs } from "@/components/clients/custom-field-inputs";
 import type { CustomFieldDefinition } from "@/generated/prisma/client";
+import { callAction } from "@/lib/actions/call-action";
 
 type UserOption = { id: string; name: string };
 type DuplicateInfo = { id: string; name: string; clientCode: string; mobile: string; email: string | null };
@@ -50,7 +51,7 @@ export function NewClientDialog({
   async function handleSubmit(formData: FormData) {
     setPending(true);
     try {
-      const result = await createClientAction(formData);
+      const result = await callAction(createClientAction)(formData);
       if (result.duplicate) {
         setDuplicate(result.duplicate);
         return;
@@ -72,7 +73,7 @@ export function NewClientDialog({
     formData.set("allowDuplicate", "true");
     setPending(true);
     try {
-      await createClientAction(formData);
+      await callAction(createClientAction)(formData);
       toast.success("Client created");
       setOpen(false);
       setDuplicate(null);

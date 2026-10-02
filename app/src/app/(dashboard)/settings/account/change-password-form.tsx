@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { changeOwnPasswordAction } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function ChangePasswordForm() {
   const [pending, setPending] = useState(false);
@@ -22,7 +23,7 @@ export function ChangePasswordForm() {
 
     setPending(true);
     try {
-      await changeOwnPasswordAction(formData);
+      await callAction(changeOwnPasswordAction)(formData);
       toast.success("Password updated");
       formRef.current?.reset();
     } catch (error) {

@@ -9,6 +9,7 @@ import { getFirstStage } from "@/lib/stage-engine/stages";
 import { initializeClient } from "@/lib/stage-engine/transitions";
 import { parseCsv } from "@/lib/utils/csv";
 import type { Prisma } from "@/generated/prisma/client";
+import { UserError, withUserErrors } from "@/lib/actions/user-error";
 
 export type ImportSummary = { created: number; skipped: number; errors: string[] };
 
@@ -31,13 +32,13 @@ const BASE_COLUMNS = new Set([
   "notes",
 ]);
 
-export async function importClientsAction(csvText: string): Promise<ImportSummary> {
+export const importClientsAction = withUserErrors(async function importClientsAction(csvText: string): Promise<ImportSummary> {
   const session = await requireRole(["ADMIN", "MANAGER"]);
   const organizationId = session.user.organizationId;
 
   const rows = parseCsv(csvText);
-  if (rows.length === 0) throw new Error("No rows found in the CSV.");
-  if (rows.length > 2000) throw new Error("Import is limited to 2000 rows at a time.");
+  if (rows.length === 0) throw new UserError("No rows found in the CSV.");
+  if (rows.length > 2000) throw new UserError("Import is limited to 2000 rows at a time.");
 
   const [customFieldDefs, firstStage, existingMobiles] = await Promise.all([
     prisma.customFieldDefinition.findMany({ where: { organizationId } }),
@@ -103,4 +104,4 @@ export async function importClientsAction(csvText: string): Promise<ImportSummar
 
   revalidatePath("/clients");
   return summary;
-}
+});

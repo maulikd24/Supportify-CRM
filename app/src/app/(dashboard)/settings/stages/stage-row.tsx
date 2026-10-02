@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { updateStageAction } from "./actions";
 import type { Stage } from "@/generated/prisma/client";
+import { callAction } from "@/lib/actions/call-action";
 
 export function StageRow({ stage }: { stage: Stage }) {
   const [name, setName] = useState(stage.name);
@@ -20,7 +21,7 @@ export function StageRow({ stage }: { stage: Stage }) {
   async function save(next: { name: string; slaHours: number; isActive: boolean; isTerminal: boolean }) {
     setPending(true);
     try {
-      await updateStageAction(stage.id, next);
+      await callAction(updateStageAction)(stage.id, next);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update stage");
     } finally {

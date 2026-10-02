@@ -17,6 +17,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { createSopAction } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function NewSopDialog() {
   const [open, setOpen] = useState(false);
@@ -26,7 +27,7 @@ export function NewSopDialog() {
   async function handleSubmit(formData: FormData) {
     setPending(true);
     try {
-      await createSopAction(formData);
+      await callAction(createSopAction)(formData);
       toast.success("SOP created");
       setOpen(false);
       formRef.current?.reset();

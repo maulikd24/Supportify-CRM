@@ -19,6 +19,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { submitDsatAction } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function NewDsatDialog({ hasZendesk }: { hasZendesk: boolean }) {
   const [open, setOpen] = useState(false);
@@ -31,7 +32,7 @@ export function NewDsatDialog({ hasZendesk }: { hasZendesk: boolean }) {
     formData.set("inputMode", mode);
     setPending(true);
     try {
-      const { analysisId } = await submitDsatAction(formData);
+      const { analysisId } = await callAction(submitDsatAction)(formData);
       toast.success("Analysis complete");
       setOpen(false);
       formRef.current?.reset();

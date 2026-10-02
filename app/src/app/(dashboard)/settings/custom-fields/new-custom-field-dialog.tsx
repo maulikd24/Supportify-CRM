@@ -17,6 +17,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { createCustomFieldAction } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 const FIELD_TYPES = [
   { value: "TEXT", label: "Text" },
@@ -35,7 +36,7 @@ export function NewCustomFieldDialog() {
   async function handleSubmit(formData: FormData) {
     setPending(true);
     try {
-      await createCustomFieldAction(formData);
+      await callAction(createCustomFieldAction)(formData);
       toast.success("Field added");
       setOpen(false);
       formRef.current?.reset();

@@ -20,6 +20,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { createReviewAction, createBulkReviewAction, type BulkReviewSummary } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function NewReviewDialog({
   sops,
@@ -45,7 +46,7 @@ export function NewReviewDialog({
 
     if (mode === "bulk") {
       try {
-        const summary = await createBulkReviewAction(String(formData.get("ticketIds") || ""), sopId);
+        const summary = await callAction(createBulkReviewAction)(String(formData.get("ticketIds") || ""), sopId);
         setBulkSummary(summary);
         if (summary.reviewed > 0) toast.success(`Reviewed ${summary.reviewed} ticket(s)`);
       } catch (error) {
@@ -57,7 +58,7 @@ export function NewReviewDialog({
     }
 
     try {
-      const { reviewId, error } = await createReviewAction(formData);
+      const { reviewId, error } = await callAction(createReviewAction)(formData);
       if (error) {
         toast.error(error);
         return;

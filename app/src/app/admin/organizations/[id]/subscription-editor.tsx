@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { adjustSubscriptionAction } from "./actions";
 import { plansForProduct } from "@/lib/billing/plans";
 import type { Product, ProductSubscription, SubscriptionStatus } from "@/generated/prisma/client";
+import { callAction } from "@/lib/actions/call-action";
 
 const STATUSES: SubscriptionStatus[] = ["TRIALING", "ACTIVE", "PAST_DUE", "CANCELED"];
 
@@ -40,7 +41,7 @@ export function SubscriptionEditor({
   async function handleSubmit(formData: FormData) {
     setPending(true);
     try {
-      await adjustSubscriptionAction(formData);
+      await callAction(adjustSubscriptionAction)(formData);
       toast.success(`${productLabel} subscription updated`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update subscription");

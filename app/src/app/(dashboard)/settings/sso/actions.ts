@@ -7,20 +7,21 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
 import { getWorkos, emailDomain } from "@/lib/sso/workos";
+import { UserError, withUserErrors } from "@/lib/actions/user-error";
 
 const domainSchema = z.object({ domain: z.string().min(1, "Enter a domain") });
 
 /** Saves (or updates) the org's SSO email domain, creating its WorkOS Organization on first save. */
-export async function saveSsoDomainAction(formData: FormData) {
+export const saveSsoDomainAction = withUserErrors(async function saveSsoDomainAction(formData: FormData) {
   const session = await requireRole(["ADMIN"]);
 
   const parsed = domainSchema.parse({ domain: formData.get("domain") });
   const domain = emailDomain(`user@${parsed.domain.trim().toLowerCase().replace(/^@/, "")}`);
-  if (!domain) throw new Error("Enter a plain domain, e.g. acme.com");
+  if (!domain) throw new UserError("Enter a plain domain, e.g. acme.com");
 
   const existing = await prisma.organization.findUnique({ where: { ssoDomain: domain } });
   if (existing && existing.id !== session.user.organizationId) {
-    throw new Error("This domain is already configured for another organization");
+    throw new UserError("This domain is already configured for another organization");
   }
 
   const organization = await prisma.organization.findUniqueOrThrow({ where: { id: session.user.organizationId } });
@@ -40,15 +41,15 @@ export async function saveSsoDomainAction(formData: FormData) {
   });
 
   revalidatePath("/settings/sso");
-}
+});
 
 /** Opens WorkOS's hosted Admin Portal where the org's own IT admin configures the actual SAML/OIDC connection. */
-export async function openSsoAdminPortalAction() {
+export const openSsoAdminPortalAction = withUserErrors(async function openSsoAdminPortalAction() {
   const session = await requireRole(["ADMIN"]);
 
   const organization = await prisma.organization.findUniqueOrThrow({ where: { id: session.user.organizationId } });
   if (!organization.workosOrganizationId) {
-    throw new Error("Save your SSO domain first");
+    throw new UserError("Save your SSO domain first");
   }
 
   const { link } = await getWorkos().adminPortal.generateLink({
@@ -57,4 +58,4 @@ export async function openSsoAdminPortalAction() {
   });
 
   redirect(link);
-}
+});

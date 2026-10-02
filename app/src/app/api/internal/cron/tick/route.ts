@@ -5,6 +5,7 @@ import { checkOverdueTasks } from "@/lib/sla/check-overdue-tasks";
 import { checkStageSla } from "@/lib/sla/check-stage-sla";
 import { processDueJourneySteps } from "@/lib/journeys/poller";
 import { checkDisengagement } from "@/lib/copilot/check-disengagement";
+import { cleanupRateLimits } from "@/lib/security/rate-limit";
 
 export const maxDuration = 60;
 
@@ -17,6 +18,7 @@ async function tick(request: Request) {
   const stageSlaResult = await checkStageSla();
   const journeyResult = await processDueJourneySteps();
   const disengagementResult = await checkDisengagement();
+  const rateLimitBucketsDeleted = await cleanupRateLimits();
 
   return NextResponse.json({
     ok: true,
@@ -24,6 +26,7 @@ async function tick(request: Request) {
     stageSla: stageSlaResult,
     journeys: journeyResult,
     disengagement: disengagementResult,
+    rateLimitBucketsDeleted,
   });
 }
 

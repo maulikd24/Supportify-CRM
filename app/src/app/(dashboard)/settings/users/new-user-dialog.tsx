@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import type { User } from "@/generated/prisma/client";
 import { createUserAction } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER"] as const;
 
@@ -39,7 +40,7 @@ export function NewUserDialog({ users }: { users: Pick<User, "id" | "name" | "ro
   async function handleSubmit(formData: FormData) {
     setPending(true);
     try {
-      const result = await createUserAction(formData);
+      const result = await callAction(createUserAction)(formData);
       setTempPassword(result.tempPassword);
       toast.success("User created");
     } catch (error) {

@@ -6,6 +6,7 @@ import { AuthError } from "next-auth";
 import { signIn } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/prisma";
 import { isLockedOut, registerLoginFailure, resetLoginFailures } from "@/lib/auth/login-lockout";
+import { clientIp, hashIdentifier, rateLimit, retryMessage } from "@/lib/security/rate-limit";
 
 export type LoginState = {
   error?: string;
@@ -18,6 +19,16 @@ export async function loginAction(prevState: LoginState, formData: FormData): Pr
   const email = String(formData.get("email") ?? prevState.email ?? "");
   const password = String(formData.get("password") ?? prevState.password ?? "");
   const code = formData.get("code");
+
+  // Per-IP and per-account throttles on top of the per-account lockout.
+  const [byIp, byEmail] = await Promise.all([
+    rateLimit("loginByIp", await clientIp()),
+    rateLimit("loginByEmail", hashIdentifier(email)),
+  ]);
+  if (!byIp.allowed || !byEmail.allowed) {
+    const wait = Math.max(byIp.allowed ? 0 : byIp.retryAfterSeconds, byEmail.allowed ? 0 : byEmail.retryAfterSeconds);
+    return { stage: "credentials", error: `Too many sign-in attempts. Try again ${retryMessage(wait)}.` };
+  }
 
   if (typeof code === "string" && code.length > 0) {
     try {

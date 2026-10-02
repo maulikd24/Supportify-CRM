@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import type { User } from "@/generated/prisma/client";
 import { setUserActiveAction } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function UserActivationDialog({
   user,
@@ -30,7 +31,7 @@ export function UserActivationDialog({
   async function handleConfirm() {
     setPending(true);
     try {
-      await setUserActiveAction(user.id, !user.isActive);
+      await callAction(setUserActiveAction)(user.id, !user.isActive);
       toast.success(user.isActive ? `${user.name} removed` : `${user.name} reactivated`);
       setOpen(false);
     } catch (error) {

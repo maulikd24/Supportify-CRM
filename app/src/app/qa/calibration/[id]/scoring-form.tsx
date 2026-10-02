@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { submitCalibrationEntryAction } from "../actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function ScoringForm({ sessionId, criteria }: { sessionId: string; criteria: [string, string][] }) {
   const [pending, setPending] = useState(false);
@@ -16,7 +17,7 @@ export function ScoringForm({ sessionId, criteria }: { sessionId: string; criter
   async function handleSubmit(formData: FormData) {
     setPending(true);
     try {
-      await submitCalibrationEntryAction(sessionId, formData);
+      await callAction(submitCalibrationEntryAction)(sessionId, formData);
       toast.success("Score submitted");
       setSubmitted(true);
     } catch (error) {

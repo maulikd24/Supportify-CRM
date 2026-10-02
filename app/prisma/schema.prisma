@@ -895,3 +895,13 @@ model AutoReviewJob {
   @@unique([organizationId, ticketId])
   @@index([status, createdAt])
 }
+
+// Fixed-window rate-limit counters (login, signup, password reset, public API).
+// Kept in Postgres so limits hold across serverless instances without another service.
+model RateLimitBucket {
+  key     String   @id // e.g. "login:ip:1.2.3.4", "login:email:<sha256>"
+  count   Int
+  resetAt DateTime
+
+  @@index([resetAt])
+}

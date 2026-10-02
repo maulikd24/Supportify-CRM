@@ -4,11 +4,12 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { deleteCustomFieldAction } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function CustomFieldRowActions({ fieldId }: { fieldId: string }) {
   async function handleDelete() {
     try {
-      await deleteCustomFieldAction(fieldId);
+      await callAction(deleteCustomFieldAction)(fieldId);
       toast.success("Field deleted");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to delete field");

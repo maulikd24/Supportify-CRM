@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import withBundleAnalyzer from "@next/bundle-analyzer";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 // No Content-Security-Policy here yet — a misconfigured CSP can silently break
 // Stripe Checkout redirects, Google's OAuth redirect, or Next's own inline
@@ -24,4 +25,12 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withBundleAnalyzer({ enabled: process.env.ANALYZE === "true" })(nextConfig);
+export default withSentryConfig(withBundleAnalyzer({ enabled: process.env.ANALYZE === "true" })(nextConfig), {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  // Readable stack traces need source maps uploaded; only possible once the token is set.
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+  silent: !process.env.CI,
+  telemetry: false,
+});

@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { addClientNoteAction } from "@/app/(dashboard)/clients/actions";
 import { formatDateTime } from "@/lib/utils/format";
 import type { Activity, ActivityType, User } from "@/generated/prisma/client";
+import { callAction } from "@/lib/actions/call-action";
 
 const ICONS: Record<ActivityType, React.ComponentType<{ className?: string }>> = {
   NOTE: StickyNote,
@@ -71,7 +72,7 @@ export function ActivityTimeline({ activities, clientId }: { activities: Activit
     if (!note) return;
     setPending(true);
     try {
-      await addClientNoteAction(clientId, note);
+      await callAction(addClientNoteAction)(clientId, note);
       formRef.current?.reset();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to add note");

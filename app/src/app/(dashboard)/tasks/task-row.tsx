@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/utils/format";
 import type { Task, Client, User } from "@/generated/prisma/client";
 import { completeTaskAction } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 const STATUS_VARIANT: Record<string, "success" | "warning" | "destructive" | "secondary"> = {
   PENDING: "warning",
@@ -28,7 +29,7 @@ export function TaskRow({ task }: { task: TaskRowData }) {
     startTransition(async () => {
       setOptimisticStatus("DONE");
       try {
-        await completeTaskAction(task.id);
+        await callAction(completeTaskAction)(task.id);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to complete task");
       }

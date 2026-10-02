@@ -3,9 +3,10 @@
 import { signOut } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/prisma";
 import { requireOrg } from "@/lib/auth/require-role";
+import { UserError, withUserErrors } from "@/lib/actions/user-error";
 
 /** Only the org OWNER can delete the organization — this is irreversible and takes every product/user/client with it. */
-export async function deleteOrganizationAction(confirmName: string) {
+export const deleteOrganizationAction = withUserErrors(async function deleteOrganizationAction(confirmName: string) {
   const session = await requireOrg(["OWNER"]);
 
   const organization = await prisma.organization.findUniqueOrThrow({
@@ -13,11 +14,11 @@ export async function deleteOrganizationAction(confirmName: string) {
     select: { name: true },
   });
   if (confirmName.trim() !== organization.name) {
-    throw new Error("Organization name doesn't match — deletion cancelled.");
+    throw new UserError("Organization name doesn't match — deletion cancelled.");
   }
 
   // Cascades to every tenant-scoped table via onDelete: Cascade in schema.prisma.
   await prisma.organization.delete({ where: { id: session.user.organizationId } });
 
   await signOut({ redirectTo: "/login" });
-}
+});

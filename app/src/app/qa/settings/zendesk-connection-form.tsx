@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { connectZendeskAction, disconnectZendeskAction, retestZendeskConnectionAction } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function ZendeskConnectionForm({
   connected,
@@ -25,7 +26,7 @@ export function ZendeskConnectionForm({
   async function handleSubmit(formData: FormData) {
     setPending(true);
     try {
-      await connectZendeskAction(formData);
+      await callAction(connectZendeskAction)(formData);
       toast.success("Zendesk connected");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to connect Zendesk");
@@ -37,7 +38,7 @@ export function ZendeskConnectionForm({
   async function handleRetest() {
     setPending(true);
     try {
-      await retestZendeskConnectionAction();
+      await callAction(retestZendeskConnectionAction)();
       toast.success("Connection verified");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Connection test failed");
@@ -49,7 +50,7 @@ export function ZendeskConnectionForm({
   async function handleDisconnect() {
     setPending(true);
     try {
-      await disconnectZendeskAction();
+      await callAction(disconnectZendeskAction)();
       toast.success("Zendesk disconnected");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to disconnect");

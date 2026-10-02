@@ -9,10 +9,11 @@ import { planById, stripePriceIdFor, PRODUCT_LABELS, TRIAL_DAYS, trialLimitsFor,
 import { DEFAULT_STAGE_DEFINITIONS } from "@/lib/stage-engine/stages";
 import { countBillableSeats } from "@/lib/billing/seats";
 import type { Product } from "@/generated/prisma/client";
+import { UserError, withUserErrors } from "@/lib/actions/user-error";
 
 function parseProduct(value: string): Product {
   if (value === "QA_SENTINEL" || value === "CRM") return value;
-  throw new Error(`Unknown product: ${value}`);
+  throw new UserError(`Unknown product: ${value}`);
 }
 
 /**
@@ -20,7 +21,7 @@ function parseProduct(value: string): Product {
  * trial at signup. Only once per product: any existing subscription row (even a
  * lapsed trial) means the trial has already been used.
  */
-export async function startTrialAction(productParam: string) {
+export const startTrialAction = withUserErrors(async function startTrialAction(productParam: string) {
   const session = await requireOrg(["OWNER", "ADMIN"]);
   const product = parseProduct(productParam);
   const organizationId = session.user.organizationId;
@@ -28,7 +29,7 @@ export async function startTrialAction(productParam: string) {
   const existing = await prisma.productSubscription.findUnique({
     where: { organizationId_product: { organizationId, product } },
   });
-  if (existing) throw new Error(`Your organization has already used its ${PRODUCT_LABELS[product]} trial.`);
+  if (existing) throw new UserError(`Your organization has already used its ${PRODUCT_LABELS[product]} trial.`);
 
   await prisma.productSubscription.create({
     data: {
@@ -48,26 +49,26 @@ export async function startTrialAction(productParam: string) {
   }
 
   redirect(product === "CRM" ? "/dashboard" : "/qa");
-}
+});
 
-export async function startCheckoutAction(productParam: string, planId: string) {
+export const startCheckoutAction = withUserErrors(async function startCheckoutAction(productParam: string, planId: string) {
   const session = await requireOrg(["OWNER", "ADMIN"]);
   const product = parseProduct(productParam);
 
   const plan = planById(product, planId);
-  if (!plan) throw new Error("Unknown plan");
-  if (plan.contactSales) throw new Error("This plan requires talking to sales — no self-serve checkout.");
+  if (!plan) throw new UserError("Unknown plan");
+  if (plan.contactSales) throw new UserError("This plan requires talking to sales — no self-serve checkout.");
 
   // Check user-actionable gates before system-configuration gates: verifying
   // email is something the customer can fix themselves right now.
   const user = await prisma.user.findUniqueOrThrow({ where: { id: session.user.id }, select: { emailVerifiedAt: true } });
   if (!user.emailVerifiedAt) {
-    throw new Error("Verify your email address before subscribing — check your inbox, or resend from your account page.");
+    throw new UserError("Verify your email address before subscribing — check your inbox, or resend from your account page.");
   }
 
   const priceId = stripePriceIdFor(plan);
   if (!priceId) {
-    throw new Error(
+    throw new UserError(
       `${PRODUCT_LABELS[product]} ${plan.name} isn't configured yet — set ${plan.stripePriceEnvVar} in the environment.`,
     );
   }
@@ -104,6 +105,6 @@ export async function startCheckoutAction(productParam: string, planId: string) 
     metadata: { organizationId: org.id, product, planId },
   });
 
-  if (!checkoutSession.url) throw new Error("Stripe did not return a checkout URL");
+  if (!checkoutSession.url) throw new UserError("Stripe did not return a checkout URL");
   redirect(checkoutSession.url);
-}
+});

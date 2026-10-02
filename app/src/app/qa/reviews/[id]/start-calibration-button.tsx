@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { startCalibrationAction } from "@/app/qa/calibration/actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function StartCalibrationButton({ reviewId }: { reviewId: string }) {
   const router = useRouter();
@@ -14,7 +15,7 @@ export function StartCalibrationButton({ reviewId }: { reviewId: string }) {
   async function handleClick() {
     setPending(true);
     try {
-      const { sessionId } = await startCalibrationAction(reviewId);
+      const { sessionId } = await callAction(startCalibrationAction)(reviewId);
       router.push(`/qa/calibration/${sessionId}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to start calibration");

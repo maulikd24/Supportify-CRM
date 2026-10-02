@@ -17,6 +17,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { createJourneyAction } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function NewJourneyDialog() {
   const [open, setOpen] = useState(false);
@@ -26,7 +27,7 @@ export function NewJourneyDialog() {
   async function handleCreate() {
     setPending(true);
     try {
-      await createJourneyAction(name);
+      await callAction(createJourneyAction)(name);
     } catch (error) {
       unstable_rethrow(error);
       toast.error(error instanceof Error ? error.message : "Failed to create journey");

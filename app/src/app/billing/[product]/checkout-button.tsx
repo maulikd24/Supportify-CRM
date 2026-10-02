@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { Product } from "@/generated/prisma/client";
 import { startCheckoutAction } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function CheckoutButton({
   product,
@@ -31,7 +32,7 @@ export function CheckoutButton({
   async function handleClick() {
     setPending(true);
     try {
-      await startCheckoutAction(product, planId);
+      await callAction(startCheckoutAction)(product, planId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to start checkout");
       setPending(false);

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { authenticateApiKey, requireApiProductAccess, unauthorized } from "@/lib/api/auth";
+import { authenticateApiKey, enforceApiRateLimit, requireApiProductAccess, unauthorized } from "@/lib/api/auth";
 import { generateClientCode } from "@/lib/stage-engine/client-code";
 import { getFirstStage } from "@/lib/stage-engine/stages";
 import { initializeClient } from "@/lib/stage-engine/transitions";
@@ -14,6 +14,8 @@ const MAX_PAGE_SIZE = 100;
 export async function GET(request: Request) {
   const auth = await authenticateApiKey(request);
   if (!auth) return unauthorized();
+  const limited = await enforceApiRateLimit(auth.apiKeyId);
+  if (limited) return limited;
   const gate = await requireApiProductAccess(auth.organizationId, "CRM");
   if (gate) return gate;
 
@@ -51,6 +53,8 @@ const createClientSchema = z.object({
 export async function POST(request: Request) {
   const auth = await authenticateApiKey(request);
   if (!auth) return unauthorized();
+  const limited = await enforceApiRateLimit(auth.apiKeyId);
+  if (limited) return limited;
   const gate = await requireApiProductAccess(auth.organizationId, "CRM");
   if (gate) return gate;
 

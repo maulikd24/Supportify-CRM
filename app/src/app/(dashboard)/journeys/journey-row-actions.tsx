@@ -16,6 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { deleteJourneyAction } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function JourneyRowActions({
   journeyId,
@@ -34,7 +35,7 @@ export function JourneyRowActions({
   async function handleConfirm() {
     setPending(true);
     try {
-      await deleteJourneyAction(journeyId);
+      await callAction(deleteJourneyAction)(journeyId);
     } catch (error) {
       unstable_rethrow(error);
       toast.error(error instanceof Error ? error.message : "Failed to delete journey");

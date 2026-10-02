@@ -16,6 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { resetUserPasswordAction } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function ResetPasswordDialog({ userId, userName }: { userId: string; userName: string }) {
   const [open, setOpen] = useState(false);
@@ -32,7 +33,7 @@ export function ResetPasswordDialog({ userId, userName }: { userId: string; user
 
     setPending(true);
     try {
-      await resetUserPasswordAction(userId, newPassword);
+      await callAction(resetUserPasswordAction)(userId, newPassword);
       toast.success(`Password reset for ${userName}`);
       setOpen(false);
       formRef.current?.reset();

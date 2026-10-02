@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
+import { UserError, withUserErrors } from "@/lib/actions/user-error";
 
 function keyify(label: string): string {
   return label
@@ -21,7 +22,7 @@ const createFieldSchema = z.object({
   required: z.coerce.boolean().optional(),
 });
 
-export async function createCustomFieldAction(formData: FormData) {
+export const createCustomFieldAction = withUserErrors(async function createCustomFieldAction(formData: FormData) {
   const session = await requireRole(["ADMIN"]);
 
   const parsed = createFieldSchema.parse({
@@ -32,12 +33,12 @@ export async function createCustomFieldAction(formData: FormData) {
   });
 
   const key = keyify(parsed.label);
-  if (!key) throw new Error("Label must contain at least one letter or number");
+  if (!key) throw new UserError("Label must contain at least one letter or number");
 
   const existing = await prisma.customFieldDefinition.findUnique({
     where: { organizationId_key: { organizationId: session.user.organizationId, key } },
   });
-  if (existing) throw new Error(`A field for "${parsed.label}" already exists`);
+  if (existing) throw new UserError(`A field for "${parsed.label}" already exists`);
 
   const count = await prisma.customFieldDefinition.count({ where: { organizationId: session.user.organizationId } });
 
@@ -57,9 +58,9 @@ export async function createCustomFieldAction(formData: FormData) {
   });
 
   revalidatePath("/settings/custom-fields");
-}
+});
 
-export async function deleteCustomFieldAction(fieldId: string) {
+export const deleteCustomFieldAction = withUserErrors(async function deleteCustomFieldAction(fieldId: string) {
   const session = await requireRole(["ADMIN"]);
 
   await prisma.customFieldDefinition.delete({
@@ -67,4 +68,4 @@ export async function deleteCustomFieldAction(fieldId: string) {
   });
 
   revalidatePath("/settings/custom-fields");
-}
+});

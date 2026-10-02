@@ -5,12 +5,16 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
 import { getWorkos, workosClientId, ssoCallbackUrl, emailDomain } from "@/lib/sso/workos";
+import { clientIp, rateLimit, retryMessage } from "@/lib/security/rate-limit";
 
 export type SsoLoginState = { error?: string };
 
 const emailSchema = z.string().email();
 
 export async function startSsoLoginAction(_prevState: SsoLoginState, formData: FormData): Promise<SsoLoginState> {
+  const limited = await rateLimit("ssoByIp", await clientIp());
+  if (!limited.allowed) return { error: `Too many attempts. Try again ${retryMessage(limited.retryAfterSeconds)}.` };
+
   const parsed = emailSchema.safeParse(formData.get("email"));
   if (!parsed.success) return { error: "Enter a valid work email address" };
 

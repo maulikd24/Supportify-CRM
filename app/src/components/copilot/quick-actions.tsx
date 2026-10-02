@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import type { MessageSuggestion } from "@/lib/copilot/message-suggestion";
 import { createTaskAction } from "@/app/(dashboard)/tasks/actions";
+import { callAction } from "@/lib/actions/call-action";
 
 function toDatetimeLocal(iso: string): string {
   const d = new Date(iso);
@@ -52,7 +53,7 @@ export function CopilotQuickActions({
   async function handleSubmit(formData: FormData) {
     setPending(true);
     try {
-      await createTaskAction(formData);
+      await callAction(createTaskAction)(formData);
       toast.success("Follow-up scheduled");
       setOpen(false);
     } catch (error) {

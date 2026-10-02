@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { saveDsatCommentAction } from "../actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function CommentForm({ analysisId, initialComment }: { analysisId: string; initialComment: string }) {
   const [comment, setComment] = useState(initialComment);
@@ -14,7 +15,7 @@ export function CommentForm({ analysisId, initialComment }: { analysisId: string
   async function handleSave() {
     setPending(true);
     try {
-      await saveDsatCommentAction(analysisId, comment);
+      await callAction(saveDsatCommentAction)(analysisId, comment);
       toast.success("Note saved");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to save note");

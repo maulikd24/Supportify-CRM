@@ -16,6 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { updateSopAction, deleteSopAction } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function SopRowActions({
   sopId,
@@ -35,7 +36,7 @@ export function SopRowActions({
   async function handleUpdate(formData: FormData) {
     setPending(true);
     try {
-      await updateSopAction(sopId, formData);
+      await callAction(updateSopAction)(sopId, formData);
       toast.success("SOP updated");
       setOpen(false);
     } catch (error) {
@@ -47,7 +48,7 @@ export function SopRowActions({
 
   async function handleDelete() {
     try {
-      await deleteSopAction(sopId);
+      await callAction(deleteSopAction)(sopId);
       toast.success("SOP deleted");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to delete SOP");

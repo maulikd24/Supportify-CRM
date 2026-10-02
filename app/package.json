@@ -18,6 +18,7 @@
     "@hookform/resolvers": "^5.9.1",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
+    "@sentry/nextjs": "^11.2.0",
     "@workos-inc/node": "^10.13.0",
     "@xyflow/react": "^12.11.3",
     "bcryptjs": "^3.0.3",

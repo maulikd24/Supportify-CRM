@@ -9,6 +9,7 @@ import { decryptJson } from "@/lib/security/crypto";
 import { ZendeskClient, type ZendeskCredentials } from "@/lib/qa/zendesk-client";
 import { analyzeDsat, parseManualConversation, type ConversationTurn } from "@/lib/qa/assessor";
 import type { Prisma } from "@/generated/prisma/client";
+import { UserError, withUserErrors } from "@/lib/actions/user-error";
 
 const dsatSchema = z.object({
   inputMode: z.enum(["manual", "zendesk"]).default("manual"),
@@ -20,7 +21,7 @@ const dsatSchema = z.object({
   manualConversation: z.string().optional().default(""),
 });
 
-export async function submitDsatAction(formData: FormData) {
+export const submitDsatAction = withUserErrors(async function submitDsatAction(formData: FormData) {
   const session = await requireOrg();
   const organizationId = session.user.organizationId;
 
@@ -36,12 +37,12 @@ export async function submitDsatAction(formData: FormData) {
 
   let conversation: ConversationTurn[] = [];
   let subject = parsed.manualSubject.trim();
-  let customerName = parsed.customerName.trim();
+  const customerName = parsed.customerName.trim();
   const ticketId = parsed.ticketId.trim();
 
   if (parsed.inputMode === "zendesk" && ticketId) {
     const connection = await prisma.zendeskConnection.findUnique({ where: { organizationId } });
-    if (!connection) throw new Error("Connect Zendesk in Settings before analysing a live ticket");
+    if (!connection) throw new UserError("Connect Zendesk in Settings before analysing a live ticket");
 
     const credentials = decryptJson<ZendeskCredentials>(connection.encryptedToken);
     const zendesk = new ZendeskClient(credentials);
@@ -51,10 +52,10 @@ export async function submitDsatAction(formData: FormData) {
     subject = subject || ticket.subject || "";
   } else {
     const raw = parsed.manualConversation.trim();
-    if (!raw) throw new Error("Please paste a conversation.");
+    if (!raw) throw new UserError("Please paste a conversation.");
     conversation = parseManualConversation(raw);
     if (conversation.length === 0) {
-      throw new Error("Could not parse conversation — please use [CUSTOMER]: / [AGENT]: labels.");
+      throw new UserError("Could not parse conversation — please use [CUSTOMER]: / [AGENT]: labels.");
     }
   }
 
@@ -87,9 +88,9 @@ export async function submitDsatAction(formData: FormData) {
 
   revalidatePath("/qa/dsat");
   return { analysisId: analysis.id };
-}
+});
 
-export async function saveDsatCommentAction(analysisId: string, comment: string) {
+export const saveDsatCommentAction = withUserErrors(async function saveDsatCommentAction(analysisId: string, comment: string) {
   const session = await requireOrg();
 
   await prisma.dsatAnalysis.update({
@@ -98,4 +99,4 @@ export async function saveDsatCommentAction(analysisId: string, comment: string)
   });
 
   revalidatePath(`/qa/dsat/${analysisId}`);
-}
+});

@@ -9,6 +9,7 @@ import { signIn } from "@/lib/auth/config";
 import { issueVerificationToken } from "@/lib/auth/verification-tokens";
 import { sendVerificationEmail } from "@/lib/email/send";
 import { provisionOrganization } from "@/lib/auth/provision-organization";
+import { clientIp, rateLimit, retryMessage } from "@/lib/security/rate-limit";
 
 export type SignupFieldErrors = Partial<Record<"orgName" | "name" | "email" | "password" | "products", string>>;
 export type SignupState = { error?: string; fieldErrors?: SignupFieldErrors };
@@ -22,6 +23,11 @@ const signupSchema = z.object({
 });
 
 export async function signupAction(_prevState: SignupState, formData: FormData): Promise<SignupState> {
+  const limited = await rateLimit("signupByIp", await clientIp());
+  if (!limited.allowed) {
+    return { error: `Too many sign-ups from this network. Try again ${retryMessage(limited.retryAfterSeconds)}.` };
+  }
+
   const parsed = signupSchema.safeParse({
     orgName: formData.get("orgName"),
     name: formData.get("name"),

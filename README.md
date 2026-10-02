@@ -46,3 +46,20 @@ Required environment variables (Vercel → Settings → Environment Variables):
 | `AUTO_REVIEW_CONCURRENCY` | Optional. Reviews run in parallel per batch (default 4). |
 
 Overage billing stays unavailable in the app until both Stripe variables are set.
+
+## Error monitoring (optional)
+
+Sentry is wired in (`app/src/instrumentation*.ts`) but stays off until these are set:
+
+| Variable | Purpose |
+|---|---|
+| `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` | Project DSN (server / browser). |
+| `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` | Optional: upload source maps for readable stack traces. |
+
+Error reports exclude request bodies, cookies, headers, user details and AI prompts.
+
+## Rate limits
+
+Stored in Postgres (`RateLimitBucket`), so no extra service is needed. Limits live in
+`app/src/lib/security/rate-limit.ts`: sign-in (per IP and per email), sign-up, password reset,
+SSO start, verification emails, and the public API (120 requests/minute per key → HTTP 429).

@@ -9,10 +9,11 @@ import { requireRole } from "@/lib/auth/require-role";
 import { generateApiKey } from "@/lib/security/api-keys";
 import { encryptJson } from "@/lib/security/crypto";
 import { WEBHOOK_EVENTS } from "@/lib/webhooks/events";
+import { withUserErrors } from "@/lib/actions/user-error";
 
 const createKeySchema = z.object({ name: z.string().min(1, "Name is required") });
 
-export async function createApiKeyAction(formData: FormData) {
+export const createApiKeyAction = withUserErrors(async function createApiKeyAction(formData: FormData) {
   const session = await requireRole(["ADMIN"]);
   const parsed = createKeySchema.parse({ name: formData.get("name") });
 
@@ -30,9 +31,9 @@ export async function createApiKeyAction(formData: FormData) {
 
   revalidatePath("/settings/developers");
   return { rawKey: raw };
-}
+});
 
-export async function revokeApiKeyAction(keyId: string) {
+export const revokeApiKeyAction = withUserErrors(async function revokeApiKeyAction(keyId: string) {
   const session = await requireRole(["ADMIN"]);
 
   await prisma.apiKey.update({
@@ -41,14 +42,14 @@ export async function revokeApiKeyAction(keyId: string) {
   });
 
   revalidatePath("/settings/developers");
-}
+});
 
 const createWebhookSchema = z.object({
   url: z.string().url("Enter a valid URL"),
   events: z.array(z.enum(WEBHOOK_EVENTS)).min(1, "Select at least one event"),
 });
 
-export async function createWebhookAction(formData: FormData) {
+export const createWebhookAction = withUserErrors(async function createWebhookAction(formData: FormData) {
   const session = await requireRole(["ADMIN"]);
 
   const parsed = createWebhookSchema.parse({
@@ -69,9 +70,9 @@ export async function createWebhookAction(formData: FormData) {
 
   revalidatePath("/settings/developers");
   return { secret };
-}
+});
 
-export async function deleteWebhookAction(webhookId: string) {
+export const deleteWebhookAction = withUserErrors(async function deleteWebhookAction(webhookId: string) {
   const session = await requireRole(["ADMIN"]);
 
   await prisma.webhookEndpoint.delete({
@@ -79,9 +80,9 @@ export async function deleteWebhookAction(webhookId: string) {
   });
 
   revalidatePath("/settings/developers");
-}
+});
 
-export async function toggleWebhookActiveAction(webhookId: string, isActive: boolean) {
+export const toggleWebhookActiveAction = withUserErrors(async function toggleWebhookActiveAction(webhookId: string, isActive: boolean) {
   const session = await requireRole(["ADMIN"]);
 
   await prisma.webhookEndpoint.update({
@@ -90,4 +91,4 @@ export async function toggleWebhookActiveAction(webhookId: string, isActive: boo
   });
 
   revalidatePath("/settings/developers");
-}
+});

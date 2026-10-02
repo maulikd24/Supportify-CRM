@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { addDocumentAction } from "../actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function AddDocumentForm({ clientId }: { clientId: string }) {
   const [pending, setPending] = useState(false);
@@ -16,7 +17,7 @@ export function AddDocumentForm({ clientId }: { clientId: string }) {
     if (!documentType) return;
     setPending(true);
     try {
-      await addDocumentAction(clientId, documentType, false);
+      await callAction(addDocumentAction)(clientId, documentType, false);
       if (inputRef.current) inputRef.current.value = "";
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to add document");

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { saveSsoDomainAction } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function SsoDomainForm({ currentDomain }: { currentDomain: string | null }) {
   const [pending, setPending] = useState(false);
@@ -14,7 +15,7 @@ export function SsoDomainForm({ currentDomain }: { currentDomain: string | null 
   async function handleSubmit(formData: FormData) {
     setPending(true);
     try {
-      await saveSsoDomainAction(formData);
+      await callAction(saveSsoDomainAction)(formData);
       toast.success("SSO domain saved");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to save domain");

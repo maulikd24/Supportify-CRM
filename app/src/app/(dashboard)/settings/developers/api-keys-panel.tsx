@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { formatDateTime } from "@/lib/utils/format";
 import { createApiKeyAction, revokeApiKeyAction } from "./actions";
 import type { ApiKey } from "@/generated/prisma/client";
+import { callAction } from "@/lib/actions/call-action";
 
 export function ApiKeysPanel({ keys }: { keys: ApiKey[] }) {
   const [open, setOpen] = useState(false);
@@ -22,7 +23,7 @@ export function ApiKeysPanel({ keys }: { keys: ApiKey[] }) {
   async function handleCreate(formData: FormData) {
     setPending(true);
     try {
-      const result = await createApiKeyAction(formData);
+      const result = await callAction(createApiKeyAction)(formData);
       setNewKey(result.rawKey);
       formRef.current?.reset();
     } catch (error) {
@@ -34,7 +35,7 @@ export function ApiKeysPanel({ keys }: { keys: ApiKey[] }) {
 
   async function handleRevoke(keyId: string) {
     try {
-      await revokeApiKeyAction(keyId);
+      await callAction(revokeApiKeyAction)(keyId);
       toast.success("Key revoked");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to revoke key");

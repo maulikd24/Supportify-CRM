@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { hashApiKey } from "@/lib/security/api-keys";
 import { getProductAccess } from "@/lib/billing/access";
 import type { Product } from "@/generated/prisma/client";
+import { rateLimit } from "@/lib/security/rate-limit";
 
 export type ApiAuthResult = { organizationId: string; apiKeyId: string; createdById: string };
 
@@ -22,6 +23,16 @@ export async function authenticateApiKey(request: Request): Promise<ApiAuthResul
   // Attributed to whichever user generated the key — actions that require a real
   // User row (stage history, audit log) need a genuine actor, not a synthetic one.
   return { organizationId: key.organizationId, apiKeyId: key.id, createdById: key.createdById };
+}
+
+/** Per-API-key throttle for /api/v1/*: returns a 429 response when over the limit, else null. */
+export async function enforceApiRateLimit(apiKeyId: string): Promise<NextResponse | null> {
+  const result = await rateLimit("apiByKey", apiKeyId);
+  if (result.allowed) return null;
+  return NextResponse.json(
+    { error: "Rate limit exceeded: 120 requests per minute per API key" },
+    { status: 429, headers: { "Retry-After": String(result.retryAfterSeconds) } },
+  );
 }
 
 export function unauthorized(message = "Invalid or missing API key"): NextResponse {

@@ -25,6 +25,7 @@ import {
   reopenClient,
 } from "@/lib/stage-engine/transitions";
 import type { DocumentStatus, Prisma } from "@/generated/prisma/client";
+import { UserError, isActionFailure, withUserErrors } from "@/lib/actions/user-error";
 
 /**
  * Every action below takes a raw clientId/documentId from the client — this is
@@ -34,12 +35,12 @@ import type { DocumentStatus, Prisma } from "@/generated/prisma/client";
  */
 async function requireClientInOrg(clientId: string, organizationId: string): Promise<void> {
   const client = await prisma.client.findFirst({ where: { id: clientId, organizationId }, select: { id: true } });
-  if (!client) throw new Error("Client not found");
+  if (!client) throw new UserError("Client not found");
 }
 
 async function requireDocumentInOrg(documentId: string, organizationId: string): Promise<void> {
   const doc = await prisma.document.findFirst({ where: { id: documentId, organizationId }, select: { id: true } });
-  if (!doc) throw new Error("Document not found");
+  if (!doc) throw new UserError("Document not found");
 }
 
 const createClientSchema = z.object({
@@ -55,7 +56,7 @@ const createClientSchema = z.object({
   allowDuplicate: z.coerce.boolean().optional(),
 });
 
-export async function checkDuplicateClientAction(mobile: string, email: string) {
+export const checkDuplicateClientAction = withUserErrors(async function checkDuplicateClientAction(mobile: string, email: string) {
   const existing = await prisma.client.findFirst({
     where: {
       status: { not: "NOT_PROCEEDING" },
@@ -64,9 +65,9 @@ export async function checkDuplicateClientAction(mobile: string, email: string) 
     select: { id: true, name: true, clientCode: true, mobile: true, email: true },
   });
   return existing;
-}
+});
 
-export async function searchClientsForMergeAction(query: string, excludeId: string) {
+export const searchClientsForMergeAction = withUserErrors(async function searchClientsForMergeAction(query: string, excludeId: string) {
   const session = await requireRole(["ADMIN", "MANAGER"]);
   if (!query.trim()) return [];
 
@@ -85,9 +86,9 @@ export async function searchClientsForMergeAction(query: string, excludeId: stri
     select: { id: true, name: true, clientCode: true, mobile: true, email: true },
     take: 8,
   });
-}
+});
 
-export async function createClientAction(formData: FormData) {
+export const createClientAction = withUserErrors(async function createClientAction(formData: FormData) {
   const session = await requireUser();
 
   const parsed = createClientSchema.parse({
@@ -105,6 +106,7 @@ export async function createClientAction(formData: FormData) {
 
   if (!parsed.allowDuplicate) {
     const duplicate = await checkDuplicateClientAction(parsed.mobile, parsed.email || "");
+  if (isActionFailure(duplicate)) throw new UserError(duplicate.__actionError);
     if (duplicate) {
       return { duplicate };
     }
@@ -150,16 +152,16 @@ export async function createClientAction(formData: FormData) {
 
   revalidatePath("/clients");
   return { client: { id: client.id, clientCode: client.clientCode, name: client.name } };
-}
+});
 
-export async function reassignClientAction(clientId: string, assignedToId: string) {
+export const reassignClientAction = withUserErrors(async function reassignClientAction(clientId: string, assignedToId: string) {
   const session = await requireUser();
   await requireClientInOrg(clientId, session.user.organizationId);
 
   const newOwner = await prisma.user.findFirst({
     where: { id: assignedToId, organizationId: session.user.organizationId },
   });
-  if (!newOwner) throw new Error("User not found");
+  if (!newOwner) throw new UserError("User not found");
 
   await prisma.client.update({ where: { id: clientId }, data: { assignedToId } });
 
@@ -172,18 +174,18 @@ export async function reassignClientAction(clientId: string, assignedToId: strin
 
   revalidatePath("/clients");
   revalidatePath(`/clients/${clientId}`);
-}
+});
 
-export async function addClientNoteAction(clientId: string, note: string) {
+export const addClientNoteAction = withUserErrors(async function addClientNoteAction(clientId: string, note: string) {
   const session = await requireUser();
   await requireClientInOrg(clientId, session.user.organizationId);
 
   await logActivity({ clientId, userId: session.user.id, type: "NOTE", payload: { message: note } });
 
   revalidatePath(`/clients/${clientId}`);
-}
+});
 
-export async function sendClientMessageAction(
+export const sendClientMessageAction = withUserErrors(async function sendClientMessageAction(
   clientId: string,
   channel: "whatsapp" | "sms",
   templateId: string,
@@ -197,7 +199,7 @@ export async function sendClientMessageAction(
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/copilot");
   return message;
-}
+});
 
 // --- Stage Engine wrapper actions -------------------------------------------------
 
@@ -206,7 +208,7 @@ function revalidateClient(clientId: string) {
   revalidatePath(`/clients/${clientId}`);
 }
 
-export async function recordRmContactAction(
+export const recordRmContactAction = withUserErrors(async function recordRmContactAction(
   clientId: string,
   input: {
     contactMethod: "Phone" | "WhatsApp" | "In-person" | "Email" | "Other";
@@ -224,16 +226,16 @@ export async function recordRmContactAction(
     session.user.id,
   );
   revalidateClient(clientId);
-}
+});
 
-export async function addDocumentAction(clientId: string, documentType: string, mandatory: boolean) {
+export const addDocumentAction = withUserErrors(async function addDocumentAction(clientId: string, documentType: string, mandatory: boolean) {
   const session = await requireUser();
   await requireClientInOrg(clientId, session.user.organizationId);
   await addDocument(clientId, { documentType, mandatory }, session.user.id);
   revalidateClient(clientId);
-}
+});
 
-export async function updateDocumentStatusAction(
+export const updateDocumentStatusAction = withUserErrors(async function updateDocumentStatusAction(
   documentId: string,
   input: { status: DocumentStatus; rejectionReason?: string; remarks?: string },
 ) {
@@ -241,9 +243,9 @@ export async function updateDocumentStatusAction(
   await requireDocumentInOrg(documentId, session.user.organizationId);
   const doc = await updateDocumentStatus(documentId, input, session.user.id);
   revalidateClient(doc.clientId);
-}
+});
 
-export async function updateClientDetailsAction(
+export const updateClientDetailsAction = withUserErrors(async function updateClientDetailsAction(
   clientId: string,
   input: { dealValue?: number | null; customFields?: Record<string, unknown> },
 ) {
@@ -251,23 +253,23 @@ export async function updateClientDetailsAction(
   await requireClientInOrg(clientId, session.user.organizationId);
   await updateClientDetails(clientId, input, session.user.id);
   revalidateClient(clientId);
-}
+});
 
-export async function moveToStageAction(clientId: string, toStageId: string) {
+export const moveToStageAction = withUserErrors(async function moveToStageAction(clientId: string, toStageId: string) {
   const session = await requireUser();
   await requireClientInOrg(clientId, session.user.organizationId);
   await moveToStage(clientId, toStageId, session.user.id);
   revalidateClient(clientId);
-}
+});
 
-export async function correctStageAction(clientId: string, toStageId: string, reason: string) {
+export const correctStageAction = withUserErrors(async function correctStageAction(clientId: string, toStageId: string, reason: string) {
   const session = await requireRole(["ADMIN", "MANAGER"]);
   await requireClientInOrg(clientId, session.user.organizationId);
   await correctStage(clientId, toStageId, reason, session.user.id);
   revalidateClient(clientId);
-}
+});
 
-export async function putOnHoldAction(
+export const putOnHoldAction = withUserErrors(async function putOnHoldAction(
   clientId: string,
   input: { reason: string; expectedResumeDate?: string; notes?: string },
 ) {
@@ -279,34 +281,34 @@ export async function putOnHoldAction(
     session.user.id,
   );
   revalidateClient(clientId);
-}
+});
 
-export async function resumeFromHoldAction(clientId: string) {
+export const resumeFromHoldAction = withUserErrors(async function resumeFromHoldAction(clientId: string) {
   const session = await requireUser();
   await requireClientInOrg(clientId, session.user.organizationId);
   await resumeFromHold(clientId, session.user.id);
   revalidateClient(clientId);
-}
+});
 
-export async function markNotProceedingAction(clientId: string, input: { reason: string; notes?: string }) {
+export const markNotProceedingAction = withUserErrors(async function markNotProceedingAction(clientId: string, input: { reason: string; notes?: string }) {
   const session = await requireUser();
   await requireClientInOrg(clientId, session.user.organizationId);
   await markNotProceeding(clientId, input, session.user.id);
   revalidateClient(clientId);
-}
+});
 
-export async function reopenClientAction(clientId: string, input: { reason: string }) {
+export const reopenClientAction = withUserErrors(async function reopenClientAction(clientId: string, input: { reason: string }) {
   const session = await requireRole(["ADMIN", "MANAGER"]);
   await requireClientInOrg(clientId, session.user.organizationId);
   await reopenClient(clientId, input, session.user.id);
   revalidateClient(clientId);
-}
+});
 
 // --- Merge -------------------------------------------------------------------------
 
-export async function mergeClientsAction(primaryId: string, duplicateId: string) {
+export const mergeClientsAction = withUserErrors(async function mergeClientsAction(primaryId: string, duplicateId: string) {
   const session = await requireRole(["ADMIN", "MANAGER"]);
-  if (primaryId === duplicateId) throw new Error("Cannot merge a client into itself");
+  if (primaryId === duplicateId) throw new UserError("Cannot merge a client into itself");
   await requireClientInOrg(primaryId, session.user.organizationId);
   await requireClientInOrg(duplicateId, session.user.organizationId);
 
@@ -332,4 +334,4 @@ export async function mergeClientsAction(primaryId: string, duplicateId: string)
 
   revalidatePath("/clients");
   revalidatePath(`/clients/${primaryId}`);
-}
+});

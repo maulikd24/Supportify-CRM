@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { Product } from "@/generated/prisma/client";
 import { startTrialAction } from "./actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function StartTrialButton({ product }: { product: Product }) {
   const [pending, setPending] = useState(false);
@@ -13,7 +14,7 @@ export function StartTrialButton({ product }: { product: Product }) {
   async function handleClick() {
     setPending(true);
     try {
-      await startTrialAction(product);
+      await callAction(startTrialAction)(product);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Couldn't start the trial");
       setPending(false);

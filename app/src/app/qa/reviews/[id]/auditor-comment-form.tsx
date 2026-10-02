@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { saveAuditorCommentAction } from "../actions";
+import { callAction } from "@/lib/actions/call-action";
 
 export function AuditorCommentForm({ reviewId, initialComment }: { reviewId: string; initialComment: string }) {
   const [comment, setComment] = useState(initialComment);
@@ -14,7 +15,7 @@ export function AuditorCommentForm({ reviewId, initialComment }: { reviewId: str
   async function handleSave() {
     setPending(true);
     try {
-      await saveAuditorCommentAction(reviewId, comment);
+      await callAction(saveAuditorCommentAction)(reviewId, comment);
       toast.success("Comment saved");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to save comment");

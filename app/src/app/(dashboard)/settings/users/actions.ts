@@ -9,6 +9,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
 import { assertSeatAvailable, syncCrmSeatQuantity } from "@/lib/billing/seats";
 import type { Role } from "@/generated/prisma/client";
+import { UserError, withUserErrors } from "@/lib/actions/user-error";
 
 const createUserSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -22,7 +23,7 @@ function generateTempPassword(): string {
   return randomBytes(9).toString("base64url"); // 12-char URL-safe temp password
 }
 
-export async function createUserAction(formData: FormData) {
+export const createUserAction = withUserErrors(async function createUserAction(formData: FormData) {
   const session = await requireRole(["ADMIN"]);
 
   const parsed = createUserSchema.parse({
@@ -34,7 +35,7 @@ export async function createUserAction(formData: FormData) {
   });
 
   const existing = await prisma.user.findUnique({ where: { email: parsed.email } });
-  if (existing) throw new Error("A user with this email already exists");
+  if (existing) throw new UserError("A user with this email already exists");
 
   await assertSeatAvailable(session.user.organizationId);
 
@@ -57,38 +58,38 @@ export async function createUserAction(formData: FormData) {
 
   revalidatePath("/settings/users");
   return { tempPassword };
-}
+});
 
-export async function setUserRoleAction(userId: string, role: Role) {
+export const setUserRoleAction = withUserErrors(async function setUserRoleAction(userId: string, role: Role) {
   const session = await requireRole(["ADMIN"]);
 
   await prisma.user.update({ where: { id: userId, organizationId: session.user.organizationId }, data: { role } });
 
   revalidatePath("/settings/users");
-}
+});
 
-export async function setUserManagerAction(userId: string, managerId: string | null) {
+export const setUserManagerAction = withUserErrors(async function setUserManagerAction(userId: string, managerId: string | null) {
   const session = await requireRole(["ADMIN"]);
 
-  if (managerId === userId) throw new Error("A user cannot be their own manager");
+  if (managerId === userId) throw new UserError("A user cannot be their own manager");
   if (managerId) {
     const manager = await prisma.user.findUnique({
       where: { id: managerId, organizationId: session.user.organizationId },
       select: { id: true },
     });
-    if (!manager) throw new Error("Manager not found");
+    if (!manager) throw new UserError("Manager not found");
   }
 
   await prisma.user.update({ where: { id: userId, organizationId: session.user.organizationId }, data: { managerId } });
 
   revalidatePath("/settings/users");
-}
+});
 
-export async function setUserActiveAction(userId: string, isActive: boolean) {
+export const setUserActiveAction = withUserErrors(async function setUserActiveAction(userId: string, isActive: boolean) {
   const session = await requireRole(["ADMIN"]);
 
   if (userId === session.user.id && !isActive) {
-    throw new Error("You cannot deactivate your own account");
+    throw new UserError("You cannot deactivate your own account");
   }
 
   if (isActive) {
@@ -104,22 +105,22 @@ export async function setUserActiveAction(userId: string, isActive: boolean) {
   await syncCrmSeatQuantity(session.user.organizationId);
 
   revalidatePath("/settings/users");
-}
+});
 
-export async function setUserCapacityAction(userId: string, capacity: number | null) {
+export const setUserCapacityAction = withUserErrors(async function setUserCapacityAction(userId: string, capacity: number | null) {
   const session = await requireRole(["ADMIN"]);
 
   await prisma.user.update({ where: { id: userId, organizationId: session.user.organizationId }, data: { capacity } });
 
   revalidatePath("/settings/users");
   revalidatePath("/reports");
-}
+});
 
 const resetPasswordSchema = z.object({
   newPassword: z.string().min(8, "Password must be at least 8 characters"),
 });
 
-export async function resetUserPasswordAction(userId: string, newPassword: string) {
+export const resetUserPasswordAction = withUserErrors(async function resetUserPasswordAction(userId: string, newPassword: string) {
   const session = await requireRole(["ADMIN"]);
 
   const parsed = resetPasswordSchema.parse({ newPassword });
@@ -128,4 +129,4 @@ export async function resetUserPasswordAction(userId: string, newPassword: strin
   await prisma.user.update({ where: { id: userId, organizationId: session.user.organizationId }, data: { passwordHash } });
 
   revalidatePath("/settings/users");
-}
+});
