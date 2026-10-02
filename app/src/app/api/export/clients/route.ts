@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
 import { toCsv } from "@/lib/utils/csv";
+import { recordAudit } from "@/lib/audit/record";
 
 export async function GET() {
   const session = await requireRole(["ADMIN", "MANAGER"]);
@@ -62,6 +63,7 @@ export async function GET() {
 
   const csv = toCsv(rows, [...baseColumns, ...customColumns]);
 
+  await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "Client", entityId: session.user.organizationId, action: "data.export_clients" });
   return new NextResponse(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",

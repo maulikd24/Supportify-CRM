@@ -2,6 +2,7 @@ import { requireOrg } from "@/lib/auth/require-role";
 import { AppSidebar, type NavItem } from "@/components/app-sidebar";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppHeader } from "@/components/app-header";
+import { enforceTwoFactorPolicy } from "@/lib/security/enforce";
 
 const BILLING_NAV_ITEMS: NavItem[] = [
   { href: "/billing", label: "Overview", icon: "billing" },
@@ -10,6 +11,7 @@ const BILLING_NAV_ITEMS: NavItem[] = [
 
 export default async function BillingLayout({ children }: { children: React.ReactNode }) {
   const session = await requireOrg();
+  await enforceTwoFactorPolicy(session.user);
 
   return (
     <SidebarProvider>

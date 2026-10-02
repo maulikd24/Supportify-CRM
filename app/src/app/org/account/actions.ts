@@ -15,6 +15,7 @@ import {
   hashRecoveryCodes,
 } from "@/lib/security/two-factor";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
+import { recordAudit } from "@/lib/audit/record";
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required"),
@@ -36,6 +37,7 @@ export const changeOwnPasswordAction = withUserErrors(async function changeOwnPa
 
   const passwordHash = await bcrypt.hash(parsed.newPassword, 10);
   await prisma.user.update({ where: { id: session.user.id }, data: { passwordHash } });
+  await recordAudit({ organizationId: user.organizationId, userId: user.id, entity: "User", entityId: user.id, action: "auth.password_changed" });
 });
 
 /** Starts (or restarts) 2FA setup: generates a fresh secret and stores it encrypted, but leaves twoFactorEnabled false until the user proves possession via confirmTwoFactorSetupAction. */
@@ -73,6 +75,7 @@ export const confirmTwoFactorSetupAction = withUserErrors(async function confirm
     where: { id: session.user.id },
     data: { twoFactorEnabled: true, twoFactorRecoveryCodes: hashed },
   });
+  await recordAudit({ organizationId: user.organizationId, userId: user.id, entity: "User", entityId: user.id, action: "auth.2fa_enabled" });
 
   return { recoveryCodes };
 });
@@ -84,7 +87,13 @@ export const disableTwoFactorAction = withUserErrors(async function disableTwoFa
 
   const parsed = disableSchema.parse({ currentPassword: formData.get("currentPassword") });
 
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: session.user.id } });
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: session.user.id },
+    include: { organization: { select: { require2fa: true } } },
+  });
+  if (user.organization.require2fa) {
+    throw new UserError("Your organization requires two-factor authentication, so it can't be turned off.");
+  }
   const valid = await bcrypt.compare(parsed.currentPassword, user.passwordHash);
   if (!valid) throw new UserError("Current password is incorrect");
 
@@ -92,6 +101,7 @@ export const disableTwoFactorAction = withUserErrors(async function disableTwoFa
     where: { id: session.user.id },
     data: { twoFactorEnabled: false, twoFactorSecret: null, twoFactorRecoveryCodes: Prisma.JsonNull },
   });
+  await recordAudit({ organizationId: user.organizationId, userId: user.id, entity: "User", entityId: user.id, action: "auth.2fa_disabled" });
 });
 
 export const regenerateRecoveryCodesAction = withUserErrors(async function regenerateRecoveryCodesAction(formData: FormData) {

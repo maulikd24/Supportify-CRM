@@ -10,6 +10,7 @@ import { requireRole } from "@/lib/auth/require-role";
 import { assertSeatAvailable, syncCrmSeatQuantity } from "@/lib/billing/seats";
 import type { Role } from "@/generated/prisma/client";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
+import { recordAudit } from "@/lib/audit/record";
 
 const createUserSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -55,6 +56,7 @@ export const createUserAction = withUserErrors(async function createUserAction(f
     },
   });
   await syncCrmSeatQuantity(session.user.organizationId);
+  await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "User", entityId: parsed.email, action: "user.created", newValue: { email: parsed.email, role: parsed.role } });
 
   revalidatePath("/settings/users");
   return { tempPassword };
@@ -63,7 +65,9 @@ export const createUserAction = withUserErrors(async function createUserAction(f
 export const setUserRoleAction = withUserErrors(async function setUserRoleAction(userId: string, role: Role) {
   const session = await requireRole(["ADMIN"]);
 
+  const before = await prisma.user.findFirst({ where: { id: userId, organizationId: session.user.organizationId }, select: { role: true, email: true } });
   await prisma.user.update({ where: { id: userId, organizationId: session.user.organizationId }, data: { role } });
+  await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "User", entityId: userId, action: "user.role_changed", oldValue: before?.role ?? null, newValue: role, reason: before?.email ?? null });
 
   revalidatePath("/settings/users");
 });
@@ -81,6 +85,7 @@ export const setUserManagerAction = withUserErrors(async function setUserManager
   }
 
   await prisma.user.update({ where: { id: userId, organizationId: session.user.organizationId }, data: { managerId } });
+  await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "User", entityId: userId, action: "user.manager_changed", newValue: managerId });
 
   revalidatePath("/settings/users");
 });
@@ -103,6 +108,7 @@ export const setUserActiveAction = withUserErrors(async function setUserActiveAc
 
   await prisma.user.update({ where: { id: userId, organizationId: session.user.organizationId }, data: { isActive } });
   await syncCrmSeatQuantity(session.user.organizationId);
+  await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "User", entityId: userId, action: isActive ? "user.activated" : "user.deactivated" });
 
   revalidatePath("/settings/users");
 });
@@ -127,6 +133,18 @@ export const resetUserPasswordAction = withUserErrors(async function resetUserPa
   const passwordHash = await bcrypt.hash(parsed.newPassword, 10);
 
   await prisma.user.update({ where: { id: userId, organizationId: session.user.organizationId }, data: { passwordHash } });
+  await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "User", entityId: userId, action: "user.password_reset_by_admin" });
 
+  revalidatePath("/settings/users");
+});
+
+/** Ends every session of one user, e.g. a lost device. They must sign in again. */
+export const signOutUserAction = withUserErrors(async function signOutUserAction(userId: string) {
+  const session = await requireRole(["ADMIN"]);
+  await prisma.user.update({
+    where: { id: userId, organizationId: session.user.organizationId },
+    data: { sessionsRevokedAt: new Date() },
+  });
+  await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "User", entityId: userId, action: "user.sessions_revoked" });
   revalidatePath("/settings/users");
 });

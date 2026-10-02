@@ -79,3 +79,17 @@ Error reports exclude request bodies, cookies, headers, user details and AI prom
 Stored in Postgres (`RateLimitBucket`), so no extra service is needed. Limits live in
 `app/src/lib/security/rate-limit.ts`: sign-in (per IP and per email), sign-up, password reset,
 SSO start, verification emails, and the public API (120 requests/minute per key → HTTP 429).
+
+## Organization area, security and audit
+
+`/org` is product-neutral (works for CRM-only, QA-only and two-product orgs):
+
+- **My account** (`/org/account`): password and personal 2FA.
+- **Security** (`/org/security`, owners/admins): require 2FA, require SSO (the owner keeps password
+  sign-in as a break-glass), session length (8h / 24h / 7d / 30d), sign out all devices.
+  Turning policies on needs a Scale or Enterprise plan (or a live trial); turning them off is always allowed.
+- **Single sign-on** (`/org/sso`) and **Audit log** (`/org/audit-log`, CSV export on Scale/Enterprise).
+
+Policies are enforced on every request in the NextAuth `jwt` callback (`src/lib/security/policy.ts`);
+2FA setup is enforced by the product layouts (`src/lib/security/enforce.ts`). Audit events are written
+with `recordAudit()` (`src/lib/audit/record.ts`).

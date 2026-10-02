@@ -17,6 +17,7 @@ import type { Role, User } from "@/generated/prisma/client";
 import { setUserRoleAction, setUserManagerAction, setUserCapacityAction } from "./actions";
 import { ResetPasswordDialog } from "./reset-password-dialog";
 import { UserActivationDialog } from "./user-activation-dialog";
+import { SignOutUserButton } from "./sign-out-user-button";
 import { callAction } from "@/lib/actions/call-action";
 
 const ROLES: Role[] = ["ADMIN", "MANAGER", "RM", "DEALER"];
@@ -135,6 +136,8 @@ export function UserRowActions({
       />
 
       <ResetPasswordDialog userId={user.id} userName={user.name} />
+
+      <SignOutUserButton userId={user.id} userName={user.name} disabled={isSelf} />
 
       <UserActivationDialog user={user} disabled={isSelf} />
     </div>

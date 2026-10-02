@@ -55,6 +55,12 @@ model Organization {
   // connection, which happens later and separately in the Admin Portal, so we
   // keep our own copy to route the initial "sign in with SSO" redirect.
   ssoDomain            String?  @unique
+
+  // Security policies (Scale/Enterprise). See src/lib/security/policy.ts.
+  require2fa        Boolean   @default(false) // members must set up 2FA before using the app
+  requireSso        Boolean   @default(false) // members (not the owner) must sign in with SSO
+  sessionMaxHours   Int? // sign members out this long after they signed in; null = default (30 days)
+  sessionsRevokedAt DateTime? // "sign out all devices": sessions started before this are ended
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -267,6 +273,7 @@ model User {
   calibrationEntries         CalibrationEntry[]
 
   @@index([organizationId])
+  sessionsRevokedAt DateTime? // admin "sign out this user": sessions started before this are ended
 }
 
 // ---------------------------------------------------------------------------
@@ -452,8 +459,12 @@ model AuditLog {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  userId         String
-  user           User         @relation(fields: [userId], references: [id])
+  // Null for system events (Stripe, cron) and failed sign-ins with an unknown email.
+  userId         String?
+  user           User?        @relation(fields: [userId], references: [id])
+  actorEmail     String? // who acted (or tried to), kept even if the user is later removed
+  ipAddress      String?
+  userAgent      String?
   entity         String // "Client" | "Document" | "KycRecord" | "FundingRecord" | "DealerIntroduction" | "Exception" | "TicketReview" | "SopDocument" | "ZendeskConnection"
   entityId       String
   action         String // "stage_changed" | "stage_corrected" | "document_verified" | "hold_started" | "reopened" | ...
@@ -464,6 +475,7 @@ model AuditLog {
 
   @@index([organizationId, timestamp])
   @@index([entity, entityId])
+  @@index([organizationId, action])
 }
 
 // ---------------------------------------------------------------------------

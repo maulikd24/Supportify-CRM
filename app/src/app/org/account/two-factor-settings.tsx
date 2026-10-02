@@ -17,7 +17,7 @@ import { callAction } from "@/lib/actions/call-action";
 
 type Step = "idle" | "setup" | "recovery-codes" | "disable" | "regenerate";
 
-export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
+export function TwoFactorSettings({ enabled, required = false }: { enabled: boolean; required?: boolean }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("idle");
   const [pending, setPending] = useState(false);
@@ -185,9 +185,11 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
           <Button variant="outline" onClick={() => setStep("regenerate")}>
             Regenerate recovery codes
           </Button>
-          <Button variant="destructive" onClick={() => setStep("disable")}>
-            Disable 2FA
-          </Button>
+          {!required && (
+            <Button variant="destructive" onClick={() => setStep("disable")}>
+              Disable 2FA
+            </Button>
+          )}
         </>
       ) : (
         <Button onClick={handleStart} disabled={pending}>

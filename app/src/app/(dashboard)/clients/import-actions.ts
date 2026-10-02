@@ -10,6 +10,7 @@ import { initializeClient } from "@/lib/stage-engine/transitions";
 import { parseCsv } from "@/lib/utils/csv";
 import type { Prisma } from "@/generated/prisma/client";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
+import { recordAudit } from "@/lib/audit/record";
 
 export type ImportSummary = { created: number; skipped: number; errors: string[] };
 
@@ -103,5 +104,6 @@ export const importClientsAction = withUserErrors(async function importClientsAc
   }
 
   revalidatePath("/clients");
+  await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "Client", entityId: session.user.organizationId, action: "data.import_clients", newValue: { created: summary.created, skipped: summary.skipped, errors: summary.errors.length } });
   return summary;
 });

@@ -10,6 +10,7 @@ import { generateApiKey } from "@/lib/security/api-keys";
 import { encryptJson } from "@/lib/security/crypto";
 import { WEBHOOK_EVENTS } from "@/lib/webhooks/events";
 import { withUserErrors } from "@/lib/actions/user-error";
+import { recordAudit } from "@/lib/audit/record";
 
 const createKeySchema = z.object({ name: z.string().min(1, "Name is required") });
 
@@ -19,7 +20,7 @@ export const createApiKeyAction = withUserErrors(async function createApiKeyActi
 
   const { raw, keyPrefix, hashedKey } = generateApiKey();
 
-  await prisma.apiKey.create({
+  const key = await prisma.apiKey.create({
     data: {
       organizationId: session.user.organizationId,
       name: parsed.name,
@@ -28,6 +29,7 @@ export const createApiKeyAction = withUserErrors(async function createApiKeyActi
       createdById: session.user.id,
     },
   });
+  await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "ApiKey", entityId: key.id, action: "api_key.created", newValue: { name: parsed.name, prefix: keyPrefix } });
 
   revalidatePath("/settings/developers");
   return { rawKey: raw };
@@ -40,6 +42,7 @@ export const revokeApiKeyAction = withUserErrors(async function revokeApiKeyActi
     where: { id: keyId, organizationId: session.user.organizationId },
     data: { revokedAt: new Date() },
   });
+  await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "ApiKey", entityId: keyId, action: "api_key.revoked" });
 
   revalidatePath("/settings/developers");
 });
@@ -59,7 +62,7 @@ export const createWebhookAction = withUserErrors(async function createWebhookAc
 
   const secret = `whsec_${randomBytes(24).toString("hex")}`;
 
-  await prisma.webhookEndpoint.create({
+  const webhook = await prisma.webhookEndpoint.create({
     data: {
       organizationId: session.user.organizationId,
       url: parsed.url,
@@ -67,6 +70,7 @@ export const createWebhookAction = withUserErrors(async function createWebhookAc
       events: parsed.events,
     },
   });
+  await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "WebhookEndpoint", entityId: webhook.id, action: "webhook.created", newValue: { url: parsed.url, events: parsed.events } });
 
   revalidatePath("/settings/developers");
   return { secret };
@@ -78,6 +82,7 @@ export const deleteWebhookAction = withUserErrors(async function deleteWebhookAc
   await prisma.webhookEndpoint.delete({
     where: { id: webhookId, organizationId: session.user.organizationId },
   });
+  await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "WebhookEndpoint", entityId: webhookId, action: "webhook.deleted" });
 
   revalidatePath("/settings/developers");
 });
@@ -89,6 +94,7 @@ export const toggleWebhookActiveAction = withUserErrors(async function toggleWeb
     where: { id: webhookId, organizationId: session.user.organizationId },
     data: { isActive },
   });
+  await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "WebhookEndpoint", entityId: webhookId, action: "webhook.updated", newValue: { isActive } });
 
   revalidatePath("/settings/developers");
 });

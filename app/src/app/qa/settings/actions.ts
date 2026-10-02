@@ -8,6 +8,7 @@ import { requireOrg } from "@/lib/auth/require-role";
 import { encryptJson, decryptJson } from "@/lib/security/crypto";
 import { ZendeskClient, type ZendeskCredentials } from "@/lib/qa/zendesk-client";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
+import { recordAudit } from "@/lib/audit/record";
 
 const zendeskSchema = z.object({
   subdomain: z.string().min(1, "Subdomain is required"),
@@ -47,6 +48,7 @@ export const connectZendeskAction = withUserErrors(async function connectZendesk
     },
   });
 
+  await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "ZendeskConnection", entityId: session.user.organizationId, action: "zendesk.connected", newValue: { subdomain: parsed.subdomain, valid: test.ok } });
   revalidatePath("/qa/settings");
 
   if (!test.ok) {
@@ -58,6 +60,7 @@ export const disconnectZendeskAction = withUserErrors(async function disconnectZ
   const session = await requireOrg();
 
   await prisma.zendeskConnection.deleteMany({ where: { organizationId: session.user.organizationId } });
+  await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "ZendeskConnection", entityId: session.user.organizationId, action: "zendesk.disconnected" });
 
   revalidatePath("/qa/settings");
 });

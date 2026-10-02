@@ -10,6 +10,7 @@ import { NotificationsBell } from "@/components/notifications-bell";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { enforceTwoFactorPolicy } from "@/lib/security/enforce";
 
 const QA_NAV_ITEMS: NavItem[] = [
   { href: "/qa", label: "Overview", icon: "dashboard" },
@@ -19,11 +20,14 @@ const QA_NAV_ITEMS: NavItem[] = [
   { href: "/qa/dsat", label: "DSAT", icon: "dsat" },
   { href: "/qa/settings", label: "Settings", group: "Admin", icon: "settings" },
   { href: "/billing/QA_SENTINEL", label: "Billing", group: "Admin", icon: "billing" },
+  { href: "/org/security", label: "Security & audit", group: "Organization", icon: "sso" },
+  { href: "/org/account", label: "My account", group: "Organization", icon: "account" },
   { href: "/qa/help", label: "Help", group: "Reference", icon: "help" },
 ];
 
 export default async function QaLayout({ children }: { children: React.ReactNode }) {
   const session = await requireProductAccess("QA_SENTINEL");
+  await enforceTwoFactorPolicy(session.user);
   const { id: userId, organizationId } = session.user;
   const [user, unreadCount, awaitingCalibration] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { emailVerifiedAt: true } }),
@@ -33,7 +37,8 @@ export default async function QaLayout({ children }: { children: React.ReactNode
       where: { organizationId, status: "OPEN", entries: { none: { reviewerId: userId, submittedAt: { not: null } } } },
     }),
   ]);
-  const navItems = QA_NAV_ITEMS.map((item) =>
+  const isOrgAdmin = session.user.orgRole === "OWNER" || session.user.orgRole === "ADMIN";
+  const navItems = QA_NAV_ITEMS.filter((item) => isOrgAdmin || item.href !== "/org/security").map((item) =>
     item.href === "/qa/calibration" ? { ...item, badge: awaitingCalibration } : item,
   );
 

@@ -16,7 +16,9 @@ const initialState: LoginState = {};
 
 function SsoErrorBanner() {
   const params = useSearchParams();
-  const ssoError = params.get("ssoError");
+  const ssoError =
+    params.get("ssoError") ??
+    (params.get("error") === "SsoRequired" ? "Your organization requires single sign-on. Use “Sign in with SSO” below." : null);
   if (!ssoError) return null;
   return <FieldError>{ssoError}</FieldError>;
 }

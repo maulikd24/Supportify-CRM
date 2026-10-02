@@ -13,6 +13,8 @@ import { consumeVerificationToken } from "@/lib/auth/verification-tokens";
 import { provisionOrganization } from "@/lib/auth/provision-organization";
 import { isLockedOut, registerLoginFailure, resetLoginFailures } from "@/lib/auth/login-lockout";
 import { hashIdentifier, ipFromHeaders, rateLimit } from "@/lib/security/rate-limit";
+import { sessionAllowed, ssoRequiredFor, type AuthMethod } from "@/lib/security/policy";
+import { recordAudit } from "@/lib/audit/record";
 
 declare module "next-auth" {
   interface User {
@@ -30,6 +32,7 @@ declare module "next-auth" {
       organizationId: string;
       orgRole: OrgRole;
       isPlatformAdmin: boolean;
+      authMethod: AuthMethod;
     };
   }
 }
@@ -41,6 +44,8 @@ declare module "@auth/core/jwt" {
     organizationId: string;
     orgRole: OrgRole;
     isPlatformAdmin: boolean;
+    authTime?: number;
+    authMethod?: AuthMethod;
   }
 }
 
@@ -86,6 +91,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           await registerLoginFailure(user);
           return null;
         }
+
+        const org = await prisma.organization.findUnique({ where: { id: user.organizationId }, select: { requireSso: true } });
+        if (org && ssoRequiredFor(org, user.orgRole)) return null;
 
         if (user.twoFactorEnabled) {
           if (typeof code !== "string" || !code) return null;
@@ -179,6 +187,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         ]
       : []),
   ],
+  events: {
+    // Every successful sign-in (password, SSO, Google) lands in the org's audit trail.
+    signIn: async ({ user, account }) => {
+      if (!user?.id || !user.organizationId) return;
+      await recordAudit({
+        organizationId: user.organizationId,
+        userId: user.id,
+        entity: "User",
+        entityId: user.id,
+        action: account?.provider === "sso" ? "auth.sso_login" : "auth.login_succeeded",
+        newValue: { method: account?.provider ?? "credentials" },
+      });
+    },
+  },
   callbacks: {
     signIn: async ({ user, account, profile }) => {
       if (account?.provider !== "google") return true;
@@ -186,8 +208,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const email = profile?.email;
       if (!email || !profile?.email_verified) return false;
 
-      let dbUser = await prisma.user.findUnique({ where: { email } });
-      if (dbUser && !dbUser.isActive) return false;
+      const existing = await prisma.user.findUnique({ where: { email }, include: { organization: { select: { requireSso: true } } } });
+      if (existing && !existing.isActive) return false;
+      if (existing && ssoRequiredFor(existing.organization, existing.orgRole)) return "/login?error=SsoRequired";
+
+      let dbUser: { id: string; role: Role; organizationId: string; orgRole: OrgRole; isPlatformAdmin: boolean } | null = existing;
 
       if (!dbUser) {
         // First-time Google sign-in: create a new org exactly like self-serve
@@ -212,7 +237,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       user.isPlatformAdmin = dbUser.isPlatformAdmin;
       return true;
     },
-    jwt: async ({ token, user }) => {
+    jwt: async ({ token, user, account }) => {
       if (user?.id) {
         // Initial sign-in: NextAuth provides `user` from authorize().
         token.id = user.id;
@@ -220,19 +245,46 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.organizationId = user.organizationId;
         token.orgRole = user.orgRole;
         token.isPlatformAdmin = user.isPlatformAdmin;
+        token.authTime = Date.now();
+        token.authMethod =
+          account?.provider === "sso" ? "sso" : account?.provider === "google" ? "google" : "password";
         return token;
       }
 
       if (!token.id) return null;
+      // Sessions issued before policies existed: start their clock now.
+      token.authTime ??= Date.now();
+      token.authMethod ??= "unknown";
 
       // Every subsequent request: re-fetch current role/active status so admin
       // changes (role edits, deactivation, org membership) take effect on the
       // user's very next request instead of only after they next log in.
       const current = await prisma.user.findUnique({
         where: { id: token.id },
-        select: { role: true, isActive: true, organizationId: true, orgRole: true, isPlatformAdmin: true },
+        select: {
+          role: true,
+          isActive: true,
+          organizationId: true,
+          orgRole: true,
+          isPlatformAdmin: true,
+          sessionsRevokedAt: true,
+          organization: { select: { sessionMaxHours: true, sessionsRevokedAt: true, requireSso: true } },
+        },
       });
       if (!current || !current.isActive) return null;
+
+      // Org security policies: session limit, "sign out everywhere", require SSO.
+      if (
+        !sessionAllowed({
+          authTime: token.authTime,
+          authMethod: token.authMethod,
+          orgRole: current.orgRole,
+          userSessionsRevokedAt: current.sessionsRevokedAt,
+          org: current.organization,
+        })
+      ) {
+        return null;
+      }
 
       token.role = current.role;
       token.organizationId = current.organizationId;
@@ -246,6 +298,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.organizationId = token.organizationId;
       session.user.orgRole = token.orgRole;
       session.user.isPlatformAdmin = token.isPlatformAdmin;
+      session.user.authMethod = token.authMethod ?? "unknown";
       return session;
     },
   },

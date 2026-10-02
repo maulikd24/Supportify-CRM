@@ -9,6 +9,7 @@ import { requireOrg } from "@/lib/auth/require-role";
 import { pollOrganization } from "@/lib/qa/auto-review";
 import { triggerAutoReviewRun } from "@/lib/qa/auto-review-trigger";
 import { ensureOverageSubscriptionItem, overageAvailability } from "@/lib/qa/usage";
+import { recordAudit } from "@/lib/audit/record";
 
 const ADMIN_ROLES = ["OWNER", "ADMIN"] as const;
 const CHECK_NOW_COOLDOWN_MS = 5 * 60 * 1000;
@@ -61,6 +62,7 @@ export async function saveAutoReviewSettingsAction(input: z.input<typeof setting
     update: data,
     create: { organizationId, ...data },
   });
+  await recordAudit({ organizationId, userId: session.user.id, entity: "AutoReviewConfig", entityId: organizationId, action: "qa.auto_review_changed", newValue: data });
 
   revalidatePath("/qa/settings");
   return { ok: true };
@@ -97,6 +99,15 @@ export async function saveOverageSettingsAction(input: z.input<typeof overageSch
   await prisma.productSubscription.update({
     where: { id: sub.id },
     data: { allowOverage: parsed.allowOverage, overageCap: parsed.overageCap },
+  });
+  await recordAudit({
+    organizationId,
+    userId: session.user.id,
+    entity: "ProductSubscription",
+    entityId: sub.id,
+    action: "qa.overage_changed",
+    oldValue: { allowOverage: sub.allowOverage, overageCap: sub.overageCap },
+    newValue: parsed,
   });
 
   revalidatePath("/qa/settings");

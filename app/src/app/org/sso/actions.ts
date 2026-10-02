@@ -5,15 +5,16 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireOrg } from "@/lib/auth/require-role";
 import { getWorkos, emailDomain } from "@/lib/sso/workos";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
+import { recordAudit } from "@/lib/audit/record";
 
 const domainSchema = z.object({ domain: z.string().min(1, "Enter a domain") });
 
 /** Saves (or updates) the org's SSO email domain, creating its WorkOS Organization on first save. */
 export const saveSsoDomainAction = withUserErrors(async function saveSsoDomainAction(formData: FormData) {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requireOrg(["OWNER", "ADMIN"]);
 
   const parsed = domainSchema.parse({ domain: formData.get("domain") });
   const domain = emailDomain(`user@${parsed.domain.trim().toLowerCase().replace(/^@/, "")}`);
@@ -39,13 +40,22 @@ export const saveSsoDomainAction = withUserErrors(async function saveSsoDomainAc
     where: { id: session.user.organizationId },
     data: { ssoDomain: domain, workosOrganizationId },
   });
+  await recordAudit({
+    organizationId: session.user.organizationId,
+    userId: session.user.id,
+    entity: "Organization",
+    entityId: session.user.organizationId,
+    action: "sso.domain_changed",
+    oldValue: organization.ssoDomain,
+    newValue: domain,
+  });
 
-  revalidatePath("/settings/sso");
+  revalidatePath("/org/sso");
 });
 
 /** Opens WorkOS's hosted Admin Portal where the org's own IT admin configures the actual SAML/OIDC connection. */
 export const openSsoAdminPortalAction = withUserErrors(async function openSsoAdminPortalAction() {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requireOrg(["OWNER", "ADMIN"]);
 
   const organization = await prisma.organization.findUniqueOrThrow({ where: { id: session.user.organizationId } });
   if (!organization.workosOrganizationId) {

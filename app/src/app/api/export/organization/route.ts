@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
+import { recordAudit } from "@/lib/audit/record";
 
 export async function GET() {
   const session = await requireRole(["ADMIN"]);
@@ -32,6 +33,7 @@ export async function GET() {
     qaSentinel: { sopDocuments, ticketReviews, dsatAnalyses },
   };
 
+  await recordAudit({ organizationId, userId: session.user.id, entity: "Organization", entityId: organizationId, action: "data.export_organization" });
   return new NextResponse(JSON.stringify(payload, null, 2), {
     headers: {
       "Content-Type": "application/json; charset=utf-8",

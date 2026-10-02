@@ -13,6 +13,7 @@ import { getVisibleUserIds } from "@/lib/auth/visibility";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import type { Role } from "@/generated/prisma/client";
+import { enforceTwoFactorPolicy } from "@/lib/security/enforce";
 
 const CRM_NAV_ITEMS: (NavItem & { roles: Role[] })[] = [
   { href: "/dashboard", label: "Command center", icon: "dashboard", roles: ["ADMIN", "MANAGER", "RM"] },
@@ -23,20 +24,20 @@ const CRM_NAV_ITEMS: (NavItem & { roles: Role[] })[] = [
   { href: "/reports", label: "Reports", icon: "reports", roles: ["ADMIN", "MANAGER"] },
   { href: "/settings/stages", label: "Stages", group: "Admin", icon: "stages", roles: ["ADMIN"] },
   { href: "/settings/custom-fields", label: "Custom Fields", group: "Admin", icon: "custom-fields", roles: ["ADMIN"] },
-  { href: "/settings/audit-log", label: "Audit Log", group: "Admin", icon: "audit-log", roles: ["ADMIN"] },
   { href: "/settings/data", label: "Data & Privacy", group: "Admin", icon: "data", roles: ["ADMIN"] },
   { href: "/settings/templates", label: "Templates", group: "Admin", icon: "templates", roles: ["ADMIN"] },
   { href: "/settings/users", label: "Users", group: "Admin", icon: "user-cog", roles: ["ADMIN"] },
   { href: "/settings/integrations", label: "Settings", group: "Admin", icon: "settings", roles: ["ADMIN"] },
   { href: "/settings/developers", label: "Developers", group: "Admin", icon: "developers", roles: ["ADMIN"] },
-  { href: "/settings/sso", label: "Single Sign-On", group: "Admin", icon: "sso", roles: ["ADMIN"] },
   { href: "/billing/CRM", label: "Billing", group: "Admin", icon: "billing", roles: ["ADMIN"] },
-  { href: "/settings/account", label: "Account", group: "Reference", icon: "account", roles: ["ADMIN", "MANAGER", "RM"] },
+  { href: "/org/security", label: "Security & audit", group: "Organization", icon: "sso", roles: ["ADMIN"] },
+  { href: "/org/account", label: "My account", group: "Organization", icon: "account", roles: ["ADMIN", "MANAGER", "RM", "DEALER"] },
   { href: "/help", label: "Help", group: "Reference", icon: "help", roles: ["ADMIN", "MANAGER", "RM"] },
 ];
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await requireProductAccess("CRM");
+  await enforceTwoFactorPolicy(session.user);
 
   const { id: userId, role, organizationId } = session.user;
   const visibleUserIds = await getVisibleUserIds(userId, role, organizationId);

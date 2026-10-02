@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getStripe } from "@/lib/billing/stripe";
 import { limitsForPlan } from "@/lib/billing/plans";
 import type { Product, SubscriptionStatus } from "@/generated/prisma/client";
+import { recordAudit } from "@/lib/audit/record";
 
 function isProduct(value: unknown): value is Product {
   return value === "QA_SENTINEL" || value === "CRM";
@@ -59,6 +60,11 @@ async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription) {
     ...(status === "ACTIVE" ? { trialEndsAt: null } : {}),
   };
 
+  const previous = await prisma.productSubscription.findUnique({
+    where: { organizationId_product: { organizationId, product } },
+    select: { status: true, planId: true, billingInterval: true },
+  });
+
   await prisma.productSubscription.upsert({
     where: { organizationId_product: { organizationId, product } },
     update: {
@@ -67,6 +73,18 @@ async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription) {
     },
     create: { organizationId, product, ...data, planId, usagePeriodStart: new Date() },
   });
+
+  const current = { status, planId: planId ?? previous?.planId ?? null, billingInterval: data.billingInterval ?? previous?.billingInterval ?? null };
+  if (!previous || previous.status !== current.status || previous.planId !== current.planId || previous.billingInterval !== current.billingInterval) {
+    await recordAudit({
+      organizationId,
+      entity: "ProductSubscription",
+      entityId: product,
+      action: "billing.subscription_updated",
+      oldValue: previous ?? null,
+      newValue: current,
+    });
+  }
 }
 
 async function markCanceled(subscription: Stripe.Subscription) {
@@ -131,6 +149,7 @@ export async function POST(request: Request) {
             where: { organizationId, product, pastDueSince: { not: null } },
             data: { status: "PAST_DUE" },
           });
+          await recordAudit({ organizationId, entity: "ProductSubscription", entityId: product, action: "billing.payment_failed" });
         }
       }
       break;
