@@ -45,6 +45,22 @@ Required environment variables (Vercel → Settings → Environment Variables):
 | `STRIPE_PRICE_QA_OVERAGE` | Metered Stripe Price ($0.25/review) attached to that meter. |
 | `AUTO_REVIEW_CONCURRENCY` | Optional. Reviews run in parallel per batch (default 4). |
 
+## Plans and Stripe prices
+
+Plans live in `app/src/lib/billing/plans.ts`. Each self-serve plan needs a monthly Stripe Price, and
+an annual one (10× monthly) for the Monthly/Annual toggle to appear:
+
+| Plan | Monthly env var | Annual env var |
+|---|---|---|
+| QA Starter $49 / $490 | `STRIPE_PRICE_QA_STARTER` | `STRIPE_PRICE_QA_STARTER_ANNUAL` |
+| QA Growth $149 / $1,490 | `STRIPE_PRICE_QA_GROWTH` | `STRIPE_PRICE_QA_GROWTH_ANNUAL` |
+| QA Scale $399 / $3,990 | `STRIPE_PRICE_QA_SCALE` | `STRIPE_PRICE_QA_SCALE_ANNUAL` |
+| CRM Starter $29 / $290 per seat | `STRIPE_PRICE_CRM_STARTER` | `STRIPE_PRICE_CRM_STARTER_ANNUAL` |
+| CRM Growth $49 / $490 per seat | `STRIPE_PRICE_CRM_GROWTH` | `STRIPE_PRICE_CRM_GROWTH_ANNUAL` |
+| CRM Scale $69 / $690 per seat | `STRIPE_PRICE_CRM_SCALE` | `STRIPE_PRICE_CRM_SCALE_ANNUAL` |
+
+Annual plans keep monthly review quotas (reset by the daily cron) and can't use overages.
+
 Overage billing stays unavailable in the app until both Stripe variables are set.
 
 ## Error monitoring (optional)

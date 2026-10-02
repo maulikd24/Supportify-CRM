@@ -104,6 +104,7 @@
       <p class="eyebrow">What you get</p>
       <ul>
         <li>AI scoring against your SOPs</li>
+        <li>Automatic review of solved tickets</li>
         <li>Bulk review and calibration workflows</li>
         <li>Agent scorecards and DSAT analysis</li>
         <li>Direct Zendesk connection</li>
@@ -137,33 +138,64 @@
     <h2 class="section-title">Simple, per-product pricing.</h2>
     <p class="section-sub">Try either product free for 14 days, no card required. Subscribe to one or both — each is billed independently.</p>
   </div>
+
+  <div class="billing-toggle reveal" role="group" aria-label="Billing period">
+    <button type="button" data-interval="monthly" aria-pressed="true">Monthly</button>
+    <button type="button" data-interval="annual" aria-pressed="false">Annual <span>2 months free</span></button>
+  </div>
+
+  <h3 class="pricing-group">QA Sentinel</h3>
   <div class="pricing-grid">
     <div class="pricing-card reveal">
       <div class="pricing-product">QA Sentinel</div>
       <h3>Starter</h3>
-      <div class="pricing-price">$49<span>/mo</span></div>
+      <div class="pricing-price"><span class="amount" data-monthly="$49" data-annual="$490">$49</span><span data-monthly="/mo" data-annual="/yr">/mo</span></div>
+      <p class="pricing-billed" data-monthly="Billed monthly" data-annual="Billed yearly · 2 months free">Billed monthly</p>
       <ul>
         <li>100 AI reviews / month</li>
-        <li>1 Zendesk connection</li>
+        <li>Auto-review of solved tickets</li>
         <li>DSAT analysis</li>
+        <li>1 Zendesk connection</li>
       </ul>
       <a class="btn-outline-navy" href="https://app.supportify.co.in/signup">Start free trial</a>
     </div>
     <div class="pricing-card featured reveal">
+      <div class="pricing-badge">Most popular</div>
       <div class="pricing-product">QA Sentinel</div>
       <h3>Growth</h3>
-      <div class="pricing-price">$149<span>/mo</span></div>
+      <div class="pricing-price"><span class="amount" data-monthly="$149" data-annual="$1,490">$149</span><span data-monthly="/mo" data-annual="/yr">/mo</span></div>
+      <p class="pricing-billed" data-monthly="Billed monthly" data-annual="Billed yearly · 2 months free">Billed monthly</p>
       <ul>
         <li>500 AI reviews / month</li>
+        <li>Everything in Starter</li>
         <li>Unlimited SOPs</li>
         <li>Priority support</li>
       </ul>
       <a class="btn-outline-navy" href="https://app.supportify.co.in/signup">Start free trial</a>
     </div>
     <div class="pricing-card reveal">
+      <div class="pricing-product">QA Sentinel</div>
+      <h3>Scale</h3>
+      <div class="pricing-price"><span class="amount" data-monthly="$399" data-annual="$3,990">$399</span><span data-monthly="/mo" data-annual="/yr">/mo</span></div>
+      <p class="pricing-billed" data-monthly="Billed monthly" data-annual="Billed yearly · 2 months free">Billed monthly</p>
+      <ul>
+        <li>2,000 AI reviews / month</li>
+        <li>Everything in Growth</li>
+        <li>Lowest price per review</li>
+        <li>Priority support</li>
+      </ul>
+      <a class="btn-outline-navy" href="https://app.supportify.co.in/signup">Start free trial</a>
+    </div>
+  </div>
+  <p class="pricing-note-line">Every plan reviews solved tickets automatically. Need more? Extra reviews are $0.25 each on monthly plans — opt in, with a monthly cap you set.</p>
+
+  <h3 class="pricing-group">CRM</h3>
+  <div class="pricing-grid">
+    <div class="pricing-card reveal">
       <div class="pricing-product">CRM</div>
       <h3>Starter</h3>
-      <div class="pricing-price">$29<span>/seat/mo</span></div>
+      <div class="pricing-price"><span class="amount" data-monthly="$29" data-annual="$290">$29</span><span data-monthly="/seat/mo" data-annual="/seat/yr">/seat/mo</span></div>
+      <p class="pricing-billed" data-monthly="Billed monthly" data-annual="Billed yearly · 2 months free">Billed monthly</p>
       <ul>
         <li>Up to 5 team members</li>
         <li>Pipeline &amp; journeys</li>
@@ -171,10 +203,12 @@
       </ul>
       <a class="btn-outline-navy" href="https://app.supportify.co.in/signup">Start free trial</a>
     </div>
-    <div class="pricing-card reveal">
+    <div class="pricing-card featured reveal">
+      <div class="pricing-badge">Most popular</div>
       <div class="pricing-product">CRM</div>
       <h3>Growth</h3>
-      <div class="pricing-price">$49<span>/seat/mo</span></div>
+      <div class="pricing-price"><span class="amount" data-monthly="$49" data-annual="$490">$49</span><span data-monthly="/seat/mo" data-annual="/seat/yr">/seat/mo</span></div>
+      <p class="pricing-billed" data-monthly="Billed monthly" data-annual="Billed yearly · 2 months free">Billed monthly</p>
       <ul>
         <li>Up to 20 team members</li>
         <li>Everything in Starter</li>
@@ -182,8 +216,21 @@
       </ul>
       <a class="btn-outline-navy" href="https://app.supportify.co.in/signup">Start free trial</a>
     </div>
+    <div class="pricing-card reveal">
+      <div class="pricing-product">CRM</div>
+      <h3>Scale</h3>
+      <div class="pricing-price"><span class="amount" data-monthly="$69" data-annual="$690">$69</span><span data-monthly="/seat/mo" data-annual="/seat/yr">/seat/mo</span></div>
+      <p class="pricing-billed" data-monthly="Billed monthly" data-annual="Billed yearly · 2 months free">Billed monthly</p>
+      <ul>
+        <li>Up to 50 team members</li>
+        <li>Everything in Growth</li>
+        <li>Priority support</li>
+      </ul>
+      <a class="btn-outline-navy" href="https://app.supportify.co.in/signup">Start free trial</a>
+    </div>
   </div>
-  <p class="pricing-enterprise-note">Need more seats or reviews? <a href="mailto:hello@supportify.co.in">Contact us about Enterprise.</a></p>
+
+  <p class="pricing-enterprise-note">Larger team, SSO or custom terms? <a href="mailto:hello@supportify.co.in">Talk to us about Enterprise.</a></p>
 </section>
 
 <!-- ======================== WHY ======================== -->
@@ -277,6 +324,15 @@
     a.addEventListener('click', () => {
       document.getElementById('navLinks').classList.remove('open');
       document.getElementById('hamburger').setAttribute('aria-expanded', 'false');
+    });
+  });
+
+  // Monthly / annual pricing toggle
+  document.querySelectorAll('.billing-toggle button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const interval = btn.dataset.interval;
+      document.querySelectorAll('.billing-toggle button').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+      document.querySelectorAll('#pricing [data-monthly]').forEach(el => { el.textContent = el.dataset[interval]; });
     });
   });
 

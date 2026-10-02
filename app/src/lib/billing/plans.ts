@@ -7,16 +7,25 @@ import type { Product } from "@/generated/prisma/client";
  * "contact us": no self-serve Checkout, no Stripe Price needed yet.
  */
 
+export type BillingInterval = "month" | "year";
+
 export type PlanTier = {
   id: string;
   name: string;
+  /** Monthly price label, e.g. "$49/mo" or "$29/seat/mo". */
   priceLabel: string;
-  /** QA_SENTINEL plans: reviews allowed per billing period. null = unlimited (enterprise). */
+  /** Annual price label (10× monthly — two months free). */
+  annualPriceLabel?: string;
+  /** QA_SENTINEL plans: reviews allowed per month. null = unlimited (enterprise). */
   reviewQuota?: number | null;
-  /** CRM plans: purchased seats. null = unlimited (enterprise). */
+  /** CRM plans: maximum seats. null = unlimited (enterprise). */
   seats?: number | null;
   stripePriceEnvVar?: string;
+  /** Stripe Price for annual billing; the annual option only appears once it's set. */
+  stripeAnnualPriceEnvVar?: string;
   contactSales?: boolean;
+  /** Highlighted as the recommended plan. */
+  featured?: boolean;
   features: string[];
 };
 
@@ -25,17 +34,32 @@ export const QA_SENTINEL_PLANS: PlanTier[] = [
     id: "starter",
     name: "Starter",
     priceLabel: "$49/mo",
+    annualPriceLabel: "$490/yr",
     reviewQuota: 100,
     stripePriceEnvVar: "STRIPE_PRICE_QA_STARTER",
-    features: ["100 AI reviews/month", "1 Zendesk connection", "DSAT analysis"],
+    stripeAnnualPriceEnvVar: "STRIPE_PRICE_QA_STARTER_ANNUAL",
+    features: ["100 AI reviews/month", "Auto-review of solved tickets", "DSAT analysis", "1 Zendesk connection"],
   },
   {
     id: "growth",
     name: "Growth",
     priceLabel: "$149/mo",
+    annualPriceLabel: "$1,490/yr",
     reviewQuota: 500,
     stripePriceEnvVar: "STRIPE_PRICE_QA_GROWTH",
-    features: ["500 AI reviews/month", "Unlimited SOPs", "DSAT analysis", "Priority support"],
+    stripeAnnualPriceEnvVar: "STRIPE_PRICE_QA_GROWTH_ANNUAL",
+    featured: true,
+    features: ["500 AI reviews/month", "Everything in Starter", "Unlimited SOPs", "Priority support"],
+  },
+  {
+    id: "scale",
+    name: "Scale",
+    priceLabel: "$399/mo",
+    annualPriceLabel: "$3,990/yr",
+    reviewQuota: 2000,
+    stripePriceEnvVar: "STRIPE_PRICE_QA_SCALE",
+    stripeAnnualPriceEnvVar: "STRIPE_PRICE_QA_SCALE_ANNUAL",
+    features: ["2,000 AI reviews/month", "Everything in Growth", "Lowest price per review", "Priority support"],
   },
   {
     id: "enterprise",
@@ -43,7 +67,7 @@ export const QA_SENTINEL_PLANS: PlanTier[] = [
     priceLabel: "Contact us",
     reviewQuota: null,
     contactSales: true,
-    features: ["Unlimited reviews", "SSO (coming soon)", "Dedicated support"],
+    features: ["Unlimited reviews", "SSO (SAML)", "Custom terms & invoicing", "Dedicated support"],
   },
 ];
 
@@ -52,17 +76,32 @@ export const CRM_PLANS: PlanTier[] = [
     id: "starter",
     name: "Starter",
     priceLabel: "$29/seat/mo",
+    annualPriceLabel: "$290/seat/yr",
     seats: 5,
     stripePriceEnvVar: "STRIPE_PRICE_CRM_STARTER",
+    stripeAnnualPriceEnvVar: "STRIPE_PRICE_CRM_STARTER_ANNUAL",
     features: ["Up to 5 team members", "Client pipeline & journeys", "Task management"],
   },
   {
     id: "growth",
     name: "Growth",
     priceLabel: "$49/seat/mo",
+    annualPriceLabel: "$490/seat/yr",
     seats: 20,
     stripePriceEnvVar: "STRIPE_PRICE_CRM_GROWTH",
+    stripeAnnualPriceEnvVar: "STRIPE_PRICE_CRM_GROWTH_ANNUAL",
+    featured: true,
     features: ["Up to 20 team members", "Everything in Starter", "Priority support"],
+  },
+  {
+    id: "scale",
+    name: "Scale",
+    priceLabel: "$69/seat/mo",
+    annualPriceLabel: "$690/seat/yr",
+    seats: 50,
+    stripePriceEnvVar: "STRIPE_PRICE_CRM_SCALE",
+    stripeAnnualPriceEnvVar: "STRIPE_PRICE_CRM_SCALE_ANNUAL",
+    features: ["Up to 50 team members", "Everything in Growth", "Priority support"],
   },
   {
     id: "enterprise",
@@ -70,7 +109,7 @@ export const CRM_PLANS: PlanTier[] = [
     priceLabel: "Contact us",
     seats: null,
     contactSales: true,
-    features: ["Unlimited team members", "SSO (coming soon)", "Dedicated support"],
+    features: ["Unlimited team members", "SSO (SAML)", "Custom terms & invoicing", "Dedicated support"],
   },
 ];
 
@@ -87,9 +126,16 @@ export function planById(product: Product, planId: string): PlanTier | undefined
   return plansForProduct(product).find((p) => p.id === planId);
 }
 
-export function stripePriceIdFor(plan: PlanTier): string | undefined {
-  if (!plan.stripePriceEnvVar) return undefined;
-  return process.env[plan.stripePriceEnvVar];
+export function stripePriceIdFor(plan: PlanTier, interval: BillingInterval = "month"): string | undefined {
+  const envVar = interval === "year" ? plan.stripeAnnualPriceEnvVar : plan.stripePriceEnvVar;
+  return envVar ? process.env[envVar] : undefined;
+}
+
+/** Annual billing is offered for a product only once every self-serve plan has an annual Stripe price. */
+export function annualBillingAvailable(product: Product): boolean {
+  return plansForProduct(product)
+    .filter((p) => !p.contactSales)
+    .every((p) => Boolean(stripePriceIdFor(p, "year")));
 }
 
 export const TRIAL_DAYS = 14;

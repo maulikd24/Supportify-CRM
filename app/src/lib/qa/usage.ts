@@ -7,7 +7,7 @@ export type ReviewSlot =
   | { ok: true; overage: boolean }
   | { ok: false; code: "no_subscription" | "quota" | "overage_cap"; reason: string };
 
-type OverageFields = Pick<ProductSubscription, "status" | "stripeSubscriptionId" | "allowOverage">;
+type OverageFields = Pick<ProductSubscription, "status" | "stripeSubscriptionId" | "allowOverage" | "billingInterval">;
 
 /**
  * Whether this subscription *could* bill overages, and if not, why — shown in
@@ -17,6 +17,9 @@ export function overageAvailability(sub: OverageFields | null): { available: boo
   if (!sub) return { available: false, reason: "QA Sentinel isn't active for your organization." };
   if (sub.status !== "ACTIVE" || !sub.stripeSubscriptionId) {
     return { available: false, reason: "Overages are available on paid plans. Subscribe in Billing to turn them on." };
+  }
+  if (sub.billingInterval === "year") {
+    return { available: false, reason: "Overages are billed monthly, so they're not available on annual plans. Move up a plan for more reviews." };
   }
   if (!qaOverageConfig()) {
     return { available: false, reason: "Overage billing isn't set up yet. Contact support to enable it." };

@@ -3,11 +3,10 @@ import { Sparkles, Users } from "lucide-react";
 
 import { requireOrg } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
-import { plansForProduct, PRODUCT_LABELS, TRIAL_DAYS } from "@/lib/billing/plans";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { annualBillingAvailable, plansForProduct, PRODUCT_LABELS, TRIAL_DAYS } from "@/lib/billing/plans";
+import { Card, CardContent } from "@/components/ui/card";
 import type { Product } from "@/generated/prisma/client";
-import { CheckoutButton } from "./checkout-button";
+import { PlanPicker } from "./plan-picker";
 import { StartTrialButton } from "./start-trial-button";
 
 const PRODUCT_ICON = {
@@ -60,30 +59,13 @@ export default async function ProductBillingPage({ params }: { params: Promise<{
         </Card>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        {plans.map((plan) => {
-          const isCurrent = subscription?.planId === plan.id && subscription.status === "ACTIVE";
-          return (
-            <Card key={plan.id} className={isCurrent ? "border-primary" : undefined}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>{plan.name}</CardTitle>
-                  {isCurrent && <Badge>Current</Badge>}
-                </div>
-                <CardDescription>{plan.priceLabel}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-4">
-                <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
-                  {plan.features.map((f) => (
-                    <li key={f}>• {f}</li>
-                  ))}
-                </ul>
-                <CheckoutButton product={product} planId={plan.id} contactSales={Boolean(plan.contactSales)} disabled={isCurrent} />
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      <PlanPicker
+        product={product}
+        plans={plans}
+        currentPlanId={subscription?.status === "ACTIVE" || subscription?.status === "PAST_DUE" ? (subscription.planId ?? null) : null}
+        currentInterval={subscription?.billingInterval === "year" ? "year" : subscription?.billingInterval === "month" ? "month" : null}
+        annualAvailable={annualBillingAvailable(product)}
+      />
     </div>
   );
 }

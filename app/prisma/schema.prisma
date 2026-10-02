@@ -167,6 +167,11 @@ model ProductSubscription {
   allowOverage             Boolean  @default(false)
   overageCap               Int? // max overage reviews per billing period; null = no cap
   overageReviewsThisPeriod Int      @default(0)
+
+  // Annual plans bill yearly but quotas are monthly: usage resets every month
+  // from usagePeriodStart (see resetMonthlyUsageForAnnualPlans).
+  billingInterval  String? // "month" | "year"
+  usagePeriodStart DateTime?
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 

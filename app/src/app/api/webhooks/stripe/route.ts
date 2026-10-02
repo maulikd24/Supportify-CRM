@@ -43,8 +43,11 @@ async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription) {
   const newPeriod =
     currentPeriodEnd != null && (existing?.currentPeriodEnd == null || currentPeriodEnd > existing.currentPeriodEnd);
 
+  const interval = item?.price.recurring?.interval;
+
   const data = {
     status,
+    billingInterval: interval === "year" || interval === "month" ? interval : undefined,
     planId: planId ?? undefined,
     stripeSubscriptionId: subscription.id,
     stripePriceId: item?.price.id,
@@ -58,8 +61,11 @@ async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription) {
 
   await prisma.productSubscription.upsert({
     where: { organizationId_product: { organizationId, product } },
-    update: { ...data, ...(newPeriod ? { reviewsUsedThisPeriod: 0, overageReviewsThisPeriod: 0 } : {}) },
-    create: { organizationId, product, ...data, planId },
+    update: {
+      ...data,
+      ...(newPeriod ? { reviewsUsedThisPeriod: 0, overageReviewsThisPeriod: 0, usagePeriodStart: new Date() } : {}),
+    },
+    create: { organizationId, product, ...data, planId, usagePeriodStart: new Date() },
   });
 }
 

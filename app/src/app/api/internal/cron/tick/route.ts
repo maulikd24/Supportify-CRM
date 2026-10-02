@@ -6,6 +6,7 @@ import { checkStageSla } from "@/lib/sla/check-stage-sla";
 import { processDueJourneySteps } from "@/lib/journeys/poller";
 import { checkDisengagement } from "@/lib/copilot/check-disengagement";
 import { cleanupRateLimits } from "@/lib/security/rate-limit";
+import { resetMonthlyUsageForAnnualPlans } from "@/lib/billing/usage-reset";
 
 export const maxDuration = 60;
 
@@ -19,6 +20,7 @@ async function tick(request: Request) {
   const journeyResult = await processDueJourneySteps();
   const disengagementResult = await checkDisengagement();
   const rateLimitBucketsDeleted = await cleanupRateLimits();
+  const annualUsageResets = await resetMonthlyUsageForAnnualPlans();
 
   return NextResponse.json({
     ok: true,
@@ -27,6 +29,7 @@ async function tick(request: Request) {
     journeys: journeyResult,
     disengagement: disengagementResult,
     rateLimitBucketsDeleted,
+    annualUsageResets,
   });
 }
 

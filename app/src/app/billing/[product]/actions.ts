@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { requireOrg } from "@/lib/auth/require-role";
 import { getStripe } from "@/lib/billing/stripe";
-import { planById, stripePriceIdFor, PRODUCT_LABELS, TRIAL_DAYS, trialLimitsFor, qaOverageConfig } from "@/lib/billing/plans";
+import { planById, stripePriceIdFor, PRODUCT_LABELS, TRIAL_DAYS, trialLimitsFor, qaOverageConfig, type BillingInterval } from "@/lib/billing/plans";
 import { DEFAULT_STAGE_DEFINITIONS } from "@/lib/stage-engine/stages";
 import { countBillableSeats } from "@/lib/billing/seats";
 import type { Product } from "@/generated/prisma/client";
@@ -51,7 +51,11 @@ export const startTrialAction = withUserErrors(async function startTrialAction(p
   redirect(product === "CRM" ? "/dashboard" : "/qa");
 });
 
-export const startCheckoutAction = withUserErrors(async function startCheckoutAction(productParam: string, planId: string) {
+export const startCheckoutAction = withUserErrors(async function startCheckoutAction(
+  productParam: string,
+  planId: string,
+  interval: BillingInterval = "month",
+) {
   const session = await requireOrg(["OWNER", "ADMIN"]);
   const product = parseProduct(productParam);
 
@@ -66,10 +70,17 @@ export const startCheckoutAction = withUserErrors(async function startCheckoutAc
     throw new UserError("Verify your email address before subscribing — check your inbox, or resend from your account page.");
   }
 
-  const priceId = stripePriceIdFor(plan);
+  if (interval !== "month" && interval !== "year") throw new UserError("Unknown billing interval");
+  const priceId = stripePriceIdFor(plan, interval);
   if (!priceId) {
+    console.error("Checkout blocked: missing Stripe price", {
+      product,
+      planId,
+      interval,
+      envVar: interval === "year" ? plan.stripeAnnualPriceEnvVar : plan.stripePriceEnvVar,
+    });
     throw new UserError(
-      `${PRODUCT_LABELS[product]} ${plan.name} isn't configured yet — set ${plan.stripePriceEnvVar} in the environment.`,
+      `${PRODUCT_LABELS[product]} ${plan.name}${interval === "year" ? " (annual)" : ""} isn't available for online checkout yet. Contact us at sales@supportify.co.in to subscribe.`,
     );
   }
 
@@ -95,14 +106,15 @@ export const startCheckoutAction = withUserErrors(async function startCheckoutAc
     line_items: [
       { price: priceId, quantity: product === "CRM" ? Math.max(1, await countBillableSeats(org.id)) : 1 },
       // QA: attach the metered overage price up front (billed only if the org opts into overages).
-      ...(product === "QA_SENTINEL" && overage ? [{ price: overage.priceId }] : []),
+      // Monthly plans only: Stripe can't mix a yearly price with a monthly metered one.
+      ...(product === "QA_SENTINEL" && overage && interval === "month" ? [{ price: overage.priceId }] : []),
     ],
     success_url: `${appUrl}/billing/${product}?checkout=success`,
     cancel_url: `${appUrl}/billing/${product}?checkout=canceled`,
     subscription_data: {
-      metadata: { organizationId: org.id, product, planId },
+      metadata: { organizationId: org.id, product, planId, interval },
     },
-    metadata: { organizationId: org.id, product, planId },
+    metadata: { organizationId: org.id, product, planId, interval },
   });
 
   if (!checkoutSession.url) throw new UserError("Stripe did not return a checkout URL");
