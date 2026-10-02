@@ -7,7 +7,7 @@ import { formatCompact } from "@/lib/utils/date-buckets";
 export type TrendPoint = { label: string; value: number; bar?: number };
 
 /**
- * Harbor-style trend: a green line with a soft growth fill, over faint
+ * Harbor-style trend: a primary-coloured line with a soft growth fill, over faint
  * background bars. `bar` is optional and plotted on its own hidden scale.
  */
 export function TrendChart({

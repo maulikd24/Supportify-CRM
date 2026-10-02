@@ -3,7 +3,7 @@ import { Check } from "lucide-react";
 import type { Stage } from "@/generated/prisma/client";
 import { cn } from "@/lib/utils";
 
-/** Pipeline progress as segmented bars (Harbor style): done and current stages filled green. */
+/** Pipeline progress as segmented bars (Harbor style): done and current stages filled with the primary colour. */
 export function StageTracker({ stages, currentSequence }: { stages: Stage[]; currentSequence: number }) {
   return (
     <ol className="flex gap-1.5 overflow-x-auto pb-1" aria-label="Pipeline stages">

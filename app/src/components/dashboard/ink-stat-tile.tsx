@@ -49,7 +49,7 @@ export function InkStatTile({
           {bars.map((v, i) => (
             <div
               key={i}
-              className="flex-1 rounded-sm bg-primary/70"
+              className="flex-1 rounded-sm bg-electric"
               style={{ height: `${Math.max(8, (v / max) * 100)}%`, opacity: v === 0 ? 0.35 : 1 }}
             />
           ))}

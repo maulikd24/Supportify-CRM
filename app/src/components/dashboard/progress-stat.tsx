@@ -1,4 +1,4 @@
-/** Big number with a green progress bar underneath, as in the "RM performance" card. */
+/** Big number with a primary-coloured progress bar underneath, as in the "RM performance" card. */
 export function ProgressStat({ label, value, progress, hint }: { label: string; value: string | number; progress: number; hint?: string }) {
   const pct = Math.round(Math.min(1, Math.max(0, progress)) * 100);
   return (
