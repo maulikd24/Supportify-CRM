@@ -3,6 +3,7 @@ import { decryptJson } from "@/lib/security/crypto";
 import { ZendeskClient, type ZendeskCredentials } from "@/lib/qa/zendesk-client";
 import { assessTicket } from "@/lib/qa/assessor";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
+import { computeScore, DEFAULT_SCORECARD, type ResolvedScorecard } from "@/lib/qa/scorecard";
 import type { Prisma, SopDocument, ZendeskConnection } from "@/generated/prisma/client";
 
 export type ReviewSource = "manual" | "bulk" | "auto";
@@ -18,8 +19,9 @@ export async function runReview(
   connection: ZendeskConnection,
   sop: SopDocument,
   ticketId: string,
-  options: { source: ReviewSource; isOverage: boolean },
+  options: { source: ReviewSource; isOverage: boolean; scorecard?: ResolvedScorecard },
 ) {
+  const scorecard = options.scorecard ?? DEFAULT_SCORECARD;
   const credentials = decryptJson<ZendeskCredentials>(connection.encryptedToken);
   const zendesk = new ZendeskClient(credentials);
   const ticketData = await zendesk.getTicketWithConversation(ticketId);
@@ -29,7 +31,14 @@ export async function runReview(
     ticket,
     conversation: ticketData.conversation,
     sops: [{ name: sop.name, content: sop.content }],
+    criteria: scorecard.criteria,
   });
+
+  // Keep only this scorecard's criteria, then compute the weighted overall ourselves.
+  const criteriaScores = Object.fromEntries(
+    scorecard.criteria.map((c) => [c.key, result.criteria_scores?.[c.key]]).filter(([, v]) => typeof v === "number"),
+  ) as Record<string, number>;
+  const score = computeScore(scorecard.criteria, criteriaScores);
 
   const review = await prisma.ticketReview.create({
     data: {
@@ -41,8 +50,12 @@ export async function runReview(
       primarySopId: sop.id,
       sopIds: [sop.id],
       sopNames: [sop.name],
-      overallScore: result.overall_score,
-      criteriaScores: result.criteria_scores as Prisma.InputJsonValue,
+      overallScore: score.overall,
+      criteriaScores: criteriaScores as Prisma.InputJsonValue,
+      scorecardId: scorecard.id,
+      scorecardSnapshot: { name: scorecard.name, criteria: scorecard.criteria } as unknown as Prisma.InputJsonValue,
+      autoFailed: score.autoFailed,
+      autoFailReasons: score.autoFailed ? (score.autoFailReasons as Prisma.InputJsonValue) : undefined,
       sentiment: result.sentiment?.overall,
       summary: result.summary,
       strengths: result.strengths as Prisma.InputJsonValue,

@@ -7,6 +7,7 @@ import { ZendeskAuthError, ZendeskClient, type ZendeskCredentials } from "@/lib/
 import { runReview } from "@/lib/qa/run-review";
 import { claimReviewSlot, releaseReviewSlot, reportOverageReview } from "@/lib/qa/usage";
 import type { AutoReviewConfig, AutoReviewJob } from "@/generated/prisma/client";
+import { resolveScorecard } from "@/lib/qa/scorecard";
 
 const FIRST_POLL_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 const STALE_PROCESSING_MS = 10 * 60 * 1000;
@@ -125,11 +126,12 @@ async function processJob(job: AutoReviewJob): Promise<void> {
     : await prisma.sopDocument.findFirst({ where: { organizationId }, orderBy: { createdAt: "asc" } });
   if (!sop) return finishJob(job, { status: "SKIPPED", lastError: "No SOP to review against" });
 
+  const scorecard = await resolveScorecard(organizationId, config.scorecardId);
   const slot = await claimReviewSlot(organizationId);
   if (!slot.ok) return finishJob(job, { status: "SKIPPED", lastError: slot.reason });
 
   try {
-    const review = await runReview(organizationId, connection, sop, ticketId, { source: "auto", isOverage: slot.overage });
+    const review = await runReview(organizationId, connection, sop, ticketId, { source: "auto", isOverage: slot.overage, scorecard });
     if (slot.overage) await reportOverageReview(organizationId, review.id);
     await finishJob(job, { status: "DONE", reviewId: review.id, lastError: null });
   } catch (error) {

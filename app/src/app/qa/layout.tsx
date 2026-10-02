@@ -18,6 +18,7 @@ const QA_NAV_ITEMS: NavItem[] = [
   { href: "/qa/calibration", label: "Calibration", icon: "calibration" },
   { href: "/qa/agents", label: "Agents", icon: "users" },
   { href: "/qa/dsat", label: "DSAT", icon: "dsat" },
+  { href: "/qa/scorecards", label: "Scorecards", group: "Admin", icon: "scorecards" },
   { href: "/qa/settings", label: "Settings", group: "Admin", icon: "settings" },
   { href: "/billing/QA_SENTINEL", label: "Billing", group: "Admin", icon: "billing" },
   { href: "/org/security", label: "Security & audit", group: "Organization", icon: "sso" },

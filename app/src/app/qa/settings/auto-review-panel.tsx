@@ -10,9 +10,12 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { runAutoReviewNowAction, saveAutoReviewSettingsAction } from "./auto-review-actions";
 
+const DEFAULT_CHOICE = "__default";
+
 export type AutoReviewSettings = {
   enabled: boolean;
   sopId: string | null;
+  scorecardId: string | null;
   samplePercent: number;
   alwaysReviewBadCsat: boolean;
   includeTags: string[];
@@ -22,14 +25,18 @@ export type AutoReviewSettings = {
 export function AutoReviewPanel({
   initial,
   sops,
+  scorecards,
   canEdit,
 }: {
   initial: AutoReviewSettings;
   sops: { id: string; name: string }[];
+  /** Custom scorecards; empty when the plan doesn't include them. */
+  scorecards: { id: string; name: string; isDefault: boolean }[];
   canEdit: boolean;
 }) {
   const [enabled, setEnabled] = useState(initial.enabled);
   const [sopId, setSopId] = useState(initial.sopId ?? sops[0]?.id ?? null);
+  const [scorecardId, setScorecardId] = useState(initial.scorecardId ?? DEFAULT_CHOICE);
   const [samplePercent, setSamplePercent] = useState(String(initial.samplePercent));
   const [badCsat, setBadCsat] = useState(initial.alwaysReviewBadCsat);
   const [includeTags, setIncludeTags] = useState(initial.includeTags.join(", "));
@@ -42,6 +49,7 @@ export function AutoReviewPanel({
       const result = await saveAutoReviewSettingsAction({
         enabled,
         sopId,
+        scorecardId: scorecardId === DEFAULT_CHOICE ? null : scorecardId,
         samplePercent: Math.min(100, Math.max(0, Math.round(Number(samplePercent) || 0))),
         alwaysReviewBadCsat: badCsat,
         includeTags,
@@ -106,6 +114,26 @@ export function AutoReviewPanel({
             </SelectContent>
           </Select>
         </Field>
+        {scorecards.length > 0 && (
+          <Field>
+            <FieldLabel htmlFor="auto-scorecard">Scorecard</FieldLabel>
+            <Select value={scorecardId} onValueChange={(v) => setScorecardId(v as string)} disabled={!canEdit}>
+              <SelectTrigger id="auto-scorecard" className="w-full">
+                <SelectValue>
+                  {(v: string) => (v === DEFAULT_CHOICE ? "Organization default" : scorecards.find((s) => s.id === v)?.name ?? "Organization default")}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={DEFAULT_CHOICE}>Organization default</SelectItem>
+                {scorecards.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        )}
         <Field>
           <FieldLabel htmlFor="auto-sample">Random sample</FieldLabel>
           <div className="flex items-center gap-2">

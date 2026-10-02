@@ -4,7 +4,8 @@ import { requireOrg } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ALL_CRITERIA, type ConversationTurn } from "@/lib/qa/assessor";
+import { type ConversationTurn } from "@/lib/qa/assessor";
+import { reviewCriteria } from "@/lib/qa/scorecard";
 import { CloseSessionButton } from "./close-session-button";
 import { ScoringForm } from "./scoring-form";
 import { ComparisonTable } from "./comparison-table";
@@ -30,6 +31,8 @@ export default async function CalibrationDetailPage({ params }: { params: Promis
   const conversation = calibration.review.rawConversation
     ? (JSON.parse(calibration.review.rawConversation) as ConversationTurn[])
     : [];
+
+  const criteria = reviewCriteria(calibration.review.scorecardSnapshot).map((c) => [c.key, c.label] as [string, string]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -85,7 +88,7 @@ export default async function CalibrationDetailPage({ params }: { params: Promis
             notes: e.notes,
             submitted: Boolean(e.submittedAt),
           }))}
-          criteria={ALL_CRITERIA}
+          criteria={criteria}
         />
       ) : (
         <Card>
@@ -97,7 +100,7 @@ export default async function CalibrationDetailPage({ params }: { params: Promis
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ScoringForm sessionId={calibration.id} criteria={ALL_CRITERIA} />
+            <ScoringForm sessionId={calibration.id} criteria={criteria} />
           </CardContent>
         </Card>
       )}

@@ -10,6 +10,7 @@ import { ProgressStat } from "@/components/dashboard/progress-stat";
 import { LOW_SCORE } from "@/lib/qa/score";
 import { formatDateTime } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
+import { reviewCriteria } from "@/lib/qa/scorecard";
 
 export default async function ReviewDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireOrg();
@@ -23,6 +24,10 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ i
 
   const isAdmin = session.user.orgRole === "OWNER" || session.user.orgRole === "ADMIN";
   const criteriaScores = (review.criteriaScores as Record<string, number> | null) ?? {};
+  const scorecardName = (review.scorecardSnapshot as { name?: string } | null)?.name ?? "Standard";
+  const criteria = reviewCriteria(review.scorecardSnapshot).filter((c) => typeof criteriaScores[c.key] === "number");
+  const weighted = criteria.some((c) => c.weight !== criteria[0]?.weight);
+  const autoFailReasons = (review.autoFailReasons as string[] | null) ?? [];
   const strengths = (review.strengths as string[] | null) ?? [];
   const improvements = (review.improvements as string[] | null) ?? [];
   const sopViolations = (review.sopViolations as string[] | null) ?? [];
@@ -52,7 +57,13 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ i
               review.overallScore != null && review.overallScore < LOW_SCORE ? "text-destructive" : "text-ink-foreground/70",
             )}
           >
-            {review.overallScore == null ? "Not scored" : review.overallScore < LOW_SCORE ? "Needs coaching" : "Meets the bar"}
+            {review.overallScore == null
+              ? "Not scored"
+              : review.autoFailed
+                ? `Auto-fail: ${autoFailReasons.join(", ") || "critical criterion"}`
+                : review.overallScore < LOW_SCORE
+                  ? "Needs coaching"
+                  : "Meets the bar"}
           </p>
         </section>
 
@@ -71,17 +82,30 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ i
         </section>
       </div>
 
-      {Object.keys(criteriaScores).length > 0 && (
-        <Panel eyebrow="Rubric" title="Criteria scores" bodyClassName="grid gap-6 px-5 pt-2 pb-5 sm:grid-cols-2 lg:grid-cols-3">
-          {Object.entries(criteriaScores).map(([key, value]) => (
-            <ProgressStat
-              key={key}
-              label={key.replace(/_/g, " ")}
-              value={value}
-              progress={Number(value) / 100}
-              hint={Number(value) < LOW_SCORE ? "Below target" : undefined}
-            />
-          ))}
+      {criteria.length > 0 && (
+        <Panel
+          eyebrow={`Scorecard · ${scorecardName}`}
+          title="Criteria scores"
+          action={review.autoFailed ? <Badge variant="destructive">Auto-failed</Badge> : undefined}
+          bodyClassName="grid gap-6 px-5 pt-2 pb-5 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          {criteria.map((c) => {
+            const value = criteriaScores[c.key];
+            const failed = c.autoFailBelow != null && value < c.autoFailBelow;
+            const notes = [
+              weighted ? `Weight ${c.weight}` : null,
+              failed ? `Below critical threshold of ${c.autoFailBelow}` : value < LOW_SCORE ? "Below target" : null,
+            ].filter(Boolean);
+            return (
+              <ProgressStat
+                key={c.key}
+                label={c.label}
+                value={value}
+                progress={value / 100}
+                hint={notes.length > 0 ? notes.join(" · ") : undefined}
+              />
+            );
+          })}
         </Panel>
       )}
 

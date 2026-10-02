@@ -5,9 +5,9 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireOrg } from "@/lib/auth/require-role";
-import { ALL_CRITERIA } from "@/lib/qa/assessor";
 import type { Prisma } from "@/generated/prisma/client";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
+import { computeScore, reviewCriteria } from "@/lib/qa/scorecard";
 
 /** Starts a calibration session for an existing AI review — org owners/admins only, since it's a QA-management activity. */
 export const startCalibrationAction = withUserErrors(async function startCalibrationAction(reviewId: string) {
@@ -31,9 +31,6 @@ export const startCalibrationAction = withUserErrors(async function startCalibra
   return { sessionId: calibration.id };
 });
 
-const scoreSchema = z.object(
-  Object.fromEntries(ALL_CRITERIA.map(([key]) => [key, z.coerce.number().int().min(0).max(100)])),
-);
 
 /** Submits the current user's own score — one shot: no editing after submit, so scores stay blind and honest. */
 export const submitCalibrationEntryAction = withUserErrors(async function submitCalibrationEntryAction(sessionId: string, formData: FormData) {
@@ -41,8 +38,14 @@ export const submitCalibrationEntryAction = withUserErrors(async function submit
 
   const calibration = await prisma.calibrationSession.findUnique({
     where: { id: sessionId, organizationId: session.user.organizationId },
+    include: { review: { select: { scorecardSnapshot: true } } },
   });
   if (!calibration) throw new UserError("Calibration session not found");
+  // Reviewers score the same scorecard the AI used for this ticket.
+  const criteria = reviewCriteria(calibration.review.scorecardSnapshot);
+  const scoreSchema = z.object(
+    Object.fromEntries(criteria.map((c) => [c.key, z.coerce.number({ error: `Score ${c.label} from 0 to 100` }).int().min(0).max(100)])),
+  );
   if (calibration.status === "CLOSED") throw new UserError("This calibration session is closed");
 
   const existing = await prisma.calibrationEntry.findUnique({
@@ -51,12 +54,11 @@ export const submitCalibrationEntryAction = withUserErrors(async function submit
   if (existing?.submittedAt) throw new UserError("You've already submitted your score for this session");
 
   const parsed = scoreSchema.parse(
-    Object.fromEntries(ALL_CRITERIA.map(([key]) => [key, formData.get(key)])),
-  );
+    Object.fromEntries(criteria.map((c) => [c.key, formData.get(c.key)])),
+  ) as Record<string, number>;
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
-  const values = Object.values(parsed);
-  const overallScore = Math.round(values.reduce((sum, v) => sum + v, 0) / values.length);
+  const overallScore = computeScore(criteria, parsed).overall;
 
   await prisma.calibrationEntry.upsert({
     where: { sessionId_reviewerId: { sessionId, reviewerId: session.user.id } },

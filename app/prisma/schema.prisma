@@ -86,6 +86,7 @@ model Organization {
   ticketReviews     TicketReview[]
   dsatAnalyses      DsatAnalysis[]
   autoReviewConfig  AutoReviewConfig?
+  scorecards        Scorecard[]
   autoReviewJobs    AutoReviewJob[]
 
   apiKeys             ApiKey[]
@@ -783,6 +784,13 @@ model TicketReview {
   tokensOutput  Int?
   tokensCostUsd Decimal?
 
+  // Scorecard used (null = built-in default) and a snapshot of its criteria at review
+  // time, so editing a scorecard never changes past reviews.
+  scorecardId       String?
+  scorecardSnapshot Json?
+  autoFailed        Boolean @default(false)
+  autoFailReasons   Json? // labels of criteria that triggered auto-fail
+
   source    String  @default("manual") // "manual" | "bulk" | "auto"
   isOverage Boolean @default(false) // billed as a usage-based overage review
 
@@ -878,6 +886,7 @@ model AutoReviewConfig {
   organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   enabled             Boolean      @default(false)
   sopId               String? // rubric used for auto reviews
+  scorecardId         String? // null = the org's default scorecard
   samplePercent       Int          @default(20) // % of solved tickets reviewed at random (deterministic per ticket)
   alwaysReviewBadCsat Boolean      @default(true) // always review tickets rated "bad" by the customer
   includeTags         String[] // only tickets with at least one of these tags (empty = all)
@@ -921,4 +930,19 @@ model RateLimitBucket {
   resetAt DateTime
 
   @@index([resetAt])
+}
+
+// Custom QA scorecards (Growth and above). criteria is an array of
+// { key, label, description, weight, autoFailBelow } — see src/lib/qa/scorecard.ts.
+model Scorecard {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  isDefault      Boolean      @default(false)
+  criteria       Json
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
 }

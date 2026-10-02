@@ -27,6 +27,7 @@ import {
   Building2,
   ArrowLeftCircle,
   HelpCircle,
+  ClipboardCheck,
 } from "lucide-react";
 
 import {
@@ -75,6 +76,7 @@ const ICON_MAP = {
   reviews: FileSearch,
   calibration: Scale,
   dsat: Frown,
+  scorecards: ClipboardCheck,
   organizations: Building2,
   "exit-app": ArrowLeftCircle,
   help: HelpCircle,

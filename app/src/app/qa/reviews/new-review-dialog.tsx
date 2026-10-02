@@ -24,10 +24,13 @@ import { callAction } from "@/lib/actions/call-action";
 
 export function NewReviewDialog({
   sops,
+  scorecards,
   disabled,
   defaultOpen = false,
 }: {
   sops: { id: string; name: string }[];
+  /** Custom scorecards, default first; empty when the plan doesn't include them. */
+  scorecards: { id: string; name: string; isDefault: boolean }[];
   disabled: boolean;
   /** Open on mount — set when arriving via the header's "New review" (?new=1). */
   defaultOpen?: boolean;
@@ -41,12 +44,13 @@ export function NewReviewDialog({
 
   async function handleSubmit(formData: FormData) {
     const sopId = String(formData.get("sopId"));
+    const scorecardId = (formData.get("scorecardId") as string | null) || undefined;
     setPending(true);
     setBulkSummary(null);
 
     if (mode === "bulk") {
       try {
-        const summary = await callAction(createBulkReviewAction)(String(formData.get("ticketIds") || ""), sopId);
+        const summary = await callAction(createBulkReviewAction)(String(formData.get("ticketIds") || ""), sopId, scorecardId);
         setBulkSummary(summary);
         if (summary.reviewed > 0) toast.success(`Reviewed ${summary.reviewed} ticket(s)`);
       } catch (error) {
@@ -130,6 +134,24 @@ export function NewReviewDialog({
                   </SelectContent>
                 </Select>
               </Field>
+              {scorecards.length > 0 && (
+                <Field>
+                  <FieldLabel htmlFor="scorecardId">Scorecard</FieldLabel>
+                  <Select name="scorecardId" defaultValue={scorecards[0].id}>
+                    <SelectTrigger id="scorecardId" className="w-full">
+                      <SelectValue>{(v: string) => scorecards.find((s) => s.id === v)?.name ?? v}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {scorecards.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
+                          {s.isDefault ? " (default)" : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
             </FieldGroup>
 
             {bulkSummary && (

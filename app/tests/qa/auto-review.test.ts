@@ -35,7 +35,7 @@ beforeAll(async () => {
     if (url.includes("zendesk.com/api/v2/users/")) return json({ user: { name: "Agent", email: "agent@acme.test" } });
     if (url.includes("api.anthropic.com")) {
       claudeCalls++;
-      const result = { overall_score: 82, criteria_scores: { tone: 85 }, sentiment: { overall: "positive" }, summary: "Good", strengths: [], improvements: [], sop_violations: [], accuracy_detail: {} };
+      const result = { overall_score: 82, criteria_scores: { sop_adherence: 80, tone_and_empathy: 90, accuracy: 80, resolution_quality: 80, response_completeness: 80 }, sentiment: { overall: "positive" }, summary: "Good", strengths: [], improvements: [], sop_violations: [], accuracy_detail: {} };
       return json({ id: "msg", type: "message", role: "assistant", model: "m", stop_reason: "end_turn", stop_sequence: null, content: [{ type: "text", text: JSON.stringify(result) }], usage: { input_tokens: 1000, output_tokens: 200 } });
     }
     return realFetch(input, init);
@@ -74,6 +74,8 @@ describe("QA auto-review", () => {
     const reviews = await prisma.ticketReview.findMany({ where: { organizationId: orgId } });
     expect(reviews).toHaveLength(3);
     expect(reviews.every((r) => r.source === "auto")).toBe(true);
+    // Starter plan: built-in scorecard, overall computed by Supportify (equal weights).
+    expect(reviews.every((r) => r.overallScore === 82 && r.scorecardId === null && !r.autoFailed)).toBe(true);
     expect(reviews.filter((r) => r.isOverage)).toHaveLength(1);
     expect(claudeCalls).toBe(3);
     expect(meterEvents).toHaveBeenCalledTimes(1);

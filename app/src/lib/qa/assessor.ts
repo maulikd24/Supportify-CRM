@@ -1,9 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 
+import { DEFAULT_SCORECARD, type ScorecardCriterion } from "@/lib/qa/scorecard";
+
 /**
- * Ported 1:1 from qa-tool-reference/app/assessor.py (the standalone QA_Tool
- * prototype). Keep prompt wording and JSON shapes identical to that source —
- * they're what the scoring-quality diff script compares against.
+ * Originally ported from archive/qa-tool-reference/app/assessor.py. The prompt
+ * now scores the organization's scorecard criteria; the JSON response shape is
+ * unchanged. The overall score is recomputed by Supportify (lib/qa/scorecard.ts).
  */
 
 export type ConversationTurn = {
@@ -13,6 +15,7 @@ export type ConversationTurn = {
   created_at?: string;
   public?: boolean;
 };
+
 
 const MODEL = "claude-sonnet-4-6";
 
@@ -26,14 +29,8 @@ function makeClient(): Anthropic {
   return new Anthropic({ apiKey });
 }
 
-// All scoreable criteria in display order
-export const ALL_CRITERIA: [string, string][] = [
-  ["sop_adherence", "SOP Adherence"],
-  ["tone_and_empathy", "Tone & Empathy"],
-  ["accuracy", "Accuracy"],
-  ["resolution_quality", "Resolution Quality"],
-  ["response_completeness", "Response Completeness"],
-];
+/** The built-in criteria as [key, label] pairs (kept for older callers). */
+export const ALL_CRITERIA: [string, string][] = DEFAULT_SCORECARD.criteria.map((c) => [c.key, c.label]);
 
 const SYSTEM_PROMPT = `You are an expert Quality Assurance reviewer for customer support teams.
 Evaluate support agent conversations against Standard Operating Procedures (SOPs).
@@ -46,21 +43,18 @@ function buildAssessmentPrompt(params: {
   status: string;
   priority: string;
   conversation: string;
-  excludedCriteria: string[];
+  criteria: ScorecardCriterion[];
 }): string {
-  const excluded = new Set(params.excludedCriteria ?? []);
-  const included = ALL_CRITERIA.filter(([key]) => !excluded.has(key));
-
-  const criteriaLines = included.map(([key]) => `    "${key}": <integer 0-100>`).join("\n");
-
-  let exclusionNote = "";
-  if (excluded.size > 0) {
-    const excludedLabels = ALL_CRITERIA.filter(([key]) => excluded.has(key)).map(([, label]) => label);
-    exclusionNote =
-      `NOTE: The following criteria are EXCLUDED from this assessment and must NOT ` +
-      `appear in criteria_scores: ${excludedLabels.join(", ")}. ` +
-      `The overall_score must be the average of the INCLUDED criteria only.\n\n`;
-  }
+  const criteriaGuide = params.criteria
+    .map((c) => {
+      const extra = [
+        c.weight !== 1 ? `weight ${c.weight}` : null,
+        c.autoFailBelow != null ? `critical: below ${c.autoFailBelow} fails the review` : null,
+      ].filter(Boolean);
+      return `- ${c.key} — ${c.label}${c.description ? `: ${c.description}` : ""}${extra.length ? ` (${extra.join("; ")})` : ""}`;
+    })
+    .join("\n");
+  const criteriaLines = params.criteria.map((c) => `    "${c.key}": <integer 0-100>`).join("\n");
 
   return `Review this support ticket and evaluate the agent against the SOP(s) below.
 
@@ -75,11 +69,15 @@ ${params.sopsBlock}
 ## Conversation
 ${params.conversation}
 
+## Scorecard
+Score every criterion below from 0 to 100, judging only what it describes:
+${criteriaGuide}
+
 ## Instructions
-${exclusionNote}Return exactly this JSON structure — no extra keys, no markdown:
+Return exactly this JSON structure — no extra keys, no markdown:
 
 {
-  "overall_score": <integer 0-100, average of the INCLUDED criteria only>,
+  "overall_score": <integer 0-100, your overall judgement>,
   "criteria_scores": {
 ${criteriaLines}
   },
@@ -341,7 +339,8 @@ export async function assessTicket(params: {
   ticket: { subject?: string; status?: string; priority?: string };
   conversation: ConversationTurn[];
   sops: { name: string; content: string }[];
-  excludedCriteria?: string[];
+  /** Scorecard criteria to score; defaults to the built-in scorecard. */
+  criteria?: ScorecardCriterion[];
 }): Promise<{ result: AssessmentResult; usage: AssessmentUsage }> {
   const prompt = buildAssessmentPrompt({
     sopsBlock: buildSopsBlock(params.sops),
@@ -349,7 +348,7 @@ export async function assessTicket(params: {
     status: params.ticket.status || "N/A",
     priority: params.ticket.priority || "N/A",
     conversation: formatConversation(params.conversation),
-    excludedCriteria: params.excludedCriteria ?? [],
+    criteria: params.criteria ?? DEFAULT_SCORECARD.criteria,
   });
 
   const client = makeClient();

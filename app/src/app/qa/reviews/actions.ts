@@ -8,10 +8,12 @@ import { requireOrg } from "@/lib/auth/require-role";
 import { runReview } from "@/lib/qa/run-review";
 import { claimReviewSlot, releaseReviewSlot, reportOverageReview } from "@/lib/qa/usage";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
+import { resolveScorecard } from "@/lib/qa/scorecard";
 
 const reviewSchema = z.object({
   ticketId: z.string().min(1, "Ticket ID is required"),
   sopId: z.string().min(1, "Select a SOP"),
+  scorecardId: z.string().optional(),
 });
 
 export const createReviewAction = withUserErrors(async function createReviewAction(formData: FormData): Promise<{ reviewId: string; error?: undefined } | { error: string; reviewId?: undefined }> {
@@ -21,6 +23,7 @@ export const createReviewAction = withUserErrors(async function createReviewActi
   const parsed = reviewSchema.parse({
     ticketId: formData.get("ticketId"),
     sopId: formData.get("sopId"),
+    scorecardId: (formData.get("scorecardId") as string | null) || undefined,
   });
 
   const [connection, sop] = await Promise.all([
@@ -32,12 +35,13 @@ export const createReviewAction = withUserErrors(async function createReviewActi
   if (!connection) return { error: "Connect Zendesk in Settings before running a review" };
   if (!sop) return { error: "SOP not found" };
 
+  const scorecard = await resolveScorecard(organizationId, parsed.scorecardId);
   const slot = await claimReviewSlot(organizationId);
   if (!slot.ok) return { error: slot.reason };
 
   let review;
   try {
-    review = await runReview(organizationId, connection, sop, parsed.ticketId, { source: "manual", isOverage: slot.overage });
+    review = await runReview(organizationId, connection, sop, parsed.ticketId, { source: "manual", isOverage: slot.overage, scorecard });
   } catch (error) {
     await releaseReviewSlot(organizationId, slot.overage);
     console.error("Manual review failed", { organizationId, ticketId: parsed.ticketId, error });
@@ -60,7 +64,7 @@ export type BulkReviewSummary = {
 const MAX_BULK_TICKETS = 100;
 
 /** Runs a review for each ticket ID (newline/comma-separated), stopping once the plan's remaining quota is used up. */
-export const createBulkReviewAction = withUserErrors(async function createBulkReviewAction(ticketIdsRaw: string, sopId: string): Promise<BulkReviewSummary> {
+export const createBulkReviewAction = withUserErrors(async function createBulkReviewAction(ticketIdsRaw: string, sopId: string, scorecardId?: string): Promise<BulkReviewSummary> {
   const session = await requireOrg();
   const organizationId = session.user.organizationId;
 
@@ -77,6 +81,7 @@ export const createBulkReviewAction = withUserErrors(async function createBulkRe
   if (!connection) throw new UserError("Connect Zendesk in Settings before running a review");
   if (!sop) throw new UserError("SOP not found");
 
+  const scorecard = await resolveScorecard(organizationId, scorecardId);
   const summary: BulkReviewSummary = { reviewed: 0, failed: 0, quotaBlocked: 0, errors: [] };
   let quotaReason: string | null = null;
 
@@ -92,7 +97,7 @@ export const createBulkReviewAction = withUserErrors(async function createBulkRe
       continue;
     }
     try {
-      const review = await runReview(organizationId, connection, sop, ticketId, { source: "bulk", isOverage: slot.overage });
+      const review = await runReview(organizationId, connection, sop, ticketId, { source: "bulk", isOverage: slot.overage, scorecard });
       if (slot.overage) await reportOverageReview(organizationId, review.id);
       summary.reviewed += 1;
     } catch (error) {

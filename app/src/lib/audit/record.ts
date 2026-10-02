@@ -92,6 +92,10 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "zendesk.disconnected": "Disconnected Zendesk",
   "qa.auto_review_changed": "Changed auto-review settings",
   "qa.overage_changed": "Changed overage settings",
+  "qa.scorecard_created": "Created a scorecard",
+  "qa.scorecard_updated": "Edited a scorecard",
+  "qa.scorecard_deleted": "Deleted a scorecard",
+  "qa.scorecard_default_changed": "Changed the default scorecard",
   // Data
   "data.export_organization": "Exported organization data",
   "data.export_clients": "Exported clients",

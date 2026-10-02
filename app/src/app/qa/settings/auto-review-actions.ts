@@ -21,6 +21,8 @@ function parseTags(raw: string): string[] {
 const settingsSchema = z.object({
   enabled: z.boolean(),
   sopId: z.string().min(1).nullable(),
+  /** null = the org's default scorecard. */
+  scorecardId: z.string().min(1).nullable().default(null),
   samplePercent: z.number().int().min(0).max(100),
   alwaysReviewBadCsat: z.boolean(),
   includeTags: z.string().max(500),
@@ -40,6 +42,10 @@ export async function saveAutoReviewSettingsAction(input: z.input<typeof setting
     const sop = await prisma.sopDocument.findUnique({ where: { id: parsed.sopId, organizationId }, select: { id: true } });
     if (!sop) return { ok: false, error: "Pick one of your SOPs" };
   }
+  if (parsed.scorecardId) {
+    const scorecard = await prisma.scorecard.findFirst({ where: { id: parsed.scorecardId, organizationId }, select: { id: true } });
+    if (!scorecard) return { ok: false, error: "Pick one of your scorecards" };
+  }
   if (parsed.enabled) {
     const [connection, sopCount] = await Promise.all([
       prisma.zendeskConnection.findUnique({ where: { organizationId }, select: { isValid: true } }),
@@ -52,6 +58,7 @@ export async function saveAutoReviewSettingsAction(input: z.input<typeof setting
   const data = {
     enabled: parsed.enabled,
     sopId: parsed.sopId,
+    scorecardId: parsed.scorecardId,
     samplePercent: parsed.samplePercent,
     alwaysReviewBadCsat: parsed.alwaysReviewBadCsat,
     includeTags: parseTags(parsed.includeTags),

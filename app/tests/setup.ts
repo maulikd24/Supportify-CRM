@@ -6,6 +6,8 @@ process.env.ENCRYPTION_KEY ??= "0".repeat(64);
 process.env.AUTH_SECRET ??= "test-auth-secret-test-auth-secret-0000";
 process.env.STRIPE_SECRET_KEY ??= "sk_test_dummy";
 process.env.STRIPE_WEBHOOK_SECRET ??= "whsec_test";
+// Local `prisma dev` (PGlite) mixes up parallel prepared statements; review one ticket at a time.
+process.env.AUTO_REVIEW_CONCURRENCY ??= "1";
 
 // Next request-scoped APIs aren't available outside a request.
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn(), unstable_cache: (fn: unknown) => fn }));

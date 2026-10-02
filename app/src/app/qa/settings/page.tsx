@@ -11,6 +11,7 @@ import { OveragePanel } from "./overage-panel";
 import { Panel } from "@/components/dashboard/panel";
 import { StatTile } from "@/components/dashboard/stat-tile";
 import { overageAvailability } from "@/lib/qa/usage";
+import { customScorecardsAvailable } from "@/lib/qa/scorecard";
 import { QA_OVERAGE } from "@/lib/billing/plans";
 import { formatDateTime } from "@/lib/utils/format";
 import { addDays, startOfDay } from "@/lib/utils/date-buckets";
@@ -21,7 +22,7 @@ export default async function QaSettingsPage() {
   const canEdit = session.user.orgRole === "OWNER" || session.user.orgRole === "ADMIN";
   const weekAgo = addDays(startOfDay(), -7);
 
-  const [connection, sops, autoConfig, subscription, jobCounts, recentSkip] = await Promise.all([
+  const [connection, sops, autoConfig, subscription, jobCounts, recentSkip, scorecardsOn] = await Promise.all([
     prisma.zendeskConnection.findUnique({ where: { organizationId: session.user.organizationId } }),
     prisma.sopDocument.findMany({
       where: { organizationId: session.user.organizationId },
@@ -39,7 +40,11 @@ export default async function QaSettingsPage() {
       orderBy: { processedAt: "desc" },
       select: { lastError: true },
     }),
+    customScorecardsAvailable(organizationId),
   ]);
+  const scorecards = scorecardsOn
+    ? await prisma.scorecard.findMany({ where: { organizationId }, orderBy: { name: "asc" }, select: { id: true, name: true, isDefault: true } })
+    : [];
   const jobs = Object.fromEntries(jobCounts.map((j) => [j.status, j._count])) as Partial<Record<string, number>>;
   const overage = overageAvailability(subscription);
 
@@ -84,12 +89,14 @@ export default async function QaSettingsPage() {
           initial={{
             enabled: autoConfig?.enabled ?? false,
             sopId: autoConfig?.sopId ?? null,
+            scorecardId: autoConfig?.scorecardId ?? null,
             samplePercent: autoConfig?.samplePercent ?? 20,
             alwaysReviewBadCsat: autoConfig?.alwaysReviewBadCsat ?? true,
             includeTags: autoConfig?.includeTags ?? [],
             excludeTags: autoConfig?.excludeTags ?? [],
           }}
           sops={sops.map((sop) => ({ id: sop.id, name: sop.name }))}
+          scorecards={scorecards}
           canEdit={canEdit}
         />
       </Panel>
