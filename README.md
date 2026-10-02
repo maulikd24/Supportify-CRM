@@ -93,3 +93,20 @@ SSO start, verification emails, and the public API (120 requests/minute per key 
 Policies are enforced on every request in the NextAuth `jwt` callback (`src/lib/security/policy.ts`);
 2FA setup is enforced by the product layouts (`src/lib/security/enforce.ts`). Audit events are written
 with `recordAudit()` (`src/lib/audit/record.ts`).
+
+## Tests
+
+`app/tests` (Vitest) covers billing (plan limits, seats, quota/overage claims incl. concurrency, the
+Stripe webhook with signed events, grace period, annual resets), tenant isolation (public API, server
+actions, audit export), permissions and plan gating, security policies, rate limits, action error
+handling, the audit trail and the QA auto-review pipeline (Zendesk and Claude stubbed).
+
+Tests need a disposable Postgres and refuse to run without `TEST_DATABASE_URL`:
+
+```bash
+cd app && npx prisma dev --name test --detach   # prints a postgres:// URL
+TEST_DATABASE_URL="postgres://…" npm test
+```
+
+GitHub Actions (`.github/workflows/app-tests.yml`) runs the type check and tests against Postgres 16 on
+every push to `main`/`develop` and on pull requests that touch `app/`.
