@@ -61,7 +61,7 @@ export function InviteAgentDialog({
             <FieldDescription>We&apos;ll email a link to set their password.</FieldDescription>
           </Field>
           <Field>
-            <FieldLabel htmlFor="agent-helpdesk">Zendesk email</FieldLabel>
+            <FieldLabel htmlFor="agent-helpdesk">Helpdesk email</FieldLabel>
             <Input id="agent-helpdesk" type="email" value={helpdeskEmail} placeholder="Same as login email" onChange={(e) => setHelpdeskEmail(e.target.value)} />
             <FieldDescription>Their reviews are matched by this email. Leave empty if it&apos;s the same as the login email.</FieldDescription>
           </Field>

@@ -1,28 +1,21 @@
 import { createHash } from "crypto";
 
 import { prisma } from "@/lib/db/prisma";
-import { decryptJson } from "@/lib/security/crypto";
 import { getProductAccess } from "@/lib/billing/access";
-import { ZendeskAuthError, ZendeskClient, type ZendeskCredentials } from "@/lib/qa/zendesk-client";
+import { getHelpdeskProvider, helpdeskClient, HelpdeskAuthError, TicketNotFoundError, type SolvedTicket } from "@/lib/qa/helpdesks";
 import { runReview } from "@/lib/qa/run-review";
 import { claimReviewSlot, releaseReviewSlot, reportOverageReview } from "@/lib/qa/usage";
 import type { AutoReviewConfig, AutoReviewJob } from "@/generated/prisma/client";
 import { resolveScorecard } from "@/lib/qa/scorecard";
 
 const FIRST_POLL_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+const MAX_TICKETS_PER_POLL = 1000;
 const STALE_PROCESSING_MS = 10 * 60 * 1000;
 const MAX_ATTEMPTS = 3;
 /** Reviews run in parallel per batch; override with AUTO_REVIEW_CONCURRENCY. */
 const CONCURRENCY = Math.max(1, Number(process.env.AUTO_REVIEW_CONCURRENCY) || 4);
 /** Don't start a review this close to the time budget — one review can take ~20s. */
 const REVIEW_HEADROOM_MS = 25_000;
-
-type ZendeskTicketSummary = {
-  id?: number | string;
-  status?: string;
-  tags?: string[];
-  satisfaction_rating?: { score?: string } | null;
-};
 
 export type SampleReason = "bad_csat" | "sample";
 
@@ -33,7 +26,7 @@ export type SampleReason = "bad_csat" | "sample";
  */
 export function sampleTicket(
   config: Pick<AutoReviewConfig, "organizationId" | "samplePercent" | "alwaysReviewBadCsat" | "includeTags" | "excludeTags">,
-  ticket: ZendeskTicketSummary,
+  ticket: { id: string | number; tags?: SolvedTicket["tags"]; csat?: SolvedTicket["csat"] },
 ): SampleReason | null {
   const tags = (ticket.tags ?? []).map((t) => t.toLowerCase());
   const exclude = config.excludeTags.map((t) => t.toLowerCase());
@@ -41,45 +34,44 @@ export function sampleTicket(
   if (exclude.some((t) => tags.includes(t))) return null;
   if (include.length > 0 && !include.some((t) => tags.includes(t))) return null;
 
-  if (config.alwaysReviewBadCsat && ticket.satisfaction_rating?.score === "bad") return "bad_csat";
+  if (config.alwaysReviewBadCsat && ticket.csat === "bad") return "bad_csat";
 
   const bucket = parseInt(createHash("sha256").update(`${config.organizationId}:${ticket.id}`).digest("hex").slice(0, 8), 16) % 100;
   return bucket < config.samplePercent ? "sample" : null;
 }
 
-/** Pulls newly solved tickets for one org and queues the sampled ones. */
+/** Pulls newly solved tickets from the org's helpdesk and queues the sampled ones. */
 export async function pollOrganization(organizationId: string): Promise<{ found: number; queued: number }> {
   const [config, connection, access] = await Promise.all([
     prisma.autoReviewConfig.findUnique({ where: { organizationId } }),
-    prisma.zendeskConnection.findUnique({ where: { organizationId } }),
+    prisma.helpdeskConnection.findUnique({ where: { organizationId } }),
     getProductAccess(organizationId, "QA_SENTINEL"),
   ]);
   if (!config?.enabled || !connection?.isValid || !access.allowed) return { found: 0, queued: 0 };
 
   const pollStartedAt = new Date();
   const since = config.lastPolledAt ?? new Date(pollStartedAt.getTime() - FIRST_POLL_LOOKBACK_MS);
-  const zendesk = new ZendeskClient(decryptJson<ZendeskCredentials>(connection.encryptedToken));
+  const provider = getHelpdeskProvider(connection.provider);
 
-  let tickets: ZendeskTicketSummary[];
+  let tickets: SolvedTicket[];
   try {
-    tickets = (await zendesk.searchAllTickets(
-      `type:ticket status>=solved updated>${since.toISOString()}`,
-    )) as ZendeskTicketSummary[];
+    tickets = await helpdeskClient(connection).listSolvedSince(since, MAX_TICKETS_PER_POLL);
   } catch (error) {
-    if (error instanceof ZendeskAuthError) {
+    if (error instanceof HelpdeskAuthError) {
       // Credentials were revoked: stop polling until an admin re-tests the connection.
-      await prisma.zendeskConnection.update({ where: { id: connection.id }, data: { isValid: false, lastCheckedAt: new Date() } });
+      await prisma.helpdeskConnection.update({ where: { id: connection.id }, data: { isValid: false, lastCheckedAt: new Date() } });
     }
     throw error;
   }
 
+  // Tag rules only apply where the helpdesk has tags.
+  const rules = provider.supportsTags ? config : { ...config, includeTags: [], excludeTags: [] };
   const jobs = tickets
-    .filter((t) => t.id != null && (t.status === "solved" || t.status === "closed"))
-    .map((t) => ({ ticketId: String(t.id), reason: sampleTicket(config, t) }))
+    .map((t) => ({ ticketId: t.id, reason: sampleTicket(rules, t) }))
     .filter((t): t is { ticketId: string; reason: SampleReason } => t.reason !== null);
 
   const { count } = await prisma.autoReviewJob.createMany({
-    data: jobs.map((j) => ({ organizationId, ticketId: j.ticketId, reason: j.reason })),
+    data: jobs.map((j) => ({ organizationId, helpdesk: connection.provider, ticketId: j.ticketId, reason: j.reason })),
     skipDuplicates: true, // already queued or reviewed by an earlier poll
   });
   await prisma.autoReviewConfig.update({ where: { id: config.id }, data: { lastPolledAt: pollStartedAt } });
@@ -112,13 +104,14 @@ async function processJob(job: AutoReviewJob): Promise<void> {
   const [access, config, connection, existing] = await Promise.all([
     getProductAccess(organizationId, "QA_SENTINEL"),
     prisma.autoReviewConfig.findUnique({ where: { organizationId } }),
-    prisma.zendeskConnection.findUnique({ where: { organizationId } }),
-    prisma.ticketReview.findFirst({ where: { organizationId, ticketId }, select: { id: true } }),
+    prisma.helpdeskConnection.findUnique({ where: { organizationId } }),
+    prisma.ticketReview.findFirst({ where: { organizationId, helpdesk: job.helpdesk, ticketId }, select: { id: true } }),
   ]);
 
   if (!access.allowed) return finishJob(job, { status: "SKIPPED", lastError: "QA Sentinel subscription is not active" });
   if (!config?.enabled) return finishJob(job, { status: "SKIPPED", lastError: "Auto-review was turned off" });
-  if (!connection?.isValid) return finishJob(job, { status: "SKIPPED", lastError: "Zendesk is not connected" });
+  if (!connection?.isValid) return finishJob(job, { status: "SKIPPED", lastError: "The helpdesk is not connected" });
+  if (connection.provider !== job.helpdesk) return finishJob(job, { status: "SKIPPED", lastError: "The organization switched to a different helpdesk" });
   if (existing) return finishJob(job, { status: "SKIPPED", lastError: "Ticket was already reviewed", reviewId: existing.id });
 
   const sop = config.sopId
@@ -137,7 +130,7 @@ async function processJob(job: AutoReviewJob): Promise<void> {
   } catch (error) {
     await releaseReviewSlot(organizationId, slot.overage);
     const message = error instanceof Error ? error.message : String(error);
-    const giveUp = job.attempts >= MAX_ATTEMPTS || error instanceof ZendeskAuthError;
+    const giveUp = job.attempts >= MAX_ATTEMPTS || error instanceof HelpdeskAuthError || error instanceof TicketNotFoundError;
     await prisma.autoReviewJob.update({
       where: { id: job.id },
       data: giveUp

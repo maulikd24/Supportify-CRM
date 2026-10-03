@@ -48,10 +48,10 @@ export async function saveAutoReviewSettingsAction(input: z.input<typeof setting
   }
   if (parsed.enabled) {
     const [connection, sopCount] = await Promise.all([
-      prisma.zendeskConnection.findUnique({ where: { organizationId }, select: { isValid: true } }),
+      prisma.helpdeskConnection.findUnique({ where: { organizationId }, select: { isValid: true } }),
       prisma.sopDocument.count({ where: { organizationId } }),
     ]);
-    if (!connection?.isValid) return { ok: false, error: "Connect Zendesk (and pass the connection test) before turning on auto-review" };
+    if (!connection?.isValid) return { ok: false, error: "Connect your helpdesk (and pass the connection test) before turning on auto-review" };
     if (sopCount === 0) return { ok: false, error: "Add at least one SOP before turning on auto-review" };
   }
 
@@ -122,7 +122,7 @@ export async function saveOverageSettingsAction(input: z.input<typeof overageSch
   return { ok: true };
 }
 
-/** Checks Zendesk for newly solved tickets right away and starts reviewing them in the background. */
+/** Checks the helpdesk for newly solved tickets right away and starts reviewing them in the background. */
 export async function runAutoReviewNowAction(): Promise<ActionResult<{ found: number; queued: number }>> {
   const session = await requireOrg([...ADMIN_ROLES]);
   const organizationId = session.user.organizationId;
@@ -138,7 +138,7 @@ export async function runAutoReviewNowAction(): Promise<ActionResult<{ found: nu
     counts = await pollOrganization(organizationId);
   } catch (error) {
     console.error("Check-now poll failed", { organizationId, error });
-    return { ok: false, error: "Couldn't reach Zendesk. Re-test the connection above and try again." };
+    return { ok: false, error: "Couldn't reach your helpdesk. Re-test the connection above and try again." };
   }
   after(() => triggerAutoReviewRun({ organizationId }));
 

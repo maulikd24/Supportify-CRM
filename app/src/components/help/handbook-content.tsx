@@ -184,7 +184,7 @@ const GROUPS: HandbookGroup[] = [
         id: "qa-settings",
         title: "Settings",
         body: [
-          "Connect your Zendesk account so QA Sentinel can pull ticket conversations directly — no copy-pasting transcripts.",
+          "Connect your helpdesk (Zendesk, Freshdesk, Intercom, HubSpot, Salesforce Service Cloud, Zoho Desk, Help Scout, Gorgias, Front, ServiceNow or Jira Service Management) so QA Sentinel can pull ticket conversations directly — no copy-pasting transcripts. Access is read-only, and credentials are tested before they're saved.",
           "Upload and manage the Standard Operating Procedures (SOPs) that every review is scored against; update them any time to change what \"good\" looks like for your team.",
         ],
       },

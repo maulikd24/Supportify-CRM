@@ -21,10 +21,10 @@ import {
 import { submitDsatAction } from "./actions";
 import { callAction } from "@/lib/actions/call-action";
 
-export function NewDsatDialog({ hasZendesk }: { hasZendesk: boolean }) {
+export function NewDsatDialog({ helpdesk }: { helpdesk: { name: string; ticketLabel: string; ticketPlaceholder: string } | null }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
-  const [mode, setMode] = useState<"manual" | "zendesk">("manual");
+  const [mode, setMode] = useState<"manual" | "helpdesk">("manual");
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
 
@@ -55,11 +55,11 @@ export function NewDsatDialog({ hasZendesk }: { hasZendesk: boolean }) {
           <DialogTitle>Analyse a DSAT ticket</DialogTitle>
         </DialogHeader>
         <form ref={formRef} action={handleSubmit}>
-          <Tabs value={mode} onValueChange={(v) => setMode(v as "manual" | "zendesk")}>
+          <Tabs value={mode} onValueChange={(v) => setMode(v as "manual" | "helpdesk")}>
             <TabsList>
               <TabsTrigger value="manual">Paste conversation</TabsTrigger>
-              <TabsTrigger value="zendesk" disabled={!hasZendesk}>
-                Zendesk ticket
+              <TabsTrigger value="helpdesk" disabled={!helpdesk}>
+                {helpdesk ? `${helpdesk.name} ticket` : "Helpdesk ticket"}
               </TabsTrigger>
             </TabsList>
             <TabsContent value="manual" className="mt-4">
@@ -73,10 +73,10 @@ export function NewDsatDialog({ hasZendesk }: { hasZendesk: boolean }) {
                 />
               </Field>
             </TabsContent>
-            <TabsContent value="zendesk" className="mt-4">
+            <TabsContent value="helpdesk" className="mt-4">
               <Field>
-                <FieldLabel htmlFor="ticketId">Zendesk Ticket ID</FieldLabel>
-                <Input id="ticketId" name="ticketId" placeholder="12345" />
+                <FieldLabel htmlFor="ticketId">{helpdesk?.ticketLabel ?? "Ticket ID"}</FieldLabel>
+                <Input id="ticketId" name="ticketId" placeholder={helpdesk?.ticketPlaceholder} />
               </Field>
             </TabsContent>
           </Tabs>

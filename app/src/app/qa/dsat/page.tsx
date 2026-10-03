@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { NewDsatDialog } from "./new-dsat-dialog";
+import { getHelpdeskSummary } from "@/lib/qa/helpdesk-summary";
 import { Panel } from "@/components/dashboard/panel";
 import { TableEmpty } from "@/components/page/table-empty";
 import { probabilityVariant } from "@/lib/qa/score";
@@ -13,13 +14,13 @@ export default async function QaDsatPage() {
   const session = await requireOrg();
   const organizationId = session.user.organizationId;
 
-  const [analyses, hasZendesk] = await Promise.all([
+  const [analyses, helpdesk] = await Promise.all([
     prisma.dsatAnalysis.findMany({ where: { organizationId }, orderBy: { createdAt: "desc" }, take: 50 }),
-    prisma.zendeskConnection.findUnique({ where: { organizationId } }).then(Boolean),
+    getHelpdeskSummary(organizationId),
   ]);
 
   return (
-    <Panel eyebrow="Customer recovery" title="DSAT Analyses" action={<><NewDsatDialog hasZendesk={hasZendesk} /></>}>
+    <Panel eyebrow="Customer recovery" title="DSAT Analyses" action={<><NewDsatDialog helpdesk={helpdesk ? { name: helpdesk.name, ticketLabel: helpdesk.ticketLabel, ticketPlaceholder: helpdesk.ticketPlaceholder } : null} /></>}>
       <div className="overflow-x-auto border-t border-border">
         <Table>
           <TableHeader>

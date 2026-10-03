@@ -4,6 +4,7 @@ import { requireOrg } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { NewReviewDialog } from "./new-review-dialog";
+import { getHelpdeskSummary } from "@/lib/qa/helpdesk-summary";
 import { customScorecardsAvailable } from "@/lib/qa/scorecard";
 import { Panel } from "@/components/dashboard/panel";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +22,7 @@ export default async function QaReviewsPage({
   const { agent, q, new: openNew } = await searchParams;
   const query = q?.trim();
 
-  const [reviews, sops, hasZendesk, scorecardsOn] = await Promise.all([
+  const [reviews, sops, helpdesk, scorecardsOn] = await Promise.all([
     prisma.ticketReview.findMany({
       where: {
         organizationId,
@@ -41,7 +42,7 @@ export default async function QaReviewsPage({
       take: 50,
     }),
     prisma.sopDocument.findMany({ where: { organizationId }, orderBy: { name: "asc" } }),
-    prisma.zendeskConnection.findUnique({ where: { organizationId } }).then(Boolean),
+    getHelpdeskSummary(organizationId),
     customScorecardsAvailable(organizationId),
   ]);
   const scorecards = scorecardsOn
@@ -53,8 +54,8 @@ export default async function QaReviewsPage({
     : [];
 
   return (
-    <Panel eyebrow="Quality" title={<>Ticket reviews{agent ? ` — ${agent}` : ""}</>} action={<><NewReviewDialog sops={sops.map((s) => ({ id: s.id, name: s.name }))} scorecards={scorecards} disabled={!hasZendesk} defaultOpen={openNew === "1"} /></>}>
-      {(agent || query || !hasZendesk) && (
+    <Panel eyebrow="Quality" title={<>Ticket reviews{agent ? ` — ${agent}` : ""}</>} action={<><NewReviewDialog sops={sops.map((s) => ({ id: s.id, name: s.name }))} scorecards={scorecards} ticketLabel={helpdesk?.ticketLabel ?? "Ticket ID"} ticketPlaceholder={helpdesk?.ticketPlaceholder ?? ""} disabled={!helpdesk} defaultOpen={openNew === "1"} /></>}>
+      {(agent || query || !helpdesk) && (
         <div className="flex flex-col gap-1 px-5 pb-4 text-xs text-muted-foreground">
           {(agent || query) && (
             <p>
@@ -64,9 +65,9 @@ export default async function QaReviewsPage({
               </Link>
             </p>
           )}
-          {!hasZendesk && (
+          {!helpdesk && (
             <p>
-              Connect Zendesk in{" "}
+              Connect your helpdesk (Zendesk, Freshdesk, Intercom and more) in{" "}
               <Link href="/qa/settings" className="font-bold text-primary hover:underline">
                 Settings
               </Link>{" "}

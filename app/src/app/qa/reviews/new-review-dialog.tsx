@@ -25,12 +25,17 @@ import { callAction } from "@/lib/actions/call-action";
 export function NewReviewDialog({
   sops,
   scorecards,
+  ticketLabel,
+  ticketPlaceholder,
   disabled,
   defaultOpen = false,
 }: {
   sops: { id: string; name: string }[];
   /** Custom scorecards, default first; empty when the plan doesn't include them. */
   scorecards: { id: string; name: string; isDefault: boolean }[];
+  /** e.g. "Zendesk ticket ID", "Salesforce case number". */
+  ticketLabel: string;
+  ticketPlaceholder: string;
   disabled: boolean;
   /** Open on mount — set when arriving via the header's "New review" (?new=1). */
   defaultOpen?: boolean;
@@ -103,16 +108,16 @@ export function NewReviewDialog({
             <TabsContent value="single" className="mt-4">
               <FieldGroup>
                 <Field>
-                  <FieldLabel htmlFor="ticketId">Zendesk Ticket ID</FieldLabel>
-                  <Input id="ticketId" name="ticketId" placeholder="12345" />
+                  <FieldLabel htmlFor="ticketId">{ticketLabel}</FieldLabel>
+                  <Input id="ticketId" name="ticketId" placeholder={ticketPlaceholder} />
                 </Field>
               </FieldGroup>
             </TabsContent>
             <TabsContent value="bulk" className="mt-4">
               <FieldGroup>
                 <Field>
-                  <FieldLabel htmlFor="ticketIds">Zendesk Ticket IDs</FieldLabel>
-                  <Textarea id="ticketIds" name="ticketIds" rows={5} placeholder={"12345\n12346\n12347"} />
+                  <FieldLabel htmlFor="ticketIds">{ticketLabel.replace(/ (ID|number|key)$/, (m) => `${m}s`)}</FieldLabel>
+                  <Textarea id="ticketIds" name="ticketIds" rows={5} placeholder={ticketPlaceholder ? `${ticketPlaceholder}\n…` : undefined} />
                   <FieldDescription>One per line or comma-separated — up to 100 at a time.</FieldDescription>
                 </Field>
               </FieldGroup>

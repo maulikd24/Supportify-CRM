@@ -21,14 +21,14 @@ export default async function QaOverviewPage() {
   const trendStart = addDays(startOfDay(), -(WEEKS * 7 - 1));
   const monthAgo = addDays(startOfDay(), -30);
 
-  const [organization, subscription, reviewCount, avgScore, dsatCount, hasZendesk, sopCount, trendReviews, recent, lowScores, recentDsat] =
+  const [organization, subscription, reviewCount, avgScore, dsatCount, hasHelpdesk, sopCount, trendReviews, recent, lowScores, recentDsat] =
     await Promise.all([
       prisma.organization.findUniqueOrThrow({ where: { id: organizationId }, select: { name: true } }),
       prisma.productSubscription.findUnique({ where: { organizationId_product: { organizationId, product: "QA_SENTINEL" } } }),
       prisma.ticketReview.count({ where: { organizationId } }),
       prisma.ticketReview.aggregate({ where: { organizationId }, _avg: { overallScore: true } }),
       prisma.dsatAnalysis.count({ where: { organizationId } }),
-      prisma.zendeskConnection.findUnique({ where: { organizationId } }).then((c) => c?.isValid ?? false),
+      prisma.helpdeskConnection.findUnique({ where: { organizationId } }).then((c) => c?.isValid ?? false),
       prisma.sopDocument.count({ where: { organizationId } }),
       prisma.ticketReview.findMany({ where: { organizationId, createdAt: { gte: trendStart } }, select: { createdAt: true, overallScore: true } }),
       prisma.ticketReview.findMany({
@@ -64,7 +64,7 @@ export default async function QaOverviewPage() {
   const used = subscription?.reviewsUsedThisPeriod ?? 0;
 
   const setup = [
-    { label: "Connect Zendesk", done: hasZendesk, href: "/qa/settings" },
+    { label: "Connect your helpdesk", done: hasHelpdesk, href: "/qa/settings" },
     { label: "Upload an SOP", done: sopCount > 0, href: "/qa/settings" },
     { label: "Run your first review", done: reviewCount > 0, href: "/qa/reviews" },
   ];

@@ -30,7 +30,7 @@ export default function PrivacyPage() {
             <li>
               <span className="font-medium">Customer Data:</span> the client records, tickets, messages, and other
               content you or your team add to the Service, including support ticket conversations imported from
-              Zendesk for QA Sentinel to review.
+              your helpdesk for QA Sentinel to review.
             </li>
             <li>
               <span className="font-medium">Billing information:</span> handled directly by Stripe — we store a
@@ -68,8 +68,10 @@ export default function PrivacyPage() {
               <span className="font-medium">Resend</span> — delivery of transactional email.
             </li>
             <li>
-              <span className="font-medium">Zendesk</span> (when you connect it) — we read ticket conversations you
-              authorize us to access, using credentials you provide, encrypted at rest.
+              <span className="font-medium">Your helpdesk</span> (Zendesk, Freshdesk, Intercom, HubSpot, Salesforce,
+              Zoho Desk, Help Scout, Gorgias, Front, ServiceNow or Jira Service Management, when you connect it) — we
+              read, never change, the ticket conversations you authorize us to access, using credentials you provide,
+              encrypted at rest.
             </li>
             <li>
               <span className="font-medium">WorkOS</span> (only if your organization enables Single Sign-On) —
@@ -81,7 +83,7 @@ export default function PrivacyPage() {
         <section>
           <h2 className="mb-2 text-base font-medium">4. Data security</h2>
           <p>
-            Passwords are hashed, never stored in plain text. Sensitive credentials (Zendesk tokens, webhook signing
+            Passwords are hashed, never stored in plain text. Sensitive credentials (helpdesk tokens, webhook signing
             secrets, two-factor authentication secrets) are encrypted at rest with AES-256-GCM. Access to another
             organization&apos;s data is not possible through the Service — every record is scoped to your
             organization.

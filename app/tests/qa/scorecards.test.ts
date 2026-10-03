@@ -123,8 +123,8 @@ describe("scorecard management", () => {
 describe("reviews with a custom scorecard", () => {
   it("scores auto-reviews with the chosen scorecard and snapshots it", async () => {
     const scorecard = await prisma.scorecard.findFirstOrThrow({ where: { organizationId: growth, name: "Refunds v2" } });
-    await prisma.zendeskConnection.create({
-      data: { organizationId: growth, subdomain: "acme", email: "a@acme.test", encryptedToken: encryptJson({ subdomain: "acme", email: "a@acme.test", apiToken: "t" }), isValid: true },
+    await prisma.helpdeskConnection.create({
+      data: { organizationId: growth, provider: "zendesk", accountLabel: "acme.zendesk.com", encryptedCredentials: encryptJson({ subdomain: "acme", email: "a@acme.test", apiToken: "t" }), isValid: true },
     });
     const sop = await prisma.sopDocument.create({ data: { organizationId: growth, name: "Refund SOP", content: "No refunds after 30 days.", category: "general" } });
     await prisma.autoReviewConfig.create({

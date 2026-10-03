@@ -18,7 +18,7 @@ const INVITE_HOURS = 72;
 const inviteSchema = z.object({
   name: z.string().trim().min(1, "Enter the agent's name").max(100),
   email: z.string().trim().toLowerCase().email("Enter a valid login email"),
-  /** Zendesk email, when different from the login email. */
+  /** Helpdesk email, when different from the login email. */
   helpdeskEmail: z
     .string()
     .trim()

@@ -84,15 +84,15 @@ model Organization {
   auditLogs              AuditLog[]
   integrationConfigs     IntegrationConfig[]
 
-  zendeskConnection ZendeskConnection?
-  sopDocuments      SopDocument[]
-  ticketReviews     TicketReview[]
-  dsatAnalyses      DsatAnalysis[]
-  autoReviewConfig  AutoReviewConfig?
-  scorecards        Scorecard[]
-  autoReviewJobs    AutoReviewJob[]
-  coachingSessions  CoachingSession[]
-  reviewDisputes    ReviewDispute[]
+  helpdeskConnection HelpdeskConnection?
+  sopDocuments       SopDocument[]
+  ticketReviews      TicketReview[]
+  dsatAnalyses       DsatAnalysis[]
+  autoReviewConfig   AutoReviewConfig?
+  scorecards         Scorecard[]
+  autoReviewJobs     AutoReviewJob[]
+  coachingSessions   CoachingSession[]
+  reviewDisputes     ReviewDispute[]
 
   apiKeys             ApiKey[]
   webhookEndpoints    WebhookEndpoint[]
@@ -728,17 +728,19 @@ model Notification {
 // Organization instead of QA_Tool's single shared DB).
 // ---------------------------------------------------------------------------
 
-model ZendeskConnection {
-  id             String       @id @default(cuid())
-  organizationId String       @unique
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  subdomain      String
-  email          String
-  encryptedToken String // AES-256-GCM via src/lib/security/crypto.ts (same pattern as IntegrationConfig.credentials)
-  isValid        Boolean      @default(false)
-  lastCheckedAt  DateTime?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+// The helpdesk QA Sentinel reads tickets from (one per organization). `provider`
+// picks the adapter in src/lib/qa/helpdesks; credentials are provider-specific JSON.
+model HelpdeskConnection {
+  id                   String       @id @default(cuid())
+  organizationId       String       @unique
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider             String       @default("zendesk") // HelpdeskProviderId, e.g. "zendesk" | "freshdesk" | "intercom"
+  accountLabel         String // non-secret display name, e.g. "acme.zendesk.com"
+  encryptedCredentials String // AES-256-GCM via src/lib/security/crypto.ts
+  isValid              Boolean      @default(false)
+  lastCheckedAt        DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
 }
 
 model SopDocument {
@@ -803,6 +805,7 @@ model TicketReview {
   autoFailReasons   Json? // labels of criteria that triggered auto-fail
 
   source    String  @default("manual") // "manual" | "bulk" | "auto"
+  helpdesk  String  @default("zendesk") // provider the ticket came from (ticket ids are only unique per helpdesk)
   isOverage Boolean @default(false) // billed as a usage-based overage review
 
   createdAt DateTime @default(now())
@@ -922,6 +925,7 @@ model AutoReviewJob {
   organizationId String
   organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   ticketId       String
+  helpdesk       String              @default("zendesk")
   reason         String // why it was picked: "sample" | "bad_csat"
   status         AutoReviewJobStatus @default(QUEUED)
   attempts       Int                 @default(0)
@@ -931,7 +935,7 @@ model AutoReviewJob {
   startedAt      DateTime?
   processedAt    DateTime?
 
-  @@unique([organizationId, ticketId])
+  @@unique([organizationId, helpdesk, ticketId])
   @@index([status, createdAt])
 }
 

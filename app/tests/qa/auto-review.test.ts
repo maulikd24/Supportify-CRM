@@ -46,8 +46,8 @@ beforeAll(async () => {
   });
   orgId = org.id;
   await prisma.productSubscription.updateMany({ where: { organizationId: orgId }, data: { allowOverage: true, overageCap: 1 } });
-  await prisma.zendeskConnection.create({
-    data: { organizationId: orgId, subdomain: "acme", email: "a@acme.test", encryptedToken: encryptJson({ subdomain: "acme", email: "a@acme.test", apiToken: "t" }), isValid: true },
+  await prisma.helpdeskConnection.create({
+    data: { organizationId: orgId, provider: "zendesk", accountLabel: "acme.zendesk.com", encryptedCredentials: encryptJson({ subdomain: "acme", email: "a@acme.test", apiToken: "t" }), isValid: true },
   });
   const sop = await prisma.sopDocument.create({ data: { organizationId: orgId, name: "Billing SOP", content: "Be kind.", category: "general" } });
   await prisma.autoReviewConfig.create({

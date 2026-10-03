@@ -1,34 +1,31 @@
 import { prisma } from "@/lib/db/prisma";
-import { decryptJson } from "@/lib/security/crypto";
-import { ZendeskClient, type ZendeskCredentials } from "@/lib/qa/zendesk-client";
+import { helpdeskClient } from "@/lib/qa/helpdesks";
 import { assessTicket } from "@/lib/qa/assessor";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
 import { computeScore, DEFAULT_SCORECARD, type ResolvedScorecard } from "@/lib/qa/scorecard";
-import type { Prisma, SopDocument, ZendeskConnection } from "@/generated/prisma/client";
+import type { HelpdeskConnection, Prisma, SopDocument } from "@/generated/prisma/client";
 
 export type ReviewSource = "manual" | "bulk" | "auto";
 
 /**
- * Core single-ticket review: fetches the conversation, scores it, and stores the
+ * Core single-ticket review: fetches the conversation from the org's helpdesk, scores it, and stores the
  * result. No quota check — callers claim a slot via lib/qa/usage.ts first.
  * Lives outside the "use server" actions file so the background auto-review
  * worker can call it without exposing it as a public server action.
  */
 export async function runReview(
   organizationId: string,
-  connection: ZendeskConnection,
+  connection: HelpdeskConnection,
   sop: SopDocument,
   ticketId: string,
   options: { source: ReviewSource; isOverage: boolean; scorecard?: ResolvedScorecard },
 ) {
   const scorecard = options.scorecard ?? DEFAULT_SCORECARD;
-  const credentials = decryptJson<ZendeskCredentials>(connection.encryptedToken);
-  const zendesk = new ZendeskClient(credentials);
-  const ticketData = await zendesk.getTicketWithConversation(ticketId);
+  const ticketData = await helpdeskClient(connection).getTicket(ticketId);
+  if (ticketData.conversation.length === 0) throw new Error(`Ticket ${ticketId} has no messages to review.`);
 
-  const ticket = ticketData.ticket as { subject?: string; status?: string; priority?: string };
   const { result, usage } = await assessTicket({
-    ticket,
+    ticket: { subject: ticketData.subject, status: ticketData.status, priority: ticketData.priority },
     conversation: ticketData.conversation,
     sops: [{ name: sop.name, content: sop.content }],
     criteria: scorecard.criteria,
@@ -43,8 +40,9 @@ export async function runReview(
   const review = await prisma.ticketReview.create({
     data: {
       organizationId,
-      ticketId,
-      ticketSubject: ticket.subject ?? "",
+      ticketId: ticketData.id || ticketId,
+      helpdesk: connection.provider,
+      ticketSubject: ticketData.subject,
       agentName: ticketData.agentName,
       agentEmail: ticketData.agentEmail,
       primarySopId: sop.id,

@@ -3,7 +3,9 @@ import { prisma } from "@/lib/db/prisma";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ZendeskConnectionForm } from "./zendesk-connection-form";
+import { HelpdeskConnection } from "./helpdesk-connection";
+import { getHelpdeskSummary } from "@/lib/qa/helpdesk-summary";
+import { HELPDESK_PROVIDER_OPTIONS } from "@/lib/qa/helpdesks";
 import { NewSopDialog } from "./new-sop-dialog";
 import { SopRowActions } from "./sop-row-actions";
 import { AutoReviewPanel } from "./auto-review-panel";
@@ -22,8 +24,8 @@ export default async function QaSettingsPage() {
   const canEdit = session.user.orgRole === "OWNER" || session.user.orgRole === "ADMIN";
   const weekAgo = addDays(startOfDay(), -7);
 
-  const [connection, sops, autoConfig, subscription, jobCounts, recentSkip, scorecardsOn] = await Promise.all([
-    prisma.zendeskConnection.findUnique({ where: { organizationId: session.user.organizationId } }),
+  const [helpdesk, sops, autoConfig, subscription, jobCounts, recentSkip, scorecardsOn] = await Promise.all([
+    getHelpdeskSummary(organizationId),
     prisma.sopDocument.findMany({
       where: { organizationId: session.user.organizationId },
       orderBy: [{ category: "asc" }, { name: "asc" }],
@@ -50,30 +52,30 @@ export default async function QaSettingsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Zendesk connection</CardTitle>
-          <CardDescription>
-            Connect your Zendesk account so reviews can pull real tickets. Your API token is encrypted at rest.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ZendeskConnectionForm
-            connected={Boolean(connection)}
-            subdomain={connection?.subdomain}
-            email={connection?.email}
-            isValid={connection?.isValid ?? false}
-          />
-        </CardContent>
-      </Card>
+      <Panel
+        eyebrow="Integration"
+        title="Helpdesk"
+        description="Connect the helpdesk your team works in so QA Sentinel can read ticket conversations. Read-only, and credentials are encrypted at rest."
+        bodyClassName="px-5 pb-5"
+      >
+        <HelpdeskConnection
+          providers={HELPDESK_PROVIDER_OPTIONS}
+          connection={
+            helpdesk
+              ? { provider: helpdesk.id, accountLabel: helpdesk.accountLabel, isValid: helpdesk.isValid, lastCheckedLabel: helpdesk.lastCheckedAt ? formatDateTime(helpdesk.lastCheckedAt) : null }
+              : null
+          }
+          canEdit={canEdit}
+        />
+      </Panel>
 
       <Panel
         eyebrow="Automation"
         title="Auto-review"
         description={
           autoConfig?.lastPolledAt
-            ? `Last checked Zendesk ${formatDateTime(autoConfig.lastPolledAt)}. Counts cover the last 7 days.`
-            : "Score solved Zendesk tickets automatically, by your own sampling rules."
+            ? `Last checked ${helpdesk?.name ?? "your helpdesk"} ${formatDateTime(autoConfig.lastPolledAt)}. Counts cover the last 7 days.`
+            : `Score solved ${helpdesk?.name ?? "helpdesk"} tickets automatically, by your own sampling rules.`
         }
         bodyClassName="flex flex-col gap-5 px-5 pb-5"
       >
@@ -97,6 +99,7 @@ export default async function QaSettingsPage() {
           }}
           sops={sops.map((sop) => ({ id: sop.id, name: sop.name }))}
           scorecards={scorecards}
+          helpdesk={helpdesk ? { name: helpdesk.name, supportsTags: helpdesk.supportsTags, supportsCsat: helpdesk.supportsCsat } : null}
           canEdit={canEdit}
         />
       </Panel>

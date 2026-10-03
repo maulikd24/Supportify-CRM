@@ -27,12 +27,12 @@ export const createReviewAction = withUserErrors(async function createReviewActi
   });
 
   const [connection, sop] = await Promise.all([
-    prisma.zendeskConnection.findUnique({ where: { organizationId } }),
+    prisma.helpdeskConnection.findUnique({ where: { organizationId } }),
     prisma.sopDocument.findUnique({ where: { id: parsed.sopId, organizationId } }),
   ]);
 
   // Known problems are returned, not thrown: production builds hide thrown server-action messages.
-  if (!connection) return { error: "Connect Zendesk in Settings before running a review" };
+  if (!connection) return { error: "Connect your helpdesk in QA Settings before running a review" };
   if (!sop) return { error: "SOP not found" };
 
   const scorecard = await resolveScorecard(organizationId, parsed.scorecardId);
@@ -75,10 +75,10 @@ export const createBulkReviewAction = withUserErrors(async function createBulkRe
   }
 
   const [connection, sop] = await Promise.all([
-    prisma.zendeskConnection.findUnique({ where: { organizationId } }),
+    prisma.helpdeskConnection.findUnique({ where: { organizationId } }),
     prisma.sopDocument.findUnique({ where: { id: sopId, organizationId } }),
   ]);
-  if (!connection) throw new UserError("Connect Zendesk in Settings before running a review");
+  if (!connection) throw new UserError("Connect your helpdesk in QA Settings before running a review");
   if (!sop) throw new UserError("SOP not found");
 
   const scorecard = await resolveScorecard(organizationId, scorecardId);

@@ -38,7 +38,7 @@ export const QA_SENTINEL_PLANS: PlanTier[] = [
     reviewQuota: 100,
     stripePriceEnvVar: "STRIPE_PRICE_QA_STARTER",
     stripeAnnualPriceEnvVar: "STRIPE_PRICE_QA_STARTER_ANNUAL",
-    features: ["100 AI reviews/month", "Auto-review of solved tickets", "DSAT analysis", "1 Zendesk connection"],
+    features: ["100 AI reviews/month", "Auto-review of solved tickets", "DSAT analysis", "Works with Zendesk, Freshdesk, Intercom + 8 more"],
   },
   {
     id: "growth",

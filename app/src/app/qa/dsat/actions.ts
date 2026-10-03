@@ -5,14 +5,13 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireOrg } from "@/lib/auth/require-role";
-import { decryptJson } from "@/lib/security/crypto";
-import { ZendeskClient, type ZendeskCredentials } from "@/lib/qa/zendesk-client";
+import { helpdeskClient } from "@/lib/qa/helpdesks";
 import { analyzeDsat, parseManualConversation, type ConversationTurn } from "@/lib/qa/assessor";
 import type { Prisma } from "@/generated/prisma/client";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
 
 const dsatSchema = z.object({
-  inputMode: z.enum(["manual", "zendesk"]).default("manual"),
+  inputMode: z.enum(["manual", "helpdesk"]).default("manual"),
   ticketId: z.string().optional().default(""),
   manualSubject: z.string().optional().default(""),
   agentName: z.string().optional().default(""),
@@ -40,16 +39,13 @@ export const submitDsatAction = withUserErrors(async function submitDsatAction(f
   const customerName = parsed.customerName.trim();
   const ticketId = parsed.ticketId.trim();
 
-  if (parsed.inputMode === "zendesk" && ticketId) {
-    const connection = await prisma.zendeskConnection.findUnique({ where: { organizationId } });
-    if (!connection) throw new UserError("Connect Zendesk in Settings before analysing a live ticket");
+  if (parsed.inputMode === "helpdesk" && ticketId) {
+    const connection = await prisma.helpdeskConnection.findUnique({ where: { organizationId } });
+    if (!connection) throw new UserError("Connect your helpdesk in QA Settings before analysing a live ticket");
 
-    const credentials = decryptJson<ZendeskCredentials>(connection.encryptedToken);
-    const zendesk = new ZendeskClient(credentials);
-    const ticketData = await zendesk.getTicketWithConversation(ticketId);
+    const ticketData = await helpdeskClient(connection).getTicket(ticketId);
     conversation = ticketData.conversation;
-    const ticket = ticketData.ticket as { subject?: string };
-    subject = subject || ticket.subject || "";
+    subject = subject || ticketData.subject;
   } else {
     const raw = parsed.manualConversation.trim();
     if (!raw) throw new UserError("Please paste a conversation.");

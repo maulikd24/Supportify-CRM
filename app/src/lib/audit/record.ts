@@ -90,6 +90,8 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "integration.updated": "Updated an integration",
   "zendesk.connected": "Connected Zendesk",
   "zendesk.disconnected": "Disconnected Zendesk",
+  "helpdesk.connected": "Connected a helpdesk",
+  "helpdesk.disconnected": "Disconnected the helpdesk",
   "qa.auto_review_changed": "Changed auto-review settings",
   "qa.overage_changed": "Changed overage settings",
   "qa.scorecard_created": "Created a scorecard",

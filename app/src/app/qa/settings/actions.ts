@@ -5,85 +5,93 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireOrg } from "@/lib/auth/require-role";
-import { encryptJson, decryptJson } from "@/lib/security/crypto";
-import { ZendeskClient, type ZendeskCredentials } from "@/lib/qa/zendesk-client";
+import { encryptJson } from "@/lib/security/crypto";
+import { getHelpdeskProvider, helpdeskClient, HelpdeskAuthError, isHelpdeskProvider } from "@/lib/qa/helpdesks";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
 import { recordAudit } from "@/lib/audit/record";
 
-const zendeskSchema = z.object({
-  subdomain: z.string().min(1, "Subdomain is required"),
-  email: z.string().email("Enter the Zendesk agent email"),
-  apiToken: z.string().min(1, "API token is required"),
-});
+const ADMIN_ROLES = ["OWNER", "ADMIN"] as const;
 
-export const connectZendeskAction = withUserErrors(async function connectZendeskAction(formData: FormData) {
-  const session = await requireOrg();
+function connectionError(error: unknown, providerName: string): string {
+  if (error instanceof HelpdeskAuthError) return error.message;
+  if (error instanceof Error) return error.message;
+  return `Couldn't verify the ${providerName} connection`;
+}
 
-  const parsed = zendeskSchema.parse({
-    subdomain: formData.get("subdomain"),
-    email: formData.get("email"),
-    apiToken: formData.get("apiToken"),
-  });
+/** Connects (or replaces) the org's helpdesk. Credentials are tested before they're saved. */
+export const connectHelpdeskAction = withUserErrors(async function connectHelpdeskAction(providerId: string, values: Record<string, string>) {
+  const session = await requireOrg([...ADMIN_ROLES]);
+  const organizationId = session.user.organizationId;
+  if (!isHelpdeskProvider(providerId)) throw new UserError("Pick a helpdesk to connect");
+  const provider = getHelpdeskProvider(providerId);
+  const credentials = provider.schema.parse(values);
 
-  const credentials: ZendeskCredentials = parsed;
-  const client = new ZendeskClient(credentials);
-  const test = await client.testConnection();
-
-  await prisma.zendeskConnection.upsert({
-    where: { organizationId: session.user.organizationId },
-    update: {
-      subdomain: parsed.subdomain,
-      email: parsed.email,
-      encryptedToken: encryptJson(credentials),
-      isValid: test.ok,
-      lastCheckedAt: new Date(),
-    },
-    create: {
-      organizationId: session.user.organizationId,
-      subdomain: parsed.subdomain,
-      email: parsed.email,
-      encryptedToken: encryptJson(credentials),
-      isValid: test.ok,
-      lastCheckedAt: new Date(),
-    },
-  });
-
-  await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "ZendeskConnection", entityId: session.user.organizationId, action: "zendesk.connected", newValue: { subdomain: parsed.subdomain, valid: test.ok } });
-  revalidatePath("/qa/settings");
-
-  if (!test.ok) {
-    throw new UserError(test.error ?? "Could not verify the Zendesk connection");
+  try {
+    await provider.createClient(credentials).testConnection();
+  } catch (error) {
+    // Nothing is saved when the test fails, so a typo never replaces a working connection.
+    throw new UserError(connectionError(error, provider.name));
   }
+
+  const previous = await prisma.helpdeskConnection.findUnique({ where: { organizationId }, select: { provider: true } });
+  const data = {
+    provider: provider.id,
+    accountLabel: provider.accountLabel(credentials),
+    encryptedCredentials: encryptJson(credentials),
+    isValid: true,
+    lastCheckedAt: new Date(),
+  };
+  await prisma.helpdeskConnection.upsert({ where: { organizationId }, update: data, create: { organizationId, ...data } });
+  if (previous && previous.provider !== provider.id) {
+    // Queued tickets belong to the old helpdesk; start polling the new one from now.
+    await prisma.autoReviewJob.updateMany({ where: { organizationId, status: "QUEUED" }, data: { status: "SKIPPED", lastError: "The organization switched helpdesks", processedAt: new Date() } });
+    await prisma.autoReviewConfig.updateMany({ where: { organizationId }, data: { lastPolledAt: null } });
+  }
+
+  await recordAudit({
+    organizationId,
+    userId: session.user.id,
+    entity: "HelpdeskConnection",
+    entityId: organizationId,
+    action: "helpdesk.connected",
+    oldValue: previous ? { provider: previous.provider } : null,
+    newValue: { provider: provider.id, account: data.accountLabel },
+  });
+  revalidatePath("/qa/settings");
+  revalidatePath("/qa");
+  return { accountLabel: data.accountLabel };
 });
 
-export const disconnectZendeskAction = withUserErrors(async function disconnectZendeskAction() {
-  const session = await requireOrg();
+export const disconnectHelpdeskAction = withUserErrors(async function disconnectHelpdeskAction() {
+  const session = await requireOrg([...ADMIN_ROLES]);
+  const organizationId = session.user.organizationId;
 
-  await prisma.zendeskConnection.deleteMany({ where: { organizationId: session.user.organizationId } });
-  await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "ZendeskConnection", entityId: session.user.organizationId, action: "zendesk.disconnected" });
+  const removed = await prisma.helpdeskConnection.findUnique({ where: { organizationId }, select: { provider: true } });
+  await prisma.helpdeskConnection.deleteMany({ where: { organizationId } });
+  await recordAudit({ organizationId, userId: session.user.id, entity: "HelpdeskConnection", entityId: organizationId, action: "helpdesk.disconnected", oldValue: removed ? { provider: removed.provider } : null });
 
   revalidatePath("/qa/settings");
+  revalidatePath("/qa");
 });
 
-export const retestZendeskConnectionAction = withUserErrors(async function retestZendeskConnectionAction() {
-  const session = await requireOrg();
+export const retestHelpdeskConnectionAction = withUserErrors(async function retestHelpdeskConnectionAction() {
+  const session = await requireOrg([...ADMIN_ROLES]);
+  const organizationId = session.user.organizationId;
 
-  const connection = await prisma.zendeskConnection.findUnique({
-    where: { organizationId: session.user.organizationId },
-  });
-  if (!connection) throw new UserError("No Zendesk connection to test");
+  const connection = await prisma.helpdeskConnection.findUnique({ where: { organizationId } });
+  if (!connection) throw new UserError("No helpdesk is connected");
+  const provider = getHelpdeskProvider(connection.provider);
 
-  const credentials = decryptJson<ZendeskCredentials>(connection.encryptedToken);
-  const client = new ZendeskClient(credentials);
-  const test = await client.testConnection();
-
-  await prisma.zendeskConnection.update({
-    where: { organizationId: session.user.organizationId },
-    data: { isValid: test.ok, lastCheckedAt: new Date() },
-  });
+  let error: string | null = null;
+  try {
+    await helpdeskClient(connection).testConnection();
+  } catch (e) {
+    error = connectionError(e, provider.name);
+  }
+  await prisma.helpdeskConnection.update({ where: { organizationId }, data: { isValid: error === null, lastCheckedAt: new Date() } });
 
   revalidatePath("/qa/settings");
-  if (!test.ok) throw new UserError(test.error ?? "Zendesk connection test failed");
+  if (error) throw new UserError(error);
 });
 
 const sopSchema = z.object({
