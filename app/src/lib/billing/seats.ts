@@ -2,11 +2,12 @@ import { prisma } from "@/lib/db/prisma";
 import { getStripe } from "@/lib/billing/stripe";
 
 /**
- * CRM is billed per seat. A seat is an active user in the org; deactivated
+ * CRM is billed per seat. A seat is an active team member (agent-portal logins
+ * are QA-only and never take one); deactivated
  * users free their seat. QA Sentinel is billed per plan, not per seat.
  */
 export async function countBillableSeats(organizationId: string): Promise<number> {
-  return prisma.user.count({ where: { organizationId, isActive: true } });
+  return prisma.user.count({ where: { orgRole: { not: "AGENT" }, organizationId, isActive: true } });
 }
 
 /** Seats left under the CRM plan's cap, or null when the plan has no cap. */

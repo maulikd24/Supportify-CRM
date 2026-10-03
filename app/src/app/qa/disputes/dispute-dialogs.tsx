@@ -13,12 +13,22 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { callAction } from "@/lib/actions/call-action";
 import { raiseDisputeAction, resolveDisputeAction } from "./actions";
+import { raiseMyDisputeAction } from "@/app/portal/actions";
 
 export type ScoredCriterion = { key: string; label: string; score: number };
 
 const OVERALL = "__overall";
 
-export function RaiseDisputeDialog({ reviewId, criteria }: { reviewId: string; criteria: ScoredCriterion[] }) {
+export function RaiseDisputeDialog({
+  reviewId,
+  criteria,
+  asAgent = false,
+}: {
+  reviewId: string;
+  criteria: ScoredCriterion[];
+  /** Raised by the agent from the portal (own reviews only). */
+  asAgent?: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [criterion, setCriterion] = useState(OVERALL);
@@ -28,8 +38,8 @@ export function RaiseDisputeDialog({ reviewId, criteria }: { reviewId: string; c
   async function submit() {
     setPending(true);
     try {
-      await callAction(raiseDisputeAction)(reviewId, { criterionKey: criterion === OVERALL ? null : criterion, reason });
-      toast.success("Dispute raised. An admin will review it.");
+      await callAction(asAgent ? raiseMyDisputeAction : raiseDisputeAction)(reviewId, { criterionKey: criterion === OVERALL ? null : criterion, reason });
+      toast.success("Dispute raised. Your QA team will review it.");
       setOpen(false);
       setReason("");
       router.refresh();

@@ -60,7 +60,12 @@ export const createCoachingAction = withUserErrors(async function createCoaching
 
   // If the agent also has a Supportify login, let them know.
   const agentUser = await prisma.user.findFirst({
-    where: { organizationId, isActive: true, email: { equals: parsed.agentEmail, mode: "insensitive" }, id: { not: session.user.id } },
+    where: {
+      organizationId,
+      isActive: true,
+      id: { not: session.user.id },
+      OR: [{ email: { equals: parsed.agentEmail, mode: "insensitive" } }, { helpdeskEmail: { equals: parsed.agentEmail, mode: "insensitive" } }],
+    },
     select: { id: true },
   });
   if (agentUser) {

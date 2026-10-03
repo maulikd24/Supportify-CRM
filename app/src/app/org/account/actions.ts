@@ -23,7 +23,7 @@ const changePasswordSchema = z.object({
 });
 
 export const changeOwnPasswordAction = withUserErrors(async function changeOwnPasswordAction(formData: FormData) {
-  const session = await requireUser();
+  const session = await requireUser({ allowAgent: true });
 
   const parsed = changePasswordSchema.parse({
     currentPassword: formData.get("currentPassword"),
@@ -42,7 +42,7 @@ export const changeOwnPasswordAction = withUserErrors(async function changeOwnPa
 
 /** Starts (or restarts) 2FA setup: generates a fresh secret and stores it encrypted, but leaves twoFactorEnabled false until the user proves possession via confirmTwoFactorSetupAction. */
 export const startTwoFactorSetupAction = withUserErrors(async function startTwoFactorSetupAction() {
-  const session = await requireUser();
+  const session = await requireUser({ allowAgent: true });
 
   const secret = generateTotpSecret();
   await prisma.user.update({
@@ -58,7 +58,7 @@ const confirmSchema = z.object({ code: z.string().min(6).max(6) });
 
 /** Verifies the first code from the authenticator app, then enables 2FA and issues one-time recovery codes (shown to the user exactly once). */
 export const confirmTwoFactorSetupAction = withUserErrors(async function confirmTwoFactorSetupAction(formData: FormData) {
-  const session = await requireUser();
+  const session = await requireUser({ allowAgent: true });
 
   const parsed = confirmSchema.parse({ code: formData.get("code") });
 
@@ -83,7 +83,7 @@ export const confirmTwoFactorSetupAction = withUserErrors(async function confirm
 const disableSchema = z.object({ currentPassword: z.string().min(1) });
 
 export const disableTwoFactorAction = withUserErrors(async function disableTwoFactorAction(formData: FormData) {
-  const session = await requireUser();
+  const session = await requireUser({ allowAgent: true });
 
   const parsed = disableSchema.parse({ currentPassword: formData.get("currentPassword") });
 
@@ -105,7 +105,7 @@ export const disableTwoFactorAction = withUserErrors(async function disableTwoFa
 });
 
 export const regenerateRecoveryCodesAction = withUserErrors(async function regenerateRecoveryCodesAction(formData: FormData) {
-  const session = await requireUser();
+  const session = await requireUser({ allowAgent: true });
 
   const parsed = disableSchema.parse({ currentPassword: formData.get("currentPassword") });
 

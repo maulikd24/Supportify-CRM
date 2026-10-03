@@ -10,7 +10,7 @@ export default async function UsersSettingsPage() {
   const session = await requireRole(["ADMIN"]);
 
   const users = await prisma.user.findMany({
-    where: { organizationId: session.user.organizationId },
+    where: { orgRole: { not: "AGENT" }, organizationId: session.user.organizationId },
     include: { manager: true },
     orderBy: { createdAt: "asc" },
   });

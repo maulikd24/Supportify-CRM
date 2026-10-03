@@ -4,17 +4,34 @@ import { auth } from "@/lib/auth/config";
 import { getProductAccess } from "@/lib/billing/access";
 import type { OrgRole, Product, Role } from "@/generated/prisma/client";
 
+/** Where agent-portal logins (orgRole AGENT) are sent from anywhere else in the app. */
+export const AGENT_HOME = "/portal";
+
 /** Redirects to /login if unauthenticated, or /dashboard if authenticated but not in allowedRoles. */
 export async function requireRole(allowedRoles: Role[]) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  if (session.user.orgRole === "AGENT") redirect(AGENT_HOME);
   if (!allowedRoles.includes(session.user.role)) redirect("/clients");
   return session;
 }
 
-export async function requireUser() {
+/**
+ * Any signed-in team member. Agent-portal logins are sent to the portal unless
+ * `allowAgent` is set (only for self-service things: own account, own notifications).
+ */
+export async function requireUser(opts: { allowAgent?: boolean } = {}) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  if (session.user.orgRole === "AGENT" && !opts.allowAgent) redirect(AGENT_HOME);
+  return session;
+}
+
+/** Agent-portal pages and actions: only orgRole AGENT. */
+export async function requireAgent() {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  if (session.user.orgRole !== "AGENT") redirect("/");
   return session;
 }
 
@@ -25,9 +42,11 @@ export async function requireUser() {
  * boundary between paying customers, independent of the CRM-specific `role`
  * hierarchy checked by requireRole.
  */
-export async function requireOrg(allowedOrgRoles?: OrgRole[]) {
+export async function requireOrg(allowedOrgRoles?: OrgRole[], opts: { allowAgent?: boolean } = {}) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  // Agents never reach team pages (CRM, QA admin) unless explicitly allowed.
+  if (session.user.orgRole === "AGENT" && !opts.allowAgent && !allowedOrgRoles?.includes("AGENT")) redirect(AGENT_HOME);
   if (allowedOrgRoles && !allowedOrgRoles.includes(session.user.orgRole)) {
     redirect("/dashboard");
   }

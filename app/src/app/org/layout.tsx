@@ -18,7 +18,7 @@ const EXIT_NAV: NavItem[] = [{ href: "/", label: "Back to app", icon: "exit-app"
  * not enforce the 2FA policy, so members can set 2FA up here.
  */
 export default async function OrganizationLayout({ children }: { children: React.ReactNode }) {
-  const session = await requireOrg();
+  const session = await requireOrg(undefined, { allowAgent: true });
   const isAdmin = session.user.orgRole === "OWNER" || session.user.orgRole === "ADMIN";
   const navItems = [...MEMBER_NAV, ...(isAdmin ? ADMIN_NAV : []), ...EXIT_NAV];
 

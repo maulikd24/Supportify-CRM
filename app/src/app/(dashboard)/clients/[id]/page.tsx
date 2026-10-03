@@ -45,7 +45,7 @@ export default async function ClientDetailPage({
     }),
     getVisibleUserIds(session.user.id, session.user.role, session.user.organizationId),
     prisma.user.findMany({
-      where: { organizationId: session.user.organizationId, isActive: true },
+      where: { orgRole: { not: "AGENT" }, organizationId: session.user.organizationId, isActive: true },
       orderBy: { name: "asc" },
     }),
     prisma.messageTemplate.findMany({ where: { organizationId: session.user.organizationId, approved: true } }),

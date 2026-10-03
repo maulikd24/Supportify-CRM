@@ -46,6 +46,8 @@ export function describeNotification(notification: Notification): string {
       return `${payload.clientName} has had no contact in ${payload.daysSinceLastActivity} days`;
     case "qa_coaching_assigned":
       return `${payload.coachName} assigned you a coaching session`;
+    case "qa_coaching_acknowledged":
+      return `${payload.agentName} acknowledged your coaching session`;
     case "qa_dispute_raised":
       return `${payload.raisedByName} disputed the score on ticket #${payload.ticketId}`;
     case "qa_dispute_resolved":

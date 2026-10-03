@@ -57,7 +57,7 @@ export default async function BillingOverviewPage() {
     prisma.productSubscription.findMany({
       where: { organizationId: session.user.organizationId },
     }),
-    prisma.user.count({ where: { organizationId: session.user.organizationId, isActive: true } }),
+    prisma.user.count({ where: { orgRole: { not: "AGENT" }, organizationId: session.user.organizationId, isActive: true } }),
   ]);
   const byProduct = new Map(subscriptions.map((s) => [s.product, s]));
 

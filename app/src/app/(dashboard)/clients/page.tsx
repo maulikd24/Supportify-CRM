@@ -89,7 +89,7 @@ export default async function ClientsPage({
       orderBy: { sequence: "asc" },
     }),
     prisma.user.findMany({
-      where: { organizationId: session.user.organizationId, isActive: true },
+      where: { orgRole: { not: "AGENT" }, organizationId: session.user.organizationId, isActive: true },
       orderBy: { name: "asc" },
     }),
     prisma.customFieldDefinition.findMany({

@@ -166,6 +166,11 @@ const GROUPS: HandbookGroup[] = [
         body: ["Anyone can dispute a review's overall score or a single criterion from the review page. Owners and admins uphold it or adjust the scores; the overall score is recalculated and the change is kept in the audit log."],
       },
       {
+        id: "agent-portal",
+        title: "Agent portal",
+        body: ["On Growth and above, invite agents from the Agents page (Growth includes 25 agent logins, Scale 100). Agents sign in to see only their own reviews and coaching, acknowledge coaching, and dispute scores. Agent logins never take a CRM seat, and removing access signs them out immediately."],
+      },
+      {
         id: "agents",
         title: "Agent Scorecards",
         body: ["Aggregate QA performance per agent over time, sorted lowest-average-first so coaching priorities are obvious at a glance."],

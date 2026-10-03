@@ -15,7 +15,7 @@ export async function getVisibleUserIds(userId: string, role: Role, organization
   // MANAGER: self + direct reports. Intentionally not filtered by isActive — a
   // manager must keep seeing a removed report's existing clients/tasks, not lose them.
   const reports = await prisma.user.findMany({
-    where: { managerId: userId, organizationId },
+    where: { orgRole: { not: "AGENT" }, managerId: userId, organizationId },
     select: { id: true },
   });
   return [userId, ...reports.map((r) => r.id)];

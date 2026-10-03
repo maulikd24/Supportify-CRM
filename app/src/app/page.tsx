@@ -6,6 +6,7 @@ import { getProductAccess } from "@/lib/billing/access";
 export default async function Home() {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  if (session.user.orgRole === "AGENT") redirect("/portal");
 
   const [crm, qa] = await Promise.all([
     getProductAccess(session.user.organizationId, "CRM"),

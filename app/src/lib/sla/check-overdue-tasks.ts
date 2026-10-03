@@ -51,7 +51,7 @@ export async function checkOverdueTasks() {
 
 /** Notifies a manager once per day if a direct report is carrying an excessive overdue-task load. */
 async function checkExcessiveRmWorkload(now: Date) {
-  const rms = await prisma.user.findMany({ where: { role: "RM", isActive: true, managerId: { not: null } } });
+  const rms = await prisma.user.findMany({ where: { orgRole: { not: "AGENT" }, role: "RM", isActive: true, managerId: { not: null } } });
 
   for (const rm of rms) {
     const overdueCount = await prisma.task.count({

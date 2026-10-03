@@ -25,7 +25,7 @@ export default async function QaReviewsPage({
     prisma.ticketReview.findMany({
       where: {
         organizationId,
-        ...(agent ? { agentEmail: agent } : {}),
+        ...(agent ? { agentEmail: { equals: agent, mode: "insensitive" } } : {}),
         ...(query
           ? {
               OR: [

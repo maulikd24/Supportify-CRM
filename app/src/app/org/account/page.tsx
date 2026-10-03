@@ -5,7 +5,7 @@ import { ChangePasswordForm } from "./change-password-form";
 import { TwoFactorSettings } from "./two-factor-settings";
 
 export default async function AccountSettingsPage({ searchParams }: { searchParams: Promise<{ setup2fa?: string }> }) {
-  const session = await requireUser();
+  const session = await requireUser({ allowAgent: true });
   const { setup2fa } = await searchParams;
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },

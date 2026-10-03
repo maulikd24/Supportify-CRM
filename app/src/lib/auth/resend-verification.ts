@@ -7,7 +7,7 @@ import { sendVerificationEmail } from "@/lib/email/send";
 import { rateLimit } from "@/lib/security/rate-limit";
 
 export async function resendVerificationEmailAction() {
-  const session = await requireUser();
+  const session = await requireUser({ allowAgent: true });
 
   const user = await prisma.user.findUniqueOrThrow({ where: { id: session.user.id } });
   if (user.emailVerifiedAt) return;

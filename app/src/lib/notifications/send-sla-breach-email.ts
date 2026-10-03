@@ -18,7 +18,7 @@ export async function sendSlaBreachEmail(client: {
 }) {
   try {
     const admins = await prisma.user.findMany({
-      where: { organizationId: client.organizationId, role: "ADMIN", isActive: true },
+      where: { orgRole: { not: "AGENT" }, organizationId: client.organizationId, role: "ADMIN", isActive: true },
       select: { email: true },
     });
 

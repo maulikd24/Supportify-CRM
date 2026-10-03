@@ -9,67 +9,21 @@ import { recordAudit } from "@/lib/audit/record";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
 import { QA_GROWTH_UPSELL, qaGrowthFeaturesAvailable } from "@/lib/qa/plan-features";
 import { computeScore, reviewCriteria } from "@/lib/qa/scorecard";
+import { raiseDispute, raiseDisputeSchema } from "@/lib/qa/disputes";
 import type { Prisma } from "@/generated/prisma/client";
-
-const raiseSchema = z.object({
-  /** null = disputing the overall score. */
-  criterionKey: z.string().min(1).nullable().default(null),
-  reason: z.string().trim().min(10, "Explain why the score is wrong (at least 10 characters)").max(2000, "Keep the reason under 2,000 characters"),
-});
 
 function revalidate(reviewId: string) {
   revalidatePath("/qa/disputes");
   revalidatePath(`/qa/reviews/${reviewId}`);
 }
 
-export const raiseDisputeAction = withUserErrors(async function raiseDisputeAction(reviewId: string, input: z.input<typeof raiseSchema>) {
+export const raiseDisputeAction = withUserErrors(async function raiseDisputeAction(reviewId: string, input: z.input<typeof raiseDisputeSchema>) {
   const session = await requireOrg();
   const organizationId = session.user.organizationId;
   if (!(await qaGrowthFeaturesAvailable(organizationId))) throw new UserError(`Score disputes are ${QA_GROWTH_UPSELL}`);
-  const parsed = raiseSchema.parse(input);
-
-  const review = await prisma.ticketReview.findFirst({
-    where: { id: reviewId, organizationId },
-    select: { id: true, ticketId: true, criteriaScores: true, scorecardSnapshot: true },
-  });
-  if (!review) throw new UserError("Review not found");
-  if (parsed.criterionKey) {
-    const scores = (review.criteriaScores as Record<string, number> | null) ?? {};
-    const known = reviewCriteria(review.scorecardSnapshot).some((c) => c.key === parsed.criterionKey);
-    if (!known || typeof scores[parsed.criterionKey] !== "number") throw new UserError("Pick one of this review's criteria");
-  }
-  const open = await prisma.reviewDispute.count({ where: { organizationId, reviewId, status: "OPEN" } });
-  if (open > 0) throw new UserError("This review already has an open dispute");
-
-  const dispute = await prisma.reviewDispute.create({
-    data: { organizationId, reviewId, raisedById: session.user.id, criterionKey: parsed.criterionKey, reason: parsed.reason },
-  });
-
-  const admins = await prisma.user.findMany({
-    where: { organizationId, isActive: true, orgRole: { in: ["OWNER", "ADMIN"] }, id: { not: session.user.id } },
-    select: { id: true },
-  });
-  if (admins.length > 0) {
-    await prisma.notification.createMany({
-      data: admins.map((a) => ({
-        organizationId,
-        userId: a.id,
-        type: "qa_dispute_raised",
-        payload: { disputeId: dispute.id, reviewId, ticketId: review.ticketId, raisedByName: session.user.name },
-      })),
-    });
-  }
-
-  await recordAudit({
-    organizationId,
-    userId: session.user.id,
-    entity: "ReviewDispute",
-    entityId: dispute.id,
-    action: "qa.dispute_raised",
-    newValue: { reviewId, criterionKey: parsed.criterionKey },
-  });
+  const result = await raiseDispute({ organizationId, user: session.user, reviewId, input });
   revalidate(reviewId);
-  return { id: dispute.id };
+  return result;
 });
 
 const resolveSchema = z.discriminatedUnion("decision", [

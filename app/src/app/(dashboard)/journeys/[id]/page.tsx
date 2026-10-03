@@ -19,7 +19,7 @@ export default async function JourneyBuilderPage({
       include: { _count: { select: { runs: { where: { status: { in: ["RUNNING", "WAITING"] } } } } } },
     }),
     prisma.user.findMany({
-      where: { organizationId: session.user.organizationId, isActive: true },
+      where: { orgRole: { not: "AGENT" }, organizationId: session.user.organizationId, isActive: true },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

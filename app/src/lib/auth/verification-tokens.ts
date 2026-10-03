@@ -9,9 +9,14 @@ const EXPIRY_HOURS: Record<VerificationTokenPurpose, number> = {
   SSO_LOGIN: 5 / 60, // 5 minutes — just enough for the WorkOS redirect round-trip
 };
 
-export async function issueVerificationToken(userId: string, purpose: VerificationTokenPurpose): Promise<string> {
+export async function issueVerificationToken(
+  userId: string,
+  purpose: VerificationTokenPurpose,
+  /** Overrides the purpose's default lifetime (e.g. a longer-lived invite link). */
+  expiresInHours: number = EXPIRY_HOURS[purpose],
+): Promise<string> {
   const token = randomBytes(32).toString("base64url");
-  const expiresAt = new Date(Date.now() + EXPIRY_HOURS[purpose] * 60 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
 
   await prisma.verificationToken.create({
     data: { token, userId, purpose, expiresAt },

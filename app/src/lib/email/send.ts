@@ -47,3 +47,18 @@ export async function sendPasswordResetEmail(params: { to: string; name: string;
   );
   await sendEmail({ to: params.to, subject: "Reset your Supportify password", html, text });
 }
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string);
+}
+
+export async function sendAgentInviteEmail(params: { to: string; name: string; orgName: string; inviterName: string; setPasswordUrl: string }): Promise<void> {
+  const text =
+    `Hi ${params.name},\n\n${params.inviterName} invited you to the ${params.orgName} agent portal on Supportify, where you can see your QA scores and coaching.\n\n` +
+    `Set your password to get started: ${params.setPasswordUrl}\n\nThis link expires in 3 days.`;
+  const html = wrapHtml(
+    `<p>Hi ${escapeHtml(params.name)},</p><p>${escapeHtml(params.inviterName)} invited you to the <strong>${escapeHtml(params.orgName)}</strong> agent portal on Supportify, where you can see your QA scores and coaching.</p>` +
+      `<p><a href="${params.setPasswordUrl}">Set your password</a></p><p>This link expires in 3 days.</p>`,
+  );
+  await sendEmail({ to: params.to, subject: `You're invited to the ${params.orgName} agent portal`, html, text });
+}

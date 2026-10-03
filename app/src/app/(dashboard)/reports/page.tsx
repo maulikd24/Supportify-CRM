@@ -41,7 +41,7 @@ export default async function ReportsPage() {
     prisma.client.groupBy({ by: ["currentStageId"], where: clientFilter, _count: { _all: true } }),
     visibleUserIds
       ? prisma.user.findMany({ where: { id: { in: visibleUserIds }, role: "RM" }, orderBy: { name: "asc" } })
-      : prisma.user.findMany({ where: { organizationId, role: "RM" }, orderBy: { name: "asc" } }),
+      : prisma.user.findMany({ where: { orgRole: { not: "AGENT" }, organizationId, role: "RM" }, orderBy: { name: "asc" } }),
     prisma.client.count({ where: clientFilter }),
     prisma.client.count({ where: { ...clientFilter, status: "ACTIVE" } }),
     prisma.client.count({ where: { ...clientFilter, status: "COMPLETED" } }),

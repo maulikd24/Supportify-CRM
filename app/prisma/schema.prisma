@@ -23,6 +23,9 @@ enum OrgRole {
   OWNER
   ADMIN
   MEMBER
+  // QA Sentinel agent-portal login: sees only their own reviews and coaching,
+  // never CRM or QA admin pages, and never takes a CRM seat.
+  AGENT
 }
 
 enum SubscriptionStatus {
@@ -257,6 +260,9 @@ model User {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   orgRole        OrgRole      @default(MEMBER)
+  // AGENT only: the email their helpdesk (Zendesk) reviews are filed under,
+  // when it differs from their login email.
+  helpdeskEmail  String?
 
   managerId String?
   manager   User?   @relation("TeamHierarchy", fields: [managerId], references: [id])

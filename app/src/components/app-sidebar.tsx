@@ -138,7 +138,9 @@ export function AppSidebar({
 
   // Longest matching href wins, so "/qa" isn't also active on "/qa/reviews".
   const activeHref = navItems
-    .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    .filter(
+      (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
+    )
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   return (
@@ -149,33 +151,43 @@ export function AppSidebar({
             S
           </div>
           <div className="min-w-0 leading-tight group-data-[collapsible=icon]:hidden">
-            <p className="font-heading text-[15px] font-semibold tracking-tight">Supportify</p>
-            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-sidebar-muted">{groupLabel}</p>
+            <p className="font-heading text-[15px] font-semibold tracking-tight">
+              Supportify
+            </p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-sidebar-muted">
+              {groupLabel}
+            </p>
           </div>
         </div>
         {/* Switch between products. Links go to each product's home; its layout
-            redirects to billing if the org doesn't have access yet. */}
-        <nav
-          aria-label="Products"
-          className="mx-2 grid grid-cols-2 gap-0.5 rounded-md bg-sidebar-accent p-0.5 group-data-[collapsible=icon]:hidden"
-        >
-          {PRODUCTS.map((product) => {
-            const active = product.href === "/qa" ? pathname.startsWith("/qa") : !pathname.startsWith("/qa");
-            return (
-              <Link
-                key={product.href}
-                href={product.href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "rounded-[5px] px-2 py-1.5 text-center text-xs font-medium text-sidebar-muted transition-colors hover:text-sidebar-foreground",
-                  active && "bg-sidebar-badge text-sidebar-foreground",
-                )}
-              >
-                {product.label}
-              </Link>
-            );
-          })}
-        </nav>
+            redirects to billing if the org doesn't have access yet. Agent-portal
+            logins only have the portal, so they get no switcher. */}
+        {user.orgRole !== "AGENT" && (
+          <nav
+            aria-label="Products"
+            className="mx-2 grid grid-cols-2 gap-0.5 rounded-md bg-sidebar-accent p-0.5 group-data-[collapsible=icon]:hidden"
+          >
+            {PRODUCTS.map((product) => {
+              const active =
+                product.href === "/qa"
+                  ? pathname.startsWith("/qa")
+                  : !pathname.startsWith("/qa");
+              return (
+                <Link
+                  key={product.href}
+                  href={product.href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "rounded-[5px] px-2 py-1.5 text-center text-xs font-medium text-sidebar-muted transition-colors hover:text-sidebar-foreground",
+                    active && "bg-sidebar-badge text-sidebar-foreground",
+                  )}
+                >
+                  {product.label}
+                </Link>
+              );
+            })}
+          </nav>
+        )}
       </SidebarHeader>
       <SidebarContent>
         {[...groups].map(([label, items]) => (
@@ -195,7 +207,11 @@ export function AppSidebar({
                         <Icon className="size-4" />
                         <span>{item.label}</span>
                       </SidebarMenuButton>
-                      {item.badge ? <SidebarMenuBadge>{item.badge.toLocaleString("en-IN")}</SidebarMenuBadge> : null}
+                      {item.badge ? (
+                        <SidebarMenuBadge>
+                          {item.badge.toLocaleString("en-IN")}
+                        </SidebarMenuBadge>
+                      ) : null}
                     </SidebarMenuItem>
                   );
                 })}
@@ -212,8 +228,12 @@ export function AppSidebar({
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-            <p className="truncate text-sm font-semibold leading-tight">{user.name}</p>
-            <p className="truncate text-[11px] capitalize leading-tight text-sidebar-muted">{user.orgRole.toLowerCase()}</p>
+            <p className="truncate text-sm font-semibold leading-tight">
+              {user.name}
+            </p>
+            <p className="truncate text-[11px] capitalize leading-tight text-sidebar-muted">
+              {user.orgRole.toLowerCase()}
+            </p>
           </div>
           <form action={logoutAction}>
             <button

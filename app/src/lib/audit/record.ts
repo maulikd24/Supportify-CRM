@@ -103,6 +103,10 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "qa.dispute_raised": "Disputed a review score",
   "qa.dispute_upheld": "Upheld a disputed score",
   "qa.review_score_adjusted": "Adjusted a review score after a dispute",
+  "qa.agent_invited": "Invited an agent to the portal",
+  "qa.agent_invite_resent": "Resent an agent portal invite",
+  "qa.agent_deactivated": "Removed an agent's portal access",
+  "qa.agent_reactivated": "Restored an agent's portal access",
   // Data
   "data.export_organization": "Exported organization data",
   "data.export_clients": "Exported clients",

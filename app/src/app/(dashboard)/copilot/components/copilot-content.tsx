@@ -14,7 +14,7 @@ export async function CopilotContent({
   const [{ entries, summary }, users] = await Promise.all([
     buildWorklist(visibleUserIds, organizationId),
     prisma.user.findMany({
-      where: { organizationId, isActive: true },
+      where: { orgRole: { not: "AGENT" }, organizationId, isActive: true },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
