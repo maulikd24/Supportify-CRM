@@ -2,14 +2,15 @@ import { prisma } from "@/lib/db/prisma";
 import { decryptJson } from "@/lib/security/crypto";
 import type { MessagingAdapter } from "@/lib/messaging/types";
 
-import { whatsappMetaAdapter } from "@/lib/messaging/adapters/whatsapp-meta";
-import { smsExotelAdapter } from "@/lib/messaging/adapters/sms-exotel";
+import { createWhatsappMetaAdapter } from "@/lib/messaging/adapters/whatsapp-meta";
+import { createSmsExotelAdapter } from "@/lib/messaging/adapters/sms-exotel";
 import { whatsappMockAdapter } from "@/lib/messaging/adapters/mock/whatsapp.mock";
 import { smsMockAdapter } from "@/lib/messaging/adapters/mock/sms.mock";
 
-const LIVE_ADAPTERS: Record<string, MessagingAdapter> = {
-  whatsapp: whatsappMetaAdapter,
-  sms: smsExotelAdapter,
+// Factories, not instances: each call gets its own adapter holding only that org's credentials.
+const LIVE_ADAPTERS: Record<string, () => MessagingAdapter> = {
+  whatsapp: createWhatsappMetaAdapter,
+  sms: createSmsExotelAdapter,
 };
 
 const MOCK_ADAPTERS: Record<string, MessagingAdapter> = {
@@ -39,7 +40,7 @@ export async function getMessagingAdapter(
 
   if (mode !== "live") return MOCK_ADAPTERS[channel];
 
-  const adapter = LIVE_ADAPTERS[channel];
+  const adapter = LIVE_ADAPTERS[channel]();
   const credentials = config?.credentials ? decryptJson<Record<string, unknown>>(config.credentials as string) : {};
   const settings = (config?.settings as Record<string, unknown>) ?? {};
   await adapter.configure(credentials, settings);

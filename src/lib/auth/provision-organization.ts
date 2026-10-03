@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { TRIAL_DAYS } from "@/lib/billing/plans";
+import { TRIAL_DAYS, TRIAL_REVIEW_QUOTA } from "@/lib/billing/plans";
 import { DEFAULT_STAGE_DEFINITIONS } from "@/lib/stage-engine/stages";
 import type { Product } from "@/generated/prisma/client";
 
@@ -64,6 +64,7 @@ export async function provisionOrganization(params: {
           product,
           status: "TRIALING" as const,
           trialEndsAt,
+          reviewQuota: product === "QA_SENTINEL" ? TRIAL_REVIEW_QUOTA : undefined,
         })),
       },
     },

@@ -93,3 +93,26 @@ export function stripePriceIdFor(plan: PlanTier): string | undefined {
 }
 
 export const TRIAL_DAYS = 14;
+
+/**
+ * QA Sentinel reviews included in a self-serve trial. Must never be null —
+ * every review is a paid LLM call, and trials need no payment method.
+ */
+export const TRIAL_REVIEW_QUOTA = 25;
+
+/**
+ * The quota/seat limits a ProductSubscription should carry for a plan. Plan
+ * limits live only in this catalog, so anything that changes a subscription's
+ * plan (Stripe webhook, admin edits) must copy them onto the row — otherwise
+ * the row keeps null, which means unlimited.
+ */
+export function entitlementsForPlan(
+  product: Product,
+  planId: string,
+): { reviewQuota: number | null; seats: number | null } | undefined {
+  const plan = planById(product, planId);
+  if (!plan) return undefined;
+  return product === "QA_SENTINEL"
+    ? { reviewQuota: plan.reviewQuota ?? null, seats: null }
+    : { reviewQuota: null, seats: plan.seats ?? null };
+}

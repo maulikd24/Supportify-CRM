@@ -3,7 +3,8 @@ import type Stripe from "stripe";
 
 import { prisma } from "@/lib/db/prisma";
 import { getStripe } from "@/lib/billing/stripe";
-import type { Product } from "@/generated/prisma/client";
+import { entitlementsForPlan } from "@/lib/billing/plans";
+import { Prisma, type Product } from "@/generated/prisma/client";
 
 function isProduct(value: unknown): value is Product {
   return value === "QA_SENTINEL" || value === "CRM";
@@ -28,6 +29,9 @@ async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription) {
           : "CANCELED";
 
   const item = subscription.items.data[0];
+  // Quota/seat limits come from the plan catalog, not Stripe — copy them onto
+  // the row whenever the plan is known, or a paid plan would stay unlimited.
+  const entitlements = planId ? entitlementsForPlan(product, planId) : undefined;
   const currentPeriodEnd = item?.current_period_end ? new Date(item.current_period_end * 1000) : null;
 
   await prisma.productSubscription.upsert({
@@ -38,8 +42,10 @@ async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription) {
       stripeSubscriptionId: subscription.id,
       stripePriceId: item?.price.id,
       currentPeriodEnd,
-      // A renewal (new billing period) resets usage; approximate by resetting whenever this webhook fires with an ACTIVE status.
-      reviewsUsedThisPeriod: status === "ACTIVE" ? 0 : undefined,
+      ...entitlements,
+      // Usage is deliberately NOT reset here: this event also fires for seat
+      // changes, coupons, metadata edits, etc. Only a renewal invoice resets it
+      // (see invoice.paid below).
     },
     create: {
       organizationId,
@@ -49,6 +55,7 @@ async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription) {
       stripeSubscriptionId: subscription.id,
       stripePriceId: item?.price.id,
       currentPeriodEnd,
+      ...entitlements,
     },
   });
 }
@@ -81,6 +88,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
+  // Claim the event before processing it, so a concurrent or later redelivery
+  // is a no-op. If processing fails the claim is released and Stripe retries.
+  try {
+    await prisma.stripeEvent.create({ data: { id: event.id, type: event.type } });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+    throw error;
+  }
+
+  try {
+    await handleEvent(event);
+  } catch (error) {
+    await prisma.stripeEvent.delete({ where: { id: event.id } }).catch(() => {});
+    throw error;
+  }
+
+  return NextResponse.json({ received: true });
+}
+
+async function handleEvent(event: Stripe.Event) {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
@@ -96,6 +125,21 @@ export async function POST(request: Request) {
     }
     case "customer.subscription.deleted": {
       await markCanceled(event.data.object as Stripe.Subscription);
+      break;
+    }
+    case "invoice.paid": {
+      // A new billing period starts only on a renewal invoice — that's the one
+      // point where the period's usage counter should go back to zero.
+      const invoice = event.data.object as Stripe.Invoice;
+      const subscriptionId = invoice.parent?.subscription_details?.subscription;
+      if (invoice.billing_reason === "subscription_cycle" && subscriptionId) {
+        await prisma.productSubscription.updateMany({
+          where: {
+            stripeSubscriptionId: typeof subscriptionId === "string" ? subscriptionId : subscriptionId.id,
+          },
+          data: { reviewsUsedThisPeriod: 0 },
+        });
+      }
       break;
     }
     case "invoice.payment_failed": {
@@ -117,6 +161,4 @@ export async function POST(request: Request) {
     default:
       break;
   }
-
-  return NextResponse.json({ received: true });
 }

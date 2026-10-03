@@ -55,9 +55,13 @@ const createClientSchema = z.object({
   allowDuplicate: z.coerce.boolean().optional(),
 });
 
-export async function checkDuplicateClientAction(mobile: string, email: string) {
+// Deliberately NOT exported: every export of a "use server" file is a publicly
+// callable endpoint, and this takes no session — callers must pass the org
+// from their own authenticated session.
+async function findDuplicateClient(organizationId: string, mobile: string, email: string) {
   const existing = await prisma.client.findFirst({
     where: {
+      organizationId,
       status: { not: "NOT_PROCEEDING" },
       OR: [{ mobile }, email ? { email } : undefined].filter(Boolean) as object[],
     },
@@ -104,7 +108,7 @@ export async function createClientAction(formData: FormData) {
   });
 
   if (!parsed.allowDuplicate) {
-    const duplicate = await checkDuplicateClientAction(parsed.mobile, parsed.email || "");
+    const duplicate = await findDuplicateClient(session.user.organizationId, parsed.mobile, parsed.email || "");
     if (duplicate) {
       return { duplicate };
     }

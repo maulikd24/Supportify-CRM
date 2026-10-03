@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireOrg } from "@/lib/auth/require-role";
+import { requireProductAccess } from "@/lib/auth/require-role";
 import { encryptJson, decryptJson } from "@/lib/security/crypto";
 import { ZendeskClient, type ZendeskCredentials } from "@/lib/qa/zendesk-client";
 
@@ -15,7 +15,7 @@ const zendeskSchema = z.object({
 });
 
 export async function connectZendeskAction(formData: FormData) {
-  const session = await requireOrg();
+  const session = await requireProductAccess("QA_SENTINEL");
 
   const parsed = zendeskSchema.parse({
     subdomain: formData.get("subdomain"),
@@ -54,7 +54,7 @@ export async function connectZendeskAction(formData: FormData) {
 }
 
 export async function disconnectZendeskAction() {
-  const session = await requireOrg();
+  const session = await requireProductAccess("QA_SENTINEL");
 
   await prisma.zendeskConnection.deleteMany({ where: { organizationId: session.user.organizationId } });
 
@@ -62,7 +62,7 @@ export async function disconnectZendeskAction() {
 }
 
 export async function retestZendeskConnectionAction() {
-  const session = await requireOrg();
+  const session = await requireProductAccess("QA_SENTINEL");
 
   const connection = await prisma.zendeskConnection.findUnique({
     where: { organizationId: session.user.organizationId },
@@ -89,7 +89,7 @@ const sopSchema = z.object({
 });
 
 export async function createSopAction(formData: FormData) {
-  const session = await requireOrg();
+  const session = await requireProductAccess("QA_SENTINEL");
 
   const parsed = sopSchema.parse({
     name: formData.get("name"),
@@ -112,7 +112,7 @@ export async function createSopAction(formData: FormData) {
 }
 
 export async function updateSopAction(sopId: string, formData: FormData) {
-  const session = await requireOrg();
+  const session = await requireProductAccess("QA_SENTINEL");
 
   const parsed = sopSchema.parse({
     name: formData.get("name"),
@@ -129,7 +129,7 @@ export async function updateSopAction(sopId: string, formData: FormData) {
 }
 
 export async function deleteSopAction(sopId: string) {
-  const session = await requireOrg();
+  const session = await requireProductAccess("QA_SENTINEL");
 
   await prisma.sopDocument.delete({
     where: { id: sopId, organizationId: session.user.organizationId },

@@ -165,6 +165,16 @@ model ProductSubscription {
   @@unique([organizationId, product])
 }
 
+// Stripe delivers webhooks at-least-once (retries, replays from the
+// Dashboard). Each event's id is recorded here before it's processed, so a
+// redelivery can't apply the same change twice — e.g. reset a period's usage
+// after reviews have already been run against the new period.
+model StripeEvent {
+  id          String   @id // Stripe's evt_... id
+  type        String
+  processedAt DateTime @default(now())
+}
+
 enum VerificationTokenPurpose {
   EMAIL_VERIFY
   PASSWORD_RESET
