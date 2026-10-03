@@ -114,6 +114,14 @@ export async function createClientAction(formData: FormData) {
     }
   }
 
+  if (parsed.assignedToId) {
+    const assignee = await prisma.user.findFirst({
+      where: { id: parsed.assignedToId, organizationId: session.user.organizationId },
+      select: { id: true },
+    });
+    if (!assignee) throw new Error("Assignee not found");
+  }
+
   const [clientCode, stage1, customFieldDefs] = await Promise.all([
     generateClientCode(),
     getFirstStage(session.user.organizationId),

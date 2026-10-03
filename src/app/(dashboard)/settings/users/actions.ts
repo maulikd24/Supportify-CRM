@@ -35,6 +35,14 @@ export async function createUserAction(formData: FormData) {
   const existing = await prisma.user.findUnique({ where: { email: parsed.email } });
   if (existing) throw new Error("A user with this email already exists");
 
+  if (parsed.managerId) {
+    const manager = await prisma.user.findFirst({
+      where: { id: parsed.managerId, organizationId: session.user.organizationId },
+      select: { id: true },
+    });
+    if (!manager) throw new Error("Manager not found");
+  }
+
   const [subscription, seatCount] = await Promise.all([
     prisma.productSubscription.findUnique({
       where: { organizationId_product: { organizationId: session.user.organizationId, product: "CRM" } },
