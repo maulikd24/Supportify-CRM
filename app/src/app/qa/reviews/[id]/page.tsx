@@ -10,7 +10,12 @@ import { ProgressStat } from "@/components/dashboard/progress-stat";
 import { LOW_SCORE } from "@/lib/qa/score";
 import { formatDateTime } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
-import { reviewCriteria } from "@/lib/qa/scorecard";
+import { resolveScorecard, reviewCriteria } from "@/lib/qa/scorecard";
+import { qaGrowthFeaturesAvailable } from "@/lib/qa/plan-features";
+import { formatDate } from "@/lib/utils/format";
+import { Button } from "@/components/ui/button";
+import { NewCoachingDialog } from "../../coaching/coaching-dialogs";
+import { RaiseDisputeDialog, ResolveDisputeDialog } from "../../disputes/dispute-dialogs";
 
 export default async function ReviewDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireOrg();
@@ -18,9 +23,17 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ i
 
   const review = await prisma.ticketReview.findUnique({
     where: { id, organizationId: session.user.organizationId },
-    include: { calibrationSessions: { orderBy: { createdAt: "desc" }, select: { id: true, status: true } } },
+    include: {
+      calibrationSessions: { orderBy: { createdAt: "desc" }, select: { id: true, status: true } },
+      disputes: { orderBy: { createdAt: "desc" }, include: { raisedBy: { select: { name: true } }, resolvedBy: { select: { name: true } } } },
+      coachingSessions: { orderBy: { createdAt: "desc" }, include: { coach: { select: { name: true } } } },
+    },
   });
   if (!review) notFound();
+  const [growthFeatures, orgScorecard] = await Promise.all([
+    qaGrowthFeaturesAvailable(session.user.organizationId),
+    resolveScorecard(session.user.organizationId),
+  ]);
 
   const isAdmin = session.user.orgRole === "OWNER" || session.user.orgRole === "ADMIN";
   const criteriaScores = (review.criteriaScores as Record<string, number> | null) ?? {};
@@ -28,6 +41,12 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ i
   const criteria = reviewCriteria(review.scorecardSnapshot).filter((c) => typeof criteriaScores[c.key] === "number");
   const weighted = criteria.some((c) => c.weight !== criteria[0]?.weight);
   const autoFailReasons = (review.autoFailReasons as string[] | null) ?? [];
+  const scored = criteria.map((c) => ({ key: c.key, label: c.label, score: criteriaScores[c.key] }));
+  const hasOpenDispute = review.disputes.some((d) => d.status === "OPEN");
+  // Suggested focus areas: criteria that failed or scored below target.
+  const weakAreas = criteria.filter((c) => criteriaScores[c.key] < LOW_SCORE || (c.autoFailBelow != null && criteriaScores[c.key] < c.autoFailBelow)).map((c) => c.label);
+  const focusOptions = [...new Set([...criteria.map((c) => c.label), ...orgScorecard.criteria.map((c) => c.label)])];
+  const labelFor = (key: string | null) => (key ? (criteria.find((c) => c.key === key)?.label ?? key) : "Overall score");
   const strengths = (review.strengths as string[] | null) ?? [];
   const improvements = (review.improvements as string[] | null) ?? [];
   const sopViolations = (review.sopViolations as string[] | null) ?? [];
@@ -76,7 +95,18 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ i
                 {review.agentName} ({review.agentEmail}) · Reviewed {formatDateTime(review.createdAt)}
               </p>
             </div>
-            {isAdmin && <StartCalibrationButton reviewId={review.id} />}
+            <div className="flex flex-wrap gap-2">
+              {growthFeatures && review.agentEmail && (
+                <NewCoachingDialog
+                  agents={[{ email: review.agentEmail.toLowerCase(), name: review.agentName || review.agentEmail }]}
+                  focusOptions={focusOptions}
+                  defaults={{ agentEmail: review.agentEmail.toLowerCase(), reviewId: review.id, focusAreas: weakAreas }}
+                  trigger={<Button size="sm" variant="outline">Coach agent</Button>}
+                />
+              )}
+              {growthFeatures && scored.length > 0 && !hasOpenDispute && <RaiseDisputeDialog reviewId={review.id} criteria={scored} />}
+              {isAdmin && <StartCalibrationButton reviewId={review.id} />}
+            </div>
           </div>
           {review.summary && <p className="mt-4 max-w-prose text-[13px] leading-relaxed">{review.summary}</p>}
         </section>
@@ -133,6 +163,58 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ i
             </Panel>
           ))}
       </div>
+
+      {(review.disputes.length > 0 || review.coachingSessions.length > 0) && (
+        <div className={cn("grid gap-4", review.disputes.length > 0 && review.coachingSessions.length > 0 && "lg:grid-cols-2")}>
+          {review.disputes.length > 0 && (
+            <div id="disputes" className="scroll-mt-20">
+              <Panel eyebrow="Appeals" title="Disputes">
+                <PanelList>
+                  {review.disputes.map((d) => (
+                    <li key={d.id} className="flex flex-wrap items-start justify-between gap-3 px-5 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="flex flex-wrap items-center gap-2 text-[13px] font-semibold">
+                          {labelFor(d.criterionKey)}
+                          <Badge variant={d.status === "OPEN" ? "warning" : d.status === "ADJUSTED" ? "success" : "secondary"}>
+                            {d.status === "OPEN" ? "Open" : d.status === "ADJUSTED" ? "Adjusted" : "Upheld"}
+                          </Badge>
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {d.raisedBy.name} · {formatDate(d.createdAt)}
+                        </p>
+                        <p className="mt-1.5 text-[13px] leading-relaxed whitespace-pre-wrap">{d.reason}</p>
+                        {d.status !== "OPEN" && (
+                          <p className="mt-2 border-l-2 border-border pl-3 text-xs text-muted-foreground">
+                            <span className="font-semibold text-foreground">{d.resolvedBy?.name ?? "Admin"}:</span> {d.resolutionNote}
+                            {d.status === "ADJUSTED" && d.originalScore != null && ` (overall ${d.originalScore} → ${d.adjustedScore})`}
+                          </p>
+                        )}
+                      </div>
+                      {isAdmin && d.status === "OPEN" && <ResolveDisputeDialog disputeId={d.id} criteria={scored} disputedKey={d.criterionKey} />}
+                    </li>
+                  ))}
+                </PanelList>
+              </Panel>
+            </div>
+          )}
+          {review.coachingSessions.length > 0 && (
+            <Panel eyebrow="Follow-up" title="Coaching">
+              <PanelList>
+                {review.coachingSessions.map((c) => (
+                  <PanelRow
+                    key={c.id}
+                    tone={c.status === "COMPLETED" ? "primary" : c.status === "CANCELLED" ? "muted" : "warning"}
+                    title={`${c.status.charAt(0)}${c.status.slice(1).toLowerCase()} · coach ${c.coach.name}`}
+                    meta={c.notes}
+                    href={`/qa/coaching?status=all&agent=${encodeURIComponent(c.agentEmail)}`}
+                    hrefLabel="Open coaching"
+                  />
+                ))}
+              </PanelList>
+            </Panel>
+          )}
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-12">
         <Panel eyebrow="Notes" title="Auditor comment" className="lg:col-span-8" bodyClassName="px-5 pb-5">

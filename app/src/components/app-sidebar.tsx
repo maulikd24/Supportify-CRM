@@ -28,6 +28,8 @@ import {
   ArrowLeftCircle,
   HelpCircle,
   ClipboardCheck,
+  GraduationCap,
+  Gavel,
 } from "lucide-react";
 
 import {
@@ -77,6 +79,8 @@ const ICON_MAP = {
   calibration: Scale,
   dsat: Frown,
   scorecards: ClipboardCheck,
+  coaching: GraduationCap,
+  disputes: Gavel,
   organizations: Building2,
   "exit-app": ArrowLeftCircle,
   help: HelpCircle,

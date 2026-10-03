@@ -49,7 +49,7 @@ export const QA_SENTINEL_PLANS: PlanTier[] = [
     stripePriceEnvVar: "STRIPE_PRICE_QA_GROWTH",
     stripeAnnualPriceEnvVar: "STRIPE_PRICE_QA_GROWTH_ANNUAL",
     featured: true,
-    features: ["500 AI reviews/month", "Everything in Starter", "Unlimited SOPs", "Priority support"],
+    features: ["500 AI reviews/month", "Everything in Starter", "Custom scorecards", "Coaching & score disputes", "Priority support"],
   },
   {
     id: "scale",

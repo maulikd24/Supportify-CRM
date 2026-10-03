@@ -44,6 +44,12 @@ export function describeNotification(notification: Notification): string {
       return String(payload.message ?? `Journey flagged client ${payload.clientName} for review`);
     case "client_disengaged":
       return `${payload.clientName} has had no contact in ${payload.daysSinceLastActivity} days`;
+    case "qa_coaching_assigned":
+      return `${payload.coachName} assigned you a coaching session`;
+    case "qa_dispute_raised":
+      return `${payload.raisedByName} disputed the score on ticket #${payload.ticketId}`;
+    case "qa_dispute_resolved":
+      return `Your dispute on ticket #${payload.ticketId} was ${payload.outcome === "adjusted" ? "accepted: the score was adjusted" : "reviewed: the score stands"}`;
     default:
       return notification.type.replace(/_/g, " ");
   }

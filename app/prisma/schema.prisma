@@ -41,28 +41,28 @@ enum Product {
 }
 
 model Organization {
-  id                   String   @id @default(cuid())
+  id                   String  @id @default(cuid())
   name                 String
-  slug                 String   @unique
-  stripeCustomerId     String?  @unique // one Stripe Customer per org; subscriptions live per-product below
+  slug                 String  @unique
+  stripeCustomerId     String? @unique // one Stripe Customer per org; subscriptions live per-product below
   // Set once an admin starts SSO setup (see src/lib/sso/workos.ts). The actual
   // SAML/OIDC connection + domain(s) are configured by the customer's own IT
   // admin in WorkOS's hosted Admin Portal — we never touch SAML XML directly.
-  workosOrganizationId String?  @unique
+  workosOrganizationId String? @unique
   // Email domain (e.g. "acme.com") routed to this org's SSO connection at
   // login. Set by the org admin in Settings > SSO — WorkOS itself only knows
   // about domains once the customer's IT admin configures them on the
   // connection, which happens later and separately in the Admin Portal, so we
   // keep our own copy to route the initial "sign in with SSO" redirect.
-  ssoDomain            String?  @unique
+  ssoDomain            String? @unique
 
   // Security policies (Scale/Enterprise). See src/lib/security/policy.ts.
   require2fa        Boolean   @default(false) // members must set up 2FA before using the app
   requireSso        Boolean   @default(false) // members (not the owner) must sign in with SSO
   sessionMaxHours   Int? // sign members out this long after they signed in; null = default (30 days)
   sessionsRevokedAt DateTime? // "sign out all devices": sessions started before this are ended
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   members                User[]
   subscriptions          ProductSubscription[]
@@ -88,6 +88,8 @@ model Organization {
   autoReviewConfig  AutoReviewConfig?
   scorecards        Scorecard[]
   autoReviewJobs    AutoReviewJob[]
+  coachingSessions  CoachingSession[]
+  reviewDisputes    ReviewDispute[]
 
   apiKeys             ApiKey[]
   webhookEndpoints    WebhookEndpoint[]
@@ -171,16 +173,16 @@ model ProductSubscription {
   pastDueSince     DateTime? // first failed payment; access continues for PAST_DUE_GRACE_DAYS
 
   // QA Sentinel usage-based overages (opt-in by an org admin, capped per period).
-  allowOverage             Boolean  @default(false)
+  allowOverage             Boolean @default(false)
   overageCap               Int? // max overage reviews per billing period; null = no cap
-  overageReviewsThisPeriod Int      @default(0)
+  overageReviewsThisPeriod Int     @default(0)
 
   // Annual plans bill yearly but quotas are monthly: usage resets every month
   // from usagePeriodStart (see resetMonthlyUsageForAnnualPlans).
   billingInterval  String? // "month" | "year"
   usagePeriodStart DateTime?
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@unique([organizationId, product])
 }
@@ -272,9 +274,12 @@ model User {
 
   createdCalibrationSessions CalibrationSession[]
   calibrationEntries         CalibrationEntry[]
+  coachingSessions           CoachingSession[]    @relation("CoachingCoach")
+  raisedDisputes             ReviewDispute[]      @relation("DisputeRaisedBy")
+  resolvedDisputes           ReviewDispute[]      @relation("DisputeResolvedBy")
+  sessionsRevokedAt          DateTime? // admin "sign out this user": sessions started before this are ended
 
   @@index([organizationId])
-  sessionsRevokedAt DateTime? // admin "sign out this user": sessions started before this are ended
 }
 
 // ---------------------------------------------------------------------------
@@ -797,6 +802,8 @@ model TicketReview {
   createdAt DateTime @default(now())
 
   calibrationSessions CalibrationSession[]
+  coachingSessions    CoachingSession[]
+  disputes            ReviewDispute[]
 
   @@index([organizationId, createdAt])
   @@index([organizationId, ticketId])
@@ -945,4 +952,77 @@ model Scorecard {
   updatedAt      DateTime     @updatedAt
 
   @@index([organizationId])
+}
+
+// ---------------------------------------------------------------------------
+// QA coaching: a coach assigns an agent (identified by helpdesk email, since
+// agents needn't have a Supportify login) a session to work on specific
+// criteria, usually from a low-scoring review.
+// ---------------------------------------------------------------------------
+
+enum CoachingStatus {
+  ASSIGNED
+  ACKNOWLEDGED
+  COMPLETED
+  CANCELLED
+}
+
+model CoachingSession {
+  id             String         @id @default(cuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  agentEmail     String
+  agentName      String?
+  reviewId       String?
+  review         TicketReview?  @relation(fields: [reviewId], references: [id], onDelete: SetNull)
+  coachId        String
+  coach          User           @relation("CoachingCoach", fields: [coachId], references: [id], onDelete: NoAction)
+  focusAreas     Json? // criterion labels to work on
+  notes          String
+  agentResponse  String? // the agent's reflection, recorded on acknowledgement/completion
+  outcome        String? // coach's wrap-up note
+  dueDate        DateTime?
+  status         CoachingStatus @default(ASSIGNED)
+  acknowledgedAt DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([organizationId, status])
+  @@index([organizationId, agentEmail])
+}
+
+// ---------------------------------------------------------------------------
+// QA disputes: an appeal against a review's score (overall or one criterion).
+// An owner/admin resolves it by upholding the score or adjusting it; the
+// original and adjusted scores are kept for the audit trail.
+// ---------------------------------------------------------------------------
+
+enum DisputeStatus {
+  OPEN
+  UPHELD
+  ADJUSTED
+}
+
+model ReviewDispute {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reviewId       String
+  review         TicketReview  @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  raisedById     String
+  raisedBy       User          @relation("DisputeRaisedBy", fields: [raisedById], references: [id], onDelete: NoAction)
+  criterionKey   String? // null = the overall score
+  reason         String
+  status         DisputeStatus @default(OPEN)
+  resolvedById   String?
+  resolvedBy     User?         @relation("DisputeResolvedBy", fields: [resolvedById], references: [id])
+  resolutionNote String?
+  originalScore  Int? // overall score when the dispute was resolved
+  adjustedScore  Int? // overall score after an adjustment
+  resolvedAt     DateTime?
+  createdAt      DateTime      @default(now())
+
+  @@index([organizationId, status])
+  @@index([reviewId])
 }

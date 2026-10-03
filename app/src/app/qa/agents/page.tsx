@@ -6,12 +6,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Panel } from "@/components/dashboard/panel";
 import { TableEmpty } from "@/components/page/table-empty";
 import { ScoreChip } from "@/components/dashboard/score-chip";
+import { Badge } from "@/components/ui/badge";
+import { addDays, startOfDay } from "@/lib/utils/date-buckets";
 
 export default async function QaAgentsPage() {
   const session = await requireOrg();
   const organizationId = session.user.organizationId;
 
-  const [byAgent, recentByAgent] = await Promise.all([
+  const [byAgent, recentByAgent, openCoaching] = await Promise.all([
     prisma.ticketReview.groupBy({
       by: ["agentEmail"],
       where: { organizationId, agentEmail: { not: null } },
@@ -26,11 +28,17 @@ export default async function QaAgentsPage() {
       take: 500,
       select: { agentEmail: true, agentName: true, overallScore: true, createdAt: true },
     }),
+    prisma.coachingSession.groupBy({
+      by: ["agentEmail"],
+      where: { organizationId, status: { in: ["ASSIGNED", "ACKNOWLEDGED"] } },
+      _count: { _all: true },
+    }),
   ]);
+  const coachingByAgent = new Map(openCoaching.map((c) => [c.agentEmail, c._count._all]));
 
   const nameByEmail = new Map<string, string>();
   const last30ByAgent = new Map<string, number[]>();
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = addDays(startOfDay(), -30);
   for (const r of recentByAgent) {
     if (!r.agentEmail) continue;
     if (r.agentName && !nameByEmail.has(r.agentEmail)) nameByEmail.set(r.agentEmail, r.agentName);
@@ -55,6 +63,7 @@ export default async function QaAgentsPage() {
         maxScore: row._max.overallScore,
         last30Avg,
         last30Count: last30.length,
+        openCoaching: coachingByAgent.get(email.toLowerCase()) ?? 0,
       };
     })
     .sort((a, b) => (a.avgScore ?? 0) - (b.avgScore ?? 0));
@@ -70,6 +79,7 @@ export default async function QaAgentsPage() {
               <TableHead>Avg Score</TableHead>
               <TableHead>Last 30 Days</TableHead>
               <TableHead>Range</TableHead>
+              <TableHead>Coaching</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -91,10 +101,15 @@ export default async function QaAgentsPage() {
                 <TableCell className="text-xs text-muted-foreground">
                   {row.minScore ?? "—"} – {row.maxScore ?? "—"}
                 </TableCell>
+                <TableCell>
+                  <Link href={`/qa/coaching?status=all&agent=${encodeURIComponent(row.email.toLowerCase())}`} className="hover:underline">
+                    {row.openCoaching > 0 ? <Badge variant="warning">{row.openCoaching} open</Badge> : <span className="text-xs text-muted-foreground">History</span>}
+                  </Link>
+                </TableCell>
               </TableRow>
             ))}
             {rows.length === 0 && (
-              <TableEmpty colSpan={5}>No reviews yet.</TableEmpty>
+              <TableEmpty colSpan={6}>No reviews yet.</TableEmpty>
             )}
           </TableBody>
         </Table>

@@ -96,6 +96,13 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "qa.scorecard_updated": "Edited a scorecard",
   "qa.scorecard_deleted": "Deleted a scorecard",
   "qa.scorecard_default_changed": "Changed the default scorecard",
+  "qa.coaching_created": "Assigned a coaching session",
+  "qa.coaching_acknowledged": "Marked coaching acknowledged",
+  "qa.coaching_completed": "Completed a coaching session",
+  "qa.coaching_cancelled": "Cancelled a coaching session",
+  "qa.dispute_raised": "Disputed a review score",
+  "qa.dispute_upheld": "Upheld a disputed score",
+  "qa.review_score_adjusted": "Adjusted a review score after a dispute",
   // Data
   "data.export_organization": "Exported organization data",
   "data.export_clients": "Exported clients",

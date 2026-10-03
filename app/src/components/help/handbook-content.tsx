@@ -151,6 +151,21 @@ const GROUPS: HandbookGroup[] = [
         body: ["Calibration sessions let multiple reviewers score the same ticket independently, then compare results — the fastest way to keep your whole team applying the same rubric consistently."],
       },
       {
+        id: "scorecards",
+        title: "Scorecards",
+        body: ["On Growth and above, define your own criteria, weights and critical (auto-fail) items, pick a default, and choose a scorecard per review or for auto-review. Each review keeps the scorecard it was scored with."],
+      },
+      {
+        id: "coaching",
+        title: "Coaching",
+        body: ["Assign an agent a coaching session from a review (focus areas are pre-filled from low-scoring criteria) or from the Coaching page. Record the agent's response, mark it complete, and spot overdue sessions at a glance."],
+      },
+      {
+        id: "disputes",
+        title: "Disputes",
+        body: ["Anyone can dispute a review's overall score or a single criterion from the review page. Owners and admins uphold it or adjust the scores; the overall score is recalculated and the change is kept in the audit log."],
+      },
+      {
         id: "agents",
         title: "Agent Scorecards",
         body: ["Aggregate QA performance per agent over time, sorted lowest-average-first so coaching priorities are obvious at a glance."],

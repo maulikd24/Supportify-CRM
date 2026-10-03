@@ -17,6 +17,8 @@ const QA_NAV_ITEMS: NavItem[] = [
   { href: "/qa/reviews", label: "Reviews", icon: "reviews" },
   { href: "/qa/calibration", label: "Calibration", icon: "calibration" },
   { href: "/qa/agents", label: "Agents", icon: "users" },
+  { href: "/qa/coaching", label: "Coaching", icon: "coaching" },
+  { href: "/qa/disputes", label: "Disputes", icon: "disputes" },
   { href: "/qa/dsat", label: "DSAT", icon: "dsat" },
   { href: "/qa/scorecards", label: "Scorecards", group: "Admin", icon: "scorecards" },
   { href: "/qa/settings", label: "Settings", group: "Admin", icon: "settings" },
@@ -30,17 +32,21 @@ export default async function QaLayout({ children }: { children: React.ReactNode
   const session = await requireProductAccess("QA_SENTINEL");
   await enforceTwoFactorPolicy(session.user);
   const { id: userId, organizationId } = session.user;
-  const [user, unreadCount, awaitingCalibration] = await Promise.all([
+  const isOrgAdmin = session.user.orgRole === "OWNER" || session.user.orgRole === "ADMIN";
+  const [user, unreadCount, awaitingCalibration, myOpenCoaching, openDisputes] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { emailVerifiedAt: true } }),
     prisma.notification.count({ where: { userId, readAt: null } }),
     // Open calibration sessions this user hasn't submitted a score for yet.
     prisma.calibrationSession.count({
       where: { organizationId, status: "OPEN", entries: { none: { reviewerId: userId, submittedAt: { not: null } } } },
     }),
+    prisma.coachingSession.count({ where: { organizationId, coachId: userId, status: { in: ["ASSIGNED", "ACKNOWLEDGED"] } } }),
+    // Admins resolve disputes; everyone else tracks the ones they raised.
+    prisma.reviewDispute.count({ where: { organizationId, status: "OPEN", ...(isOrgAdmin ? {} : { raisedById: userId }) } }),
   ]);
-  const isOrgAdmin = session.user.orgRole === "OWNER" || session.user.orgRole === "ADMIN";
+  const badges: Record<string, number> = { "/qa/calibration": awaitingCalibration, "/qa/coaching": myOpenCoaching, "/qa/disputes": openDisputes };
   const navItems = QA_NAV_ITEMS.filter((item) => isOrgAdmin || item.href !== "/org/security").map((item) =>
-    item.href === "/qa/calibration" ? { ...item, badge: awaitingCalibration } : item,
+    item.href in badges ? { ...item, badge: badges[item.href] } : item,
   );
 
   return (

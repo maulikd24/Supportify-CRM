@@ -1,20 +1,11 @@
 import { prisma } from "@/lib/db/prisma";
+import { qaGrowthFeaturesAvailable } from "@/lib/qa/plan-features";
 import { DEFAULT_SCORECARD, parseCriteria, type ResolvedScorecard } from "@/lib/qa/scorecard-criteria";
 
 export * from "@/lib/qa/scorecard-criteria";
 
-/** Plans that include custom scorecards (plus live trials). */
-const SCORECARD_PLANS = ["growth", "scale", "enterprise"];
-
-export async function customScorecardsAvailable(organizationId: string): Promise<boolean> {
-  const sub = await prisma.productSubscription.findUnique({
-    where: { organizationId_product: { organizationId, product: "QA_SENTINEL" } },
-    select: { status: true, planId: true, trialEndsAt: true },
-  });
-  if (!sub) return false;
-  if (sub.status === "TRIALING") return Boolean(sub.trialEndsAt && sub.trialEndsAt > new Date());
-  return (sub.status === "ACTIVE" || sub.status === "PAST_DUE") && sub.planId != null && SCORECARD_PLANS.includes(sub.planId);
-}
+/** Custom scorecards are a Growth-and-above feature (plus live trials). */
+export const customScorecardsAvailable = qaGrowthFeaturesAvailable;
 
 /**
  * The scorecard a review should use: the requested one, else the org's default,

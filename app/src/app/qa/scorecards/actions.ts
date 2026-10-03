@@ -8,6 +8,7 @@ import { requireOrg } from "@/lib/auth/require-role";
 import { recordAudit } from "@/lib/audit/record";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
 import { customScorecardsAvailable, normalizeCriteria, scorecardInputSchema } from "@/lib/qa/scorecard";
+import { QA_GROWTH_UPSELL } from "@/lib/qa/plan-features";
 import type { Prisma } from "@/generated/prisma/client";
 
 const MAX_SCORECARDS = 25;
@@ -15,7 +16,7 @@ const MAX_SCORECARDS = 25;
 async function requireScorecardAdmin() {
   const session = await requireOrg(["OWNER", "ADMIN"]);
   if (!(await customScorecardsAvailable(session.user.organizationId))) {
-    throw new UserError("Custom scorecards are available on Growth plans and above. Upgrade in Billing to create your own.");
+    throw new UserError(`Custom scorecards are ${QA_GROWTH_UPSELL}`);
   }
   return session;
 }
