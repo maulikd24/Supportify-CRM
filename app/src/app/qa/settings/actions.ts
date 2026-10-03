@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireOrg } from "@/lib/auth/require-role";
+import { requireProductAccess } from "@/lib/auth/require-role";
 import { encryptJson } from "@/lib/security/crypto";
 import { getHelpdeskProvider, helpdeskClient, HelpdeskAuthError, isHelpdeskProvider } from "@/lib/qa/helpdesks";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
@@ -20,7 +20,7 @@ function connectionError(error: unknown, providerName: string): string {
 
 /** Connects (or replaces) the org's helpdesk. Credentials are tested before they're saved. */
 export const connectHelpdeskAction = withUserErrors(async function connectHelpdeskAction(providerId: string, values: Record<string, string>) {
-  const session = await requireOrg([...ADMIN_ROLES]);
+  const session = await requireProductAccess("QA_SENTINEL", [...ADMIN_ROLES]);
   const organizationId = session.user.organizationId;
   if (!isHelpdeskProvider(providerId)) throw new UserError("Pick a helpdesk to connect");
   const provider = getHelpdeskProvider(providerId);
@@ -63,7 +63,7 @@ export const connectHelpdeskAction = withUserErrors(async function connectHelpde
 });
 
 export const disconnectHelpdeskAction = withUserErrors(async function disconnectHelpdeskAction() {
-  const session = await requireOrg([...ADMIN_ROLES]);
+  const session = await requireProductAccess("QA_SENTINEL", [...ADMIN_ROLES]);
   const organizationId = session.user.organizationId;
 
   const removed = await prisma.helpdeskConnection.findUnique({ where: { organizationId }, select: { provider: true } });
@@ -75,7 +75,7 @@ export const disconnectHelpdeskAction = withUserErrors(async function disconnect
 });
 
 export const retestHelpdeskConnectionAction = withUserErrors(async function retestHelpdeskConnectionAction() {
-  const session = await requireOrg([...ADMIN_ROLES]);
+  const session = await requireProductAccess("QA_SENTINEL", [...ADMIN_ROLES]);
   const organizationId = session.user.organizationId;
 
   const connection = await prisma.helpdeskConnection.findUnique({ where: { organizationId } });
@@ -101,7 +101,7 @@ const sopSchema = z.object({
 });
 
 export const createSopAction = withUserErrors(async function createSopAction(formData: FormData) {
-  const session = await requireOrg();
+  const session = await requireProductAccess("QA_SENTINEL");
 
   const parsed = sopSchema.parse({
     name: formData.get("name"),
@@ -124,7 +124,7 @@ export const createSopAction = withUserErrors(async function createSopAction(for
 });
 
 export const updateSopAction = withUserErrors(async function updateSopAction(sopId: string, formData: FormData) {
-  const session = await requireOrg();
+  const session = await requireProductAccess("QA_SENTINEL");
 
   const parsed = sopSchema.parse({
     name: formData.get("name"),
@@ -141,7 +141,7 @@ export const updateSopAction = withUserErrors(async function updateSopAction(sop
 });
 
 export const deleteSopAction = withUserErrors(async function deleteSopAction(sopId: string) {
-  const session = await requireOrg();
+  const session = await requireProductAccess("QA_SENTINEL");
 
   await prisma.sopDocument.delete({
     where: { id: sopId, organizationId: session.user.organizationId },

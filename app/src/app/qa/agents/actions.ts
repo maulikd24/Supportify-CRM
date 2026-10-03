@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireOrg } from "@/lib/auth/require-role";
+import { requireProductAccess } from "@/lib/auth/require-role";
 import { recordAudit } from "@/lib/audit/record";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
 import { issueVerificationToken } from "@/lib/auth/verification-tokens";
@@ -57,7 +57,7 @@ function revalidate() {
 }
 
 export const inviteAgentAction = withUserErrors(async function inviteAgentAction(input: z.input<typeof inviteSchema>) {
-  const session = await requireOrg(["OWNER", "ADMIN"]);
+  const session = await requireProductAccess("QA_SENTINEL", ["OWNER", "ADMIN"]);
   const organizationId = session.user.organizationId;
   const parsed = inviteSchema.parse(input);
   await assertAgentSeatAvailable(organizationId);
@@ -98,7 +98,7 @@ async function findAgent(organizationId: string, userId: string) {
 }
 
 export const resendAgentInviteAction = withUserErrors(async function resendAgentInviteAction(userId: string) {
-  const session = await requireOrg(["OWNER", "ADMIN"]);
+  const session = await requireProductAccess("QA_SENTINEL", ["OWNER", "ADMIN"]);
   const organizationId = session.user.organizationId;
   const agent = await findAgent(organizationId, userId);
   if (!agent.isActive) throw new UserError("Restore this agent's access first");
@@ -108,7 +108,7 @@ export const resendAgentInviteAction = withUserErrors(async function resendAgent
 });
 
 export const setAgentActiveAction = withUserErrors(async function setAgentActiveAction(userId: string, active: boolean) {
-  const session = await requireOrg(["OWNER", "ADMIN"]);
+  const session = await requireProductAccess("QA_SENTINEL", ["OWNER", "ADMIN"]);
   const organizationId = session.user.organizationId;
   const agent = await findAgent(organizationId, userId);
   if (agent.isActive === active) return;
