@@ -329,6 +329,13 @@ model Client {
   currentStageId String
   currentStage   Stage        @relation(fields: [currentStageId], references: [id], onDelete: NoAction)
   stageEnteredAt DateTime     @default(now())
+  // When the stage-SLA sweep last alerted about this client. Older than
+  // stageEnteredAt (or null) means this stay in the stage hasn't been alerted
+  // yet — see src/lib/sla/check-stage-sla.ts.
+  slaBreachNotifiedAt  DateTime?
+  // When the disengagement sweep last alerted. Any Activity/Message after it
+  // re-arms the alert — see src/lib/copilot/check-disengagement.ts.
+  disengagedNotifiedAt DateTime?
   assignedToId   String?
   assignedTo     User?        @relation("AssignedRM", fields: [assignedToId], references: [id])
   mergedIntoId   String?
