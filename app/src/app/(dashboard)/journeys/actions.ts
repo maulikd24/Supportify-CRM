@@ -9,6 +9,7 @@ import { validateJourneyGraph } from "@/lib/journeys/schema";
 import { enrollClientManually } from "@/lib/journeys/dispatch";
 import type { JourneyGraph } from "@/lib/journeys/types";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
+import { requireClientAccess } from "@/lib/auth/client-access";
 
 const EMPTY_GRAPH: JourneyGraph = {
   nodes: [
@@ -99,11 +100,11 @@ export const deleteJourneyAction = withUserErrors(async function deleteJourneyAc
 export const enrollClientInJourneyAction = withUserErrors(async function enrollClientInJourneyAction(journeyId: string, clientId: string) {
   const session = await requireUser();
 
-  const [journey, client] = await Promise.all([
-    prisma.journey.findUnique({ where: { id: journeyId, organizationId: session.user.organizationId }, select: { id: true } }),
-    prisma.client.findUnique({ where: { id: clientId, organizationId: session.user.organizationId }, select: { id: true } }),
-  ]);
-  if (!journey || !client) throw new UserError("Journey or client not found");
+  const journey = await prisma.journey.findUnique({ where: { id: journeyId, organizationId: session.user.organizationId }, select: { id: true } });
+  if (!journey) throw new UserError("Journey or client not found");
+  await requireClientAccess(session.user, clientId).catch(() => {
+    throw new UserError("Journey or client not found");
+  });
 
   await enrollClientManually(journeyId, clientId);
   revalidatePath(`/clients/${clientId}`);
