@@ -47,6 +47,9 @@ model Organization {
   id                   String  @id @default(cuid())
   name                 String
   slug                 String  @unique
+  // Last client number handed out in this org (client codes CL-00001, CL-00002, …).
+  // Incremented atomically by generateClientCode, so concurrent creates never collide.
+  clientCodeSeq        Int      @default(0)
   stripeCustomerId     String? @unique // one Stripe Customer per org; subscriptions live per-product below
   // Set once an admin starts SSO setup (see src/lib/sso/workos.ts). The actual
   // SAML/OIDC connection + domain(s) are configured by the customer's own IT
@@ -309,7 +312,7 @@ model Client {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  clientCode     String       @unique // generated "CL-00001"
+  clientCode     String // generated "CL-00001", unique per organization (see @@unique below)
   name           String
   mobile         String
   email          String?
@@ -360,6 +363,8 @@ model Client {
   @@index([currentStageId, createdAt])
   @@index([status, createdAt])
   @@index([assignedToId, createdAt])
+
+  @@unique([organizationId, clientCode])
 }
 
 model Stage {

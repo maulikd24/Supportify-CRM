@@ -1,13 +1,15 @@
 import { prisma } from "@/lib/db/prisma";
 
-/** Generates the next sequential human-readable client code, e.g. "CL-00001". */
-export async function generateClientCode(): Promise<string> {
-  const last = await prisma.client.findFirst({
-    orderBy: { createdAt: "desc" },
-    select: { clientCode: true },
+/**
+ * Generates the org's next sequential client code, e.g. "CL-00001". Numbering is per
+ * organization: the increment is a single atomic UPDATE on that org's counter, so
+ * concurrent creates never collide, and one tenant's codes reveal nothing about others.
+ */
+export async function generateClientCode(organizationId: string): Promise<string> {
+  const { clientCodeSeq } = await prisma.organization.update({
+    where: { id: organizationId },
+    data: { clientCodeSeq: { increment: 1 } },
+    select: { clientCodeSeq: true },
   });
-
-  const lastNumber = last ? parseInt(last.clientCode.replace("CL-", ""), 10) || 0 : 0;
-  const next = lastNumber + 1;
-  return `CL-${String(next).padStart(5, "0")}`;
+  return `CL-${String(clientCodeSeq).padStart(5, "0")}`;
 }

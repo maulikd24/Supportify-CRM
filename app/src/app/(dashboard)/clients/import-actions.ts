@@ -76,7 +76,7 @@ export const importClientsAction = withUserErrors(async function importClientsAc
     }
 
     try {
-      const clientCode = await generateClientCode();
+      const clientCode = await generateClientCode(organizationId);
       const client = await prisma.client.create({
         data: {
           organizationId,

@@ -64,7 +64,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request body", details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const [clientCode, stage1] = await Promise.all([generateClientCode(), getFirstStage(auth.organizationId)]);
+  const [clientCode, stage1] = await Promise.all([generateClientCode(auth.organizationId), getFirstStage(auth.organizationId)]);
 
   const client = await prisma.client.create({
     data: {
