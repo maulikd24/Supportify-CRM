@@ -28,7 +28,12 @@ export async function resetPasswordAction(
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
-  const user = await prisma.user.update({ where: { id: result.userId }, data: { passwordHash }, select: { id: true, organizationId: true } });
+  // Someone who resets a forgotten password may be locking out an attacker — end every existing session.
+  const user = await prisma.user.update({
+    where: { id: result.userId },
+    data: { passwordHash, sessionsRevokedAt: new Date() },
+    select: { id: true, organizationId: true },
+  });
   await recordAudit({ organizationId: user.organizationId, userId: user.id, entity: "User", entityId: user.id, action: "auth.password_reset" });
 
   return { success: true };

@@ -36,7 +36,11 @@ export const changeOwnPasswordAction = withUserErrors(async function changeOwnPa
   if (!valid) throw new UserError("Current password is incorrect");
 
   const passwordHash = await bcrypt.hash(parsed.newPassword, 10);
-  await prisma.user.update({ where: { id: session.user.id }, data: { passwordHash } });
+  // End every session, this one included: a changed password must lock out
+  // anyone holding an old session. (Keeping just the current one would mean
+  // trusting NextAuth's client-callable session update to bump authTime.) The
+  // form sends the user to /login; their revoked session is rejected anyway.
+  await prisma.user.update({ where: { id: session.user.id }, data: { passwordHash, sessionsRevokedAt: new Date() } });
   await recordAudit({ organizationId: user.organizationId, userId: user.id, entity: "User", entityId: user.id, action: "auth.password_changed" });
 });
 
