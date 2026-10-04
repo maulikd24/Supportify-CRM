@@ -1,0 +1,34 @@
+name: Cron tick
+
+# Journey waits, SLA alerts and overdue tasks need a frequent tick, but Vercel's
+# Hobby plan only allows daily crons (vercel.json keeps a daily backstop).
+# GitHub's scheduler is best-effort: runs can start a few minutes late.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+# Never overlap: a slow tick finishes before the next one starts. The jobs are
+# also safe to overlap (each claims its work atomically), so this is belt and braces.
+concurrency:
+  group: cron-tick
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Trigger cron tick
+        env:
+          CRON_TICK_URL: ${{ secrets.CRON_TICK_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_TICK_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::Set the CRON_TICK_URL and CRON_SECRET repository secrets (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+          curl --fail-with-body --silent --show-error --max-time 90 \
+            -X POST "$CRON_TICK_URL" -H "x-cron-secret: $CRON_SECRET"

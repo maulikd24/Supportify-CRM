@@ -13,8 +13,12 @@ export async function checkOverdueTasks() {
     take: 200,
   });
 
+  let flagged = 0;
   for (const task of overdueTasks) {
-    await prisma.task.update({ where: { id: task.id }, data: { status: "OVERDUE" } });
+    // Conditional claim: if an overlapping run already flipped this task, it also sent the alert.
+    const { count } = await prisma.task.updateMany({ where: { id: task.id, status: "PENDING" }, data: { status: "OVERDUE" } });
+    if (count === 0) continue;
+    flagged += 1;
 
     await prisma.notification.create({
       data: {
@@ -46,7 +50,7 @@ export async function checkOverdueTasks() {
 
   await checkExcessiveRmWorkload(now);
 
-  return { flagged: overdueTasks.length };
+  return { flagged };
 }
 
 /** Notifies a manager once per day if a direct report is carrying an excessive overdue-task load. */
