@@ -19,7 +19,7 @@ import {
 type Meta = {
   label: string;
   description: string;
-  fields: { key: string; label: string; placeholder?: string }[];
+  fields: { key: string; label: string; placeholder?: string; required?: boolean }[];
   supportsTest?: boolean;
 };
 
@@ -50,6 +50,11 @@ export function IntegrationCard({
   }
 
   async function handleSaveCredentials() {
+    const missing = meta.fields.find((f) => f.required && !values[f.key]?.trim());
+    if (missing) {
+      toast.error(`${missing.label} is required`);
+      return;
+    }
     setPending(true);
     try {
       await saveIntegrationCredentialsAction(provider, values);
