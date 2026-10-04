@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { callAction } from "@/lib/actions/call-action";
 export function ChangePasswordForm() {
   const [pending, setPending] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const router = useRouter();
 
   async function handleSubmit(formData: FormData) {
     const newPassword = String(formData.get("newPassword") || "");
@@ -24,8 +26,10 @@ export function ChangePasswordForm() {
     setPending(true);
     try {
       await callAction(changeOwnPasswordAction)(formData);
-      toast.success("Password updated");
+      // Changing the password ends every session, this one included.
+      toast.success("Password updated. Sign in again with your new password.");
       formRef.current?.reset();
+      setTimeout(() => router.push("/login"), 1500);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update password");
     } finally {

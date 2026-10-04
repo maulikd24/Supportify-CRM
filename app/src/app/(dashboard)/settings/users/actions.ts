@@ -8,7 +8,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
 import { assertSeatAvailable, syncCrmSeatQuantity } from "@/lib/billing/seats";
-import type { Role } from "@/generated/prisma/client";
+import type { OrgRole, Role } from "@/generated/prisma/client";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
 import { recordAudit } from "@/lib/audit/record";
 
@@ -22,6 +22,30 @@ const createUserSchema = z.object({
 
 function generateTempPassword(): string {
   return randomBytes(9).toString("base64url"); // 12-char URL-safe temp password
+}
+
+const ORG_ROLE_RANK: Record<OrgRole, number> = { OWNER: 3, ADMIN: 2, MEMBER: 1, AGENT: 0 };
+
+/**
+ * These actions are gated on the CRM `role`, which is separate from `orgRole`:
+ * a CRM ADMIN may be an org MEMBER. Without this check, they could reset the
+ * owner's password (or deactivate / sign them out) and take over the account
+ * that controls billing and can delete the organization. An unknown or
+ * other-org user is left to the caller's org-scoped update, which rejects it.
+ */
+async function assertCanManageUser(actor: { id: string; organizationId: string; orgRole: OrgRole }, userId: string) {
+  if (userId === actor.id) return;
+  const target = await prisma.user.findFirst({
+    where: { id: userId, organizationId: actor.organizationId },
+    select: { orgRole: true },
+  });
+  if (target && ORG_ROLE_RANK[target.orgRole] > ORG_ROLE_RANK[actor.orgRole]) {
+    throw new UserError(
+      target.orgRole === "OWNER"
+        ? "Only an organization owner can change an owner's account."
+        : "You can't change the account of someone with a higher organization role than yours.",
+    );
+  }
 }
 
 export const createUserAction = withUserErrors(async function createUserAction(formData: FormData) {
@@ -72,6 +96,7 @@ export const createUserAction = withUserErrors(async function createUserAction(f
 
 export const setUserRoleAction = withUserErrors(async function setUserRoleAction(userId: string, role: Role) {
   const session = await requireRole(["ADMIN"]);
+  await assertCanManageUser(session.user, userId);
 
   const before = await prisma.user.findFirst({ where: { id: userId, organizationId: session.user.organizationId }, select: { role: true, email: true } });
   await prisma.user.update({ where: { id: userId, organizationId: session.user.organizationId }, data: { role } });
@@ -82,6 +107,7 @@ export const setUserRoleAction = withUserErrors(async function setUserRoleAction
 
 export const setUserManagerAction = withUserErrors(async function setUserManagerAction(userId: string, managerId: string | null) {
   const session = await requireRole(["ADMIN"]);
+  await assertCanManageUser(session.user, userId);
 
   if (managerId === userId) throw new UserError("A user cannot be their own manager");
   if (managerId) {
@@ -104,6 +130,7 @@ export const setUserActiveAction = withUserErrors(async function setUserActiveAc
   if (userId === session.user.id && !isActive) {
     throw new UserError("You cannot deactivate your own account");
   }
+  await assertCanManageUser(session.user, userId);
 
   if (isActive) {
     const target = await prisma.user.findFirst({
@@ -136,11 +163,16 @@ const resetPasswordSchema = z.object({
 
 export const resetUserPasswordAction = withUserErrors(async function resetUserPasswordAction(userId: string, newPassword: string) {
   const session = await requireRole(["ADMIN"]);
+  await assertCanManageUser(session.user, userId);
 
   const parsed = resetPasswordSchema.parse({ newPassword });
   const passwordHash = await bcrypt.hash(parsed.newPassword, 10);
 
-  await prisma.user.update({ where: { id: userId, organizationId: session.user.organizationId }, data: { passwordHash } });
+  // A reset is often a response to a compromise — end every existing session too.
+  await prisma.user.update({
+    where: { id: userId, organizationId: session.user.organizationId },
+    data: { passwordHash, sessionsRevokedAt: new Date() },
+  });
   await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "User", entityId: userId, action: "user.password_reset_by_admin" });
 
   revalidatePath("/settings/users");
@@ -149,6 +181,7 @@ export const resetUserPasswordAction = withUserErrors(async function resetUserPa
 /** Ends every session of one user, e.g. a lost device. They must sign in again. */
 export const signOutUserAction = withUserErrors(async function signOutUserAction(userId: string) {
   const session = await requireRole(["ADMIN"]);
+  await assertCanManageUser(session.user, userId);
   await prisma.user.update({
     where: { id: userId, organizationId: session.user.organizationId },
     data: { sessionsRevokedAt: new Date() },

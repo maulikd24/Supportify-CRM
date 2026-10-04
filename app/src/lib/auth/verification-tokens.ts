@@ -30,11 +30,17 @@ export async function consumeVerificationToken(
   token: string,
   purpose: VerificationTokenPurpose,
 ): Promise<{ userId: string } | null> {
-  const record = await prisma.verificationToken.findUnique({ where: { token } });
-  if (!record || record.purpose !== purpose || record.usedAt || record.expiresAt < new Date()) {
-    return null;
-  }
+  // Claim the token in one conditional UPDATE. A read-then-mark would let two
+  // concurrent requests both see it unused and both succeed (e.g. one password
+  // reset link used twice); Postgres re-checks the WHERE under the row lock, so
+  // exactly one claim wins.
+  const now = new Date();
+  const { count } = await prisma.verificationToken.updateMany({
+    where: { token, purpose, usedAt: null, expiresAt: { gt: now } },
+    data: { usedAt: now },
+  });
+  if (count !== 1) return null;
 
-  await prisma.verificationToken.update({ where: { token }, data: { usedAt: new Date() } });
+  const record = await prisma.verificationToken.findUniqueOrThrow({ where: { token }, select: { userId: true } });
   return { userId: record.userId };
 }
