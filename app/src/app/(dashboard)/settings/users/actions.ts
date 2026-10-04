@@ -38,6 +38,14 @@ export const createUserAction = withUserErrors(async function createUserAction(f
   const existing = await prisma.user.findUnique({ where: { email: parsed.email } });
   if (existing) throw new UserError("A user with this email already exists");
 
+  if (parsed.managerId) {
+    const manager = await prisma.user.findFirst({
+      where: { id: parsed.managerId, organizationId: session.user.organizationId },
+      select: { id: true },
+    });
+    if (!manager) throw new UserError("Manager not found");
+  }
+
   await assertSeatAvailable(session.user.organizationId);
 
   const tempPassword = generateTempPassword();

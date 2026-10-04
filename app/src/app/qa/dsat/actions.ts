@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireOrg } from "@/lib/auth/require-role";
+import { requireProductAccess } from "@/lib/auth/require-role";
 import { helpdeskClient } from "@/lib/qa/helpdesks";
 import { analyzeDsat, parseManualConversation, type ConversationTurn } from "@/lib/qa/assessor";
 import type { Prisma } from "@/generated/prisma/client";
@@ -21,7 +21,7 @@ const dsatSchema = z.object({
 });
 
 export const submitDsatAction = withUserErrors(async function submitDsatAction(formData: FormData) {
-  const session = await requireOrg();
+  const session = await requireProductAccess("QA_SENTINEL");
   const organizationId = session.user.organizationId;
 
   const parsed = dsatSchema.parse({
@@ -87,7 +87,7 @@ export const submitDsatAction = withUserErrors(async function submitDsatAction(f
 });
 
 export const saveDsatCommentAction = withUserErrors(async function saveDsatCommentAction(analysisId: string, comment: string) {
-  const session = await requireOrg();
+  const session = await requireProductAccess("QA_SENTINEL");
 
   await prisma.dsatAnalysis.update({
     where: { id: analysisId, organizationId: session.user.organizationId },

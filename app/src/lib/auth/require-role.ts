@@ -57,9 +57,12 @@ export async function requireOrg(allowedOrgRoles?: OrgRole[], opts: { allowAgent
  * Billing gate: requires an org (see requireOrg) AND an active/unexpired-trial
  * subscription for the given product. QA Sentinel and CRM are billed and
  * gated completely independently — an org can have one without the other.
+ *
+ * Layouts only gate page renders — server actions are separately callable
+ * endpoints, so every action for a paid product must call this itself too.
  */
-export async function requireProductAccess(product: Product) {
-  const session = await requireOrg();
+export async function requireProductAccess(product: Product, allowedOrgRoles?: OrgRole[]) {
+  const session = await requireOrg(allowedOrgRoles);
 
   const access = await getProductAccess(session.user.organizationId, product);
   if (!access.allowed) redirect(`/billing/${product}`);

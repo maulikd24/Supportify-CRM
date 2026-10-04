@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireOrg } from "@/lib/auth/require-role";
+import { requireProductAccess } from "@/lib/auth/require-role";
 import { recordAudit } from "@/lib/audit/record";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
 import { QA_GROWTH_UPSELL, qaGrowthFeaturesAvailable } from "@/lib/qa/plan-features";
@@ -29,7 +29,7 @@ function revalidate(reviewId?: string | null) {
 }
 
 export const createCoachingAction = withUserErrors(async function createCoachingAction(input: z.input<typeof createSchema>) {
-  const session = await requireOrg();
+  const session = await requireProductAccess("QA_SENTINEL");
   const organizationId = session.user.organizationId;
   if (!(await qaGrowthFeaturesAvailable(organizationId))) throw new UserError(`Coaching is ${QA_GROWTH_UPSELL}`);
   const parsed = createSchema.parse(input);
@@ -101,7 +101,7 @@ const NEXT_STATUSES: Record<CoachingStatus, CoachingStatus[]> = {
 
 /** Moves a session along. Allowed for its coach and for owners/admins, on any plan, so downgraded orgs can wrap up. */
 export const updateCoachingAction = withUserErrors(async function updateCoachingAction(id: string, input: z.input<typeof updateSchema>) {
-  const session = await requireOrg();
+  const session = await requireProductAccess("QA_SENTINEL");
   const organizationId = session.user.organizationId;
   const parsed = updateSchema.parse(input);
 

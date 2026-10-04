@@ -2,19 +2,20 @@ import { prisma } from "@/lib/db/prisma";
 import { decryptJson } from "@/lib/security/crypto";
 import type { IntegrationAdapter, EmailAdapter } from "@/lib/integrations/types";
 
-import { freshdeskAdapter } from "@/lib/integrations/adapters/freshdesk";
-import { exotelAdapter } from "@/lib/integrations/adapters/exotel";
-import { clevertapAdapter } from "@/lib/integrations/adapters/clevertap";
+import { createFreshdeskAdapter } from "@/lib/integrations/adapters/freshdesk";
+import { createExotelAdapter } from "@/lib/integrations/adapters/exotel";
+import { createClevertapAdapter } from "@/lib/integrations/adapters/clevertap";
 import { freshdeskMockAdapter } from "@/lib/integrations/adapters/mock/freshdesk.mock";
 import { exotelMockAdapter } from "@/lib/integrations/adapters/mock/exotel.mock";
 import { clevertapMockAdapter } from "@/lib/integrations/adapters/mock/clevertap.mock";
-import { resendEmailAdapter } from "@/lib/integrations/adapters/resend-email";
+import { createResendEmailAdapter } from "@/lib/integrations/adapters/resend-email";
 import { resendEmailMockAdapter } from "@/lib/integrations/adapters/mock/resend-email.mock";
 
-const LIVE_ADAPTERS: Record<string, IntegrationAdapter> = {
-  freshdesk: freshdeskAdapter,
-  exotel: exotelAdapter,
-  clevertap: clevertapAdapter,
+// Factories, not instances: each call gets its own adapter holding only that org's credentials.
+const LIVE_ADAPTERS: Record<string, () => IntegrationAdapter> = {
+  freshdesk: createFreshdeskAdapter,
+  exotel: createExotelAdapter,
+  clevertap: createClevertapAdapter,
 };
 
 const MOCK_ADAPTERS: Record<string, IntegrationAdapter> = {
@@ -26,7 +27,7 @@ const MOCK_ADAPTERS: Record<string, IntegrationAdapter> = {
 export const INTEGRATION_PROVIDERS = Object.keys(LIVE_ADAPTERS);
 
 const EMAIL_PROVIDER = "resend_email";
-const LIVE_EMAIL_ADAPTERS: Record<string, EmailAdapter> = { [EMAIL_PROVIDER]: resendEmailAdapter };
+const LIVE_EMAIL_ADAPTERS: Record<string, () => EmailAdapter> = { [EMAIL_PROVIDER]: createResendEmailAdapter };
 const MOCK_EMAIL_ADAPTERS: Record<string, EmailAdapter> = { [EMAIL_PROVIDER]: resendEmailMockAdapter };
 
 export const EMAIL_PROVIDERS = Object.keys(LIVE_EMAIL_ADAPTERS);
@@ -45,7 +46,7 @@ export async function getEmailAdapter(organizationId: string): Promise<EmailAdap
 
   if (mode !== "live") return MOCK_EMAIL_ADAPTERS[EMAIL_PROVIDER];
 
-  const adapter = LIVE_EMAIL_ADAPTERS[EMAIL_PROVIDER];
+  const adapter = LIVE_EMAIL_ADAPTERS[EMAIL_PROVIDER]();
   const credentials = config?.credentials ? decryptJson<Record<string, unknown>>(config.credentials as string) : {};
   const settings = (config?.settings as Record<string, unknown>) ?? {};
   await adapter.configure(credentials, settings);
@@ -61,7 +62,8 @@ export async function getAdapter(provider: string, organizationId: string): Prom
     return MOCK_ADAPTERS[provider] ?? notFound(provider);
   }
 
-  const adapter = LIVE_ADAPTERS[provider] ?? notFound(provider);
+  const createAdapter = LIVE_ADAPTERS[provider] ?? notFound(provider);
+  const adapter = createAdapter();
   const credentials = config?.credentials ? decryptJson<Record<string, unknown>>(config.credentials as string) : {};
   const settings = (config?.settings as Record<string, unknown>) ?? {};
   await adapter.configure(credentials, settings);

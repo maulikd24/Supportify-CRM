@@ -4,14 +4,14 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireOrg } from "@/lib/auth/require-role";
+import { requireProductAccess } from "@/lib/auth/require-role";
 import type { Prisma } from "@/generated/prisma/client";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
 import { computeScore, reviewCriteria } from "@/lib/qa/scorecard";
 
 /** Starts a calibration session for an existing AI review — org owners/admins only, since it's a QA-management activity. */
 export const startCalibrationAction = withUserErrors(async function startCalibrationAction(reviewId: string) {
-  const session = await requireOrg(["OWNER", "ADMIN"]);
+  const session = await requireProductAccess("QA_SENTINEL", ["OWNER", "ADMIN"]);
 
   const review = await prisma.ticketReview.findUnique({
     where: { id: reviewId, organizationId: session.user.organizationId },
@@ -34,7 +34,7 @@ export const startCalibrationAction = withUserErrors(async function startCalibra
 
 /** Submits the current user's own score — one shot: no editing after submit, so scores stay blind and honest. */
 export const submitCalibrationEntryAction = withUserErrors(async function submitCalibrationEntryAction(sessionId: string, formData: FormData) {
-  const session = await requireOrg();
+  const session = await requireProductAccess("QA_SENTINEL");
 
   const calibration = await prisma.calibrationSession.findUnique({
     where: { id: sessionId, organizationId: session.user.organizationId },
@@ -83,7 +83,7 @@ export const submitCalibrationEntryAction = withUserErrors(async function submit
 
 /** Closes the session: locks out further submissions and reveals every entry to every viewer, including anyone who never submitted. */
 export const closeCalibrationSessionAction = withUserErrors(async function closeCalibrationSessionAction(sessionId: string) {
-  const session = await requireOrg(["OWNER", "ADMIN"]);
+  const session = await requireProductAccess("QA_SENTINEL", ["OWNER", "ADMIN"]);
 
   await prisma.calibrationSession.update({
     where: { id: sessionId, organizationId: session.user.organizationId },

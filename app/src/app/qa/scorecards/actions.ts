@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireOrg } from "@/lib/auth/require-role";
+import { requireProductAccess } from "@/lib/auth/require-role";
 import { recordAudit } from "@/lib/audit/record";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
 import { customScorecardsAvailable, normalizeCriteria, scorecardInputSchema } from "@/lib/qa/scorecard";
@@ -14,7 +14,7 @@ import type { Prisma } from "@/generated/prisma/client";
 const MAX_SCORECARDS = 25;
 
 async function requireScorecardAdmin() {
-  const session = await requireOrg(["OWNER", "ADMIN"]);
+  const session = await requireProductAccess("QA_SENTINEL", ["OWNER", "ADMIN"]);
   if (!(await customScorecardsAvailable(session.user.organizationId))) {
     throw new UserError(`Custom scorecards are ${QA_GROWTH_UPSELL}`);
   }
@@ -73,7 +73,7 @@ export const setDefaultScorecardAction = withUserErrors(async function setDefaul
 
 /** Deleting is allowed on any plan, so a downgraded org can still tidy up. */
 export const deleteScorecardAction = withUserErrors(async function deleteScorecardAction(id: string) {
-  const session = await requireOrg(["OWNER", "ADMIN"]);
+  const session = await requireProductAccess("QA_SENTINEL", ["OWNER", "ADMIN"]);
   const organizationId = session.user.organizationId;
   const target = await prisma.scorecard.findFirst({ where: { id, organizationId } });
   if (!target) throw new UserError("Scorecard not found");
