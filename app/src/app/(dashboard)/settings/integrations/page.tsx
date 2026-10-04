@@ -5,6 +5,8 @@ import { MESSAGING_CHANNELS, messagingProviderKeyFor } from "@/lib/messaging/reg
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PROVIDER_META } from "./provider-meta";
 import { IntegrationCard } from "./integration-card";
+import { RotateWebhookUrlButton } from "./rotate-webhook-url-button";
+import { newWebhookToken } from "@/lib/integrations/webhook-security";
 
 export default async function IntegrationsSettingsPage() {
   const session = await requireRole(["ADMIN"]);
@@ -21,7 +23,7 @@ export default async function IntegrationsSettingsPage() {
       prisma.integrationConfig.upsert({
         where: { organizationId_provider: { organizationId: session.user.organizationId, provider } },
         update: {},
-        create: { organizationId: session.user.organizationId, provider },
+        create: { organizationId: session.user.organizationId, provider, webhookToken: newWebhookToken() },
       }),
     ),
   );
@@ -94,13 +96,15 @@ export default async function IntegrationsSettingsPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-1 text-sm font-mono text-muted-foreground break-all">
           {INTEGRATION_PROVIDERS.map((provider) => (
-            <span key={provider}>
-              /api/webhooks/{provider}/{configByProvider.get(provider)?.webhookToken}
+            <span key={provider} className="flex items-center justify-between gap-2">
+              <span>/api/webhooks/{provider}/{configByProvider.get(provider)?.webhookToken}</span>
+              <RotateWebhookUrlButton provider={provider} />
             </span>
           ))}
           {MESSAGING_CHANNELS.map((channel) => (
-            <span key={channel}>
-              /api/webhooks/messaging/{channel}/{configByProvider.get(messagingProviderKeyFor(channel))?.webhookToken}
+            <span key={channel} className="flex items-center justify-between gap-2">
+              <span>/api/webhooks/messaging/{channel}/{configByProvider.get(messagingProviderKeyFor(channel))?.webhookToken}</span>
+              <RotateWebhookUrlButton provider={messagingProviderKeyFor(channel)} />
             </span>
           ))}
         </CardContent>

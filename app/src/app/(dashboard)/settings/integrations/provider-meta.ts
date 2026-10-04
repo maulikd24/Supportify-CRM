@@ -43,6 +43,8 @@ export const PROVIDER_META: Record<
     fields: [
       { key: "phoneNumberId", label: "Phone Number ID" },
       { key: "accessToken", label: "Access Token" },
+      // Verifies that incoming webhooks really come from Meta (X-Hub-Signature-256).
+      { key: "appSecret", label: "App Secret (verifies incoming webhooks)", placeholder: "Meta App Dashboard > App settings > Basic" },
     ],
     supportsTest: false,
   },

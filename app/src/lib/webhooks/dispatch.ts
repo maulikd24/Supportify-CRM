@@ -2,6 +2,7 @@ import { createHmac } from "crypto";
 
 import { prisma } from "@/lib/db/prisma";
 import { decryptJson } from "@/lib/security/crypto";
+import { postJsonToPublicUrl } from "@/lib/security/outbound";
 import type { WebhookEvent } from "@/lib/webhooks/events";
 
 export { WEBHOOK_EVENTS } from "@/lib/webhooks/events";
@@ -37,14 +38,16 @@ export async function dispatchWebhookEvent(
       let error: string | null = null;
 
       try {
-        const response = await fetch(endpoint.url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Supportify-Signature": `sha256=${signature}` },
-          body: payload,
-          signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS),
-        });
+        // https + public addresses only, checked at connect time, and redirects are never
+        // followed — a customer URL must not be usable to reach internal services (SSRF).
+        const response = await postJsonToPublicUrl(
+          endpoint.url,
+          payload,
+          { "X-Supportify-Signature": `sha256=${signature}` },
+          DELIVERY_TIMEOUT_MS,
+        );
         statusCode = response.status;
-        success = response.ok;
+        success = response.status >= 200 && response.status < 300;
         if (!success) error = `Endpoint responded with ${response.status}`;
       } catch (err) {
         error = err instanceof Error ? err.message : "Request failed";
