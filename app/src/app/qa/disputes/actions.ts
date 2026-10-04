@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireOrg } from "@/lib/auth/require-role";
+import { requireProductAccess } from "@/lib/auth/require-role";
 import { recordAudit } from "@/lib/audit/record";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
 import { QA_GROWTH_UPSELL, qaGrowthFeaturesAvailable } from "@/lib/qa/plan-features";
@@ -18,7 +18,7 @@ function revalidate(reviewId: string) {
 }
 
 export const raiseDisputeAction = withUserErrors(async function raiseDisputeAction(reviewId: string, input: z.input<typeof raiseDisputeSchema>) {
-  const session = await requireOrg();
+  const session = await requireProductAccess("QA_SENTINEL");
   const organizationId = session.user.organizationId;
   if (!(await qaGrowthFeaturesAvailable(organizationId))) throw new UserError(`Score disputes are ${QA_GROWTH_UPSELL}`);
   const result = await raiseDispute({ organizationId, user: session.user, reviewId, input });
@@ -37,7 +37,7 @@ const resolveSchema = z.discriminatedUnion("decision", [
 
 /** Owners/admins settle a dispute by upholding the score or adjusting criterion scores. Allowed on any plan. */
 export const resolveDisputeAction = withUserErrors(async function resolveDisputeAction(id: string, input: z.input<typeof resolveSchema>) {
-  const session = await requireOrg(["OWNER", "ADMIN"]);
+  const session = await requireProductAccess("QA_SENTINEL", ["OWNER", "ADMIN"]);
   const organizationId = session.user.organizationId;
   const parsed = resolveSchema.parse(input);
 

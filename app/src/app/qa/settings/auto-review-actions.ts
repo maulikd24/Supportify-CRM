@@ -5,7 +5,7 @@ import { after } from "next/server";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireOrg } from "@/lib/auth/require-role";
+import { requireProductAccess } from "@/lib/auth/require-role";
 import { pollOrganization } from "@/lib/qa/auto-review";
 import { triggerAutoReviewRun } from "@/lib/qa/auto-review-trigger";
 import { ensureOverageSubscriptionItem, overageAvailability } from "@/lib/qa/usage";
@@ -32,7 +32,7 @@ const settingsSchema = z.object({
 export type ActionResult<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
 export async function saveAutoReviewSettingsAction(input: z.input<typeof settingsSchema>): Promise<ActionResult> {
-  const session = await requireOrg([...ADMIN_ROLES]);
+  const session = await requireProductAccess("QA_SENTINEL", [...ADMIN_ROLES]);
   const organizationId = session.user.organizationId;
   const result = settingsSchema.safeParse(input);
   if (!result.success) return { ok: false, error: "Check the auto-review settings and try again" };
@@ -81,7 +81,7 @@ const overageSchema = z.object({
 });
 
 export async function saveOverageSettingsAction(input: z.input<typeof overageSchema>): Promise<ActionResult> {
-  const session = await requireOrg([...ADMIN_ROLES]);
+  const session = await requireProductAccess("QA_SENTINEL", [...ADMIN_ROLES]);
   const organizationId = session.user.organizationId;
   const result = overageSchema.safeParse(input);
   if (!result.success) return { ok: false, error: "Enter a cap between 1 and 100,000, or leave it empty" };
@@ -124,7 +124,7 @@ export async function saveOverageSettingsAction(input: z.input<typeof overageSch
 
 /** Checks the helpdesk for newly solved tickets right away and starts reviewing them in the background. */
 export async function runAutoReviewNowAction(): Promise<ActionResult<{ found: number; queued: number }>> {
-  const session = await requireOrg([...ADMIN_ROLES]);
+  const session = await requireProductAccess("QA_SENTINEL", [...ADMIN_ROLES]);
   const organizationId = session.user.organizationId;
 
   const config = await prisma.autoReviewConfig.findUnique({ where: { organizationId } });

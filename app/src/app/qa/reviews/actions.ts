@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireOrg } from "@/lib/auth/require-role";
+import { requireProductAccess } from "@/lib/auth/require-role";
 import { runReview } from "@/lib/qa/run-review";
 import { claimReviewSlot, releaseReviewSlot, reportOverageReview } from "@/lib/qa/usage";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
@@ -17,7 +17,7 @@ const reviewSchema = z.object({
 });
 
 export const createReviewAction = withUserErrors(async function createReviewAction(formData: FormData): Promise<{ reviewId: string; error?: undefined } | { error: string; reviewId?: undefined }> {
-  const session = await requireOrg();
+  const session = await requireProductAccess("QA_SENTINEL");
   const organizationId = session.user.organizationId;
 
   const parsed = reviewSchema.parse({
@@ -65,7 +65,7 @@ const MAX_BULK_TICKETS = 100;
 
 /** Runs a review for each ticket ID (newline/comma-separated), stopping once the plan's remaining quota is used up. */
 export const createBulkReviewAction = withUserErrors(async function createBulkReviewAction(ticketIdsRaw: string, sopId: string, scorecardId?: string): Promise<BulkReviewSummary> {
-  const session = await requireOrg();
+  const session = await requireProductAccess("QA_SENTINEL");
   const organizationId = session.user.organizationId;
 
   const ticketIds = [...new Set(ticketIdsRaw.split(/[\n,]+/).map((t) => t.trim()).filter(Boolean))];
@@ -114,7 +114,7 @@ export const createBulkReviewAction = withUserErrors(async function createBulkRe
 });
 
 export const saveAuditorCommentAction = withUserErrors(async function saveAuditorCommentAction(reviewId: string, comment: string) {
-  const session = await requireOrg();
+  const session = await requireProductAccess("QA_SENTINEL");
 
   await prisma.ticketReview.update({
     where: { id: reviewId, organizationId: session.user.organizationId },
