@@ -10,6 +10,7 @@ import type { OrgRole, Role } from "@/generated/prisma/client";
 import { decryptJson } from "@/lib/security/crypto";
 import { verifyTotpToken, consumeRecoveryCode } from "@/lib/security/two-factor";
 import { consumeVerificationToken } from "@/lib/auth/verification-tokens";
+import { passesFirstFactor } from "@/lib/auth/login-challenge";
 import { provisionOrganization } from "@/lib/auth/provision-organization";
 import { isLockedOut, registerLoginFailure, resetLoginFailures } from "@/lib/auth/login-lockout";
 import { hashIdentifier, ipFromHeaders, rateLimit } from "@/lib/security/rate-limit";
@@ -62,13 +63,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        // Stands in for the password at the 2FA step — see src/lib/auth/login-challenge.ts.
+        challenge: { label: "Login challenge", type: "text" },
         code: { label: "Two-factor code", type: "text" },
       },
       authorize: async (credentials, request) => {
         const email = credentials?.email;
         const password = credentials?.password;
+        const challenge = credentials?.challenge;
         const code = credentials?.code;
-        if (typeof email !== "string" || typeof password !== "string") return null;
+        if (typeof email !== "string") return null;
 
         // The NextAuth callback endpoint can be called directly, bypassing loginAction's throttle.
         const [byIp, byEmail] = await Promise.all([
@@ -86,7 +90,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const valid = await bcrypt.compare(password, user.passwordHash);
+        // The password — or, at the 2FA step, a challenge from the password step. The code check below still applies.
+        const valid = await passesFirstFactor(user, { password, challenge });
         if (!valid) {
           await registerLoginFailure(user);
           return null;
