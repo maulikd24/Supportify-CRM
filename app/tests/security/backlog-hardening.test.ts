@@ -15,7 +15,7 @@ import { asUser, createClient, createOrg, createUser, deleteOrgs, isRedirect, pr
 const orgIds: string[] = [];
 afterAll(() => deleteOrgs(...orgIds));
 
-async function org(products: Parameters<typeof createOrg>[0]["products"]) {
+async function org(products: NonNullable<Parameters<typeof createOrg>[0]>["products"]) {
   const { org, stage } = await createOrg({ products });
   orgIds.push(org.id);
   return { orgId: org.id, stageId: stage.id, admin: await createUser(org.id, { role: "ADMIN", orgRole: "OWNER" }) };
