@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireCrmRole } from "@/lib/auth/require-role";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
 
 function keyify(label: string): string {
@@ -23,7 +23,7 @@ const createFieldSchema = z.object({
 });
 
 export const createCustomFieldAction = withUserErrors(async function createCustomFieldAction(formData: FormData) {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requireCrmRole(["ADMIN"]);
 
   const parsed = createFieldSchema.parse({
     label: formData.get("label"),
@@ -61,7 +61,7 @@ export const createCustomFieldAction = withUserErrors(async function createCusto
 });
 
 export const deleteCustomFieldAction = withUserErrors(async function deleteCustomFieldAction(fieldId: string) {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requireCrmRole(["ADMIN"]);
 
   await prisma.customFieldDefinition.delete({
     where: { id: fieldId, organizationId: session.user.organizationId },

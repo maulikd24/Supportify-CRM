@@ -14,8 +14,13 @@ export async function authenticateApiKey(request: Request): Promise<ApiAuthResul
   const [scheme, token] = header.split(" ");
   if (scheme?.toLowerCase() !== "bearer" || !token) return null;
 
-  const key = await prisma.apiKey.findUnique({ where: { hashedKey: hashApiKey(token) } });
-  if (!key || key.revokedAt) return null;
+  const key = await prisma.apiKey.findUnique({
+    where: { hashedKey: hashApiKey(token) },
+    include: { createdBy: { select: { isActive: true } } },
+  });
+  // A key acts as the user who created it (see below), so it stops working while that
+  // user is deactivated — offboarding someone must also cut off the keys they made.
+  if (!key || key.revokedAt || !key.createdBy.isActive) return null;
 
   // Best-effort — a slow write here should never block or fail the actual request.
   void prisma.apiKey.update({ where: { id: key.id }, data: { lastUsedAt: new Date() } }).catch(() => {});

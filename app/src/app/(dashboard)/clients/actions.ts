@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser, requireRole } from "@/lib/auth/require-role";
+import { requireCrmRole, requireCrmUser } from "@/lib/auth/require-role";
 import { logActivity } from "@/lib/activities/log-activity";
 import { sendMessage } from "@/lib/messaging/send";
 import { generateClientCode } from "@/lib/stage-engine/client-code";
@@ -65,7 +65,7 @@ async function findDuplicateClient(organizationId: string, mobile: string, email
 }
 
 export const searchClientsForMergeAction = withUserErrors(async function searchClientsForMergeAction(query: string, excludeId: string) {
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireCrmRole(["ADMIN", "MANAGER"]);
   if (!query.trim()) return [];
 
   return prisma.client.findMany({
@@ -86,7 +86,7 @@ export const searchClientsForMergeAction = withUserErrors(async function searchC
 });
 
 export const createClientAction = withUserErrors(async function createClientAction(formData: FormData) {
-  const session = await requireUser();
+  const session = await requireCrmUser();
 
   const parsed = createClientSchema.parse({
     name: formData.get("name"),
@@ -160,7 +160,7 @@ export const createClientAction = withUserErrors(async function createClientActi
 });
 
 export const reassignClientAction = withUserErrors(async function reassignClientAction(clientId: string, assignedToId: string) {
-  const session = await requireUser();
+  const session = await requireCrmUser();
   await requireClientAccess(session.user, clientId);
 
   const newOwner = await prisma.user.findFirst({
@@ -182,7 +182,7 @@ export const reassignClientAction = withUserErrors(async function reassignClient
 });
 
 export const addClientNoteAction = withUserErrors(async function addClientNoteAction(clientId: string, note: string) {
-  const session = await requireUser();
+  const session = await requireCrmUser();
   await requireClientAccess(session.user, clientId);
 
   await logActivity({ clientId, userId: session.user.id, type: "NOTE", payload: { message: note } });
@@ -196,7 +196,7 @@ export const sendClientMessageAction = withUserErrors(async function sendClientM
   templateId: string,
   variables: Record<string, string>,
 ) {
-  const session = await requireUser();
+  const session = await requireCrmUser();
   await requireClientAccess(session.user, clientId);
 
   const message = await sendMessage({ clientId, channel, templateId, variables });
@@ -223,7 +223,7 @@ export const recordRmContactAction = withUserErrors(async function recordRmConta
     nextActionDate?: string;
   },
 ) {
-  const session = await requireUser();
+  const session = await requireCrmUser();
   await requireClientAccess(session.user, clientId);
   await recordRmContact(
     clientId,
@@ -234,7 +234,7 @@ export const recordRmContactAction = withUserErrors(async function recordRmConta
 });
 
 export const addDocumentAction = withUserErrors(async function addDocumentAction(clientId: string, documentType: string, mandatory: boolean) {
-  const session = await requireUser();
+  const session = await requireCrmUser();
   await requireClientAccess(session.user, clientId);
   await addDocument(clientId, { documentType, mandatory }, session.user.id);
   revalidateClient(clientId);
@@ -244,7 +244,7 @@ export const updateDocumentStatusAction = withUserErrors(async function updateDo
   documentId: string,
   input: { status: DocumentStatus; rejectionReason?: string; remarks?: string },
 ) {
-  const session = await requireUser();
+  const session = await requireCrmUser();
   await requireDocumentAccess(session.user, documentId);
   const doc = await updateDocumentStatus(documentId, input, session.user.id);
   revalidateClient(doc.clientId);
@@ -254,21 +254,21 @@ export const updateClientDetailsAction = withUserErrors(async function updateCli
   clientId: string,
   input: { dealValue?: number | null; customFields?: Record<string, unknown> },
 ) {
-  const session = await requireUser();
+  const session = await requireCrmUser();
   await requireClientAccess(session.user, clientId);
   await updateClientDetails(clientId, input, session.user.id);
   revalidateClient(clientId);
 });
 
 export const moveToStageAction = withUserErrors(async function moveToStageAction(clientId: string, toStageId: string) {
-  const session = await requireUser();
+  const session = await requireCrmUser();
   await requireClientAccess(session.user, clientId);
   await moveToStage(clientId, toStageId, session.user.id);
   revalidateClient(clientId);
 });
 
 export const correctStageAction = withUserErrors(async function correctStageAction(clientId: string, toStageId: string, reason: string) {
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireCrmRole(["ADMIN", "MANAGER"]);
   await requireClientAccess(session.user, clientId);
   await correctStage(clientId, toStageId, reason, session.user.id);
   revalidateClient(clientId);
@@ -278,7 +278,7 @@ export const putOnHoldAction = withUserErrors(async function putOnHoldAction(
   clientId: string,
   input: { reason: string; expectedResumeDate?: string; notes?: string },
 ) {
-  const session = await requireUser();
+  const session = await requireCrmUser();
   await requireClientAccess(session.user, clientId);
   await putOnHold(
     clientId,
@@ -289,21 +289,21 @@ export const putOnHoldAction = withUserErrors(async function putOnHoldAction(
 });
 
 export const resumeFromHoldAction = withUserErrors(async function resumeFromHoldAction(clientId: string) {
-  const session = await requireUser();
+  const session = await requireCrmUser();
   await requireClientAccess(session.user, clientId);
   await resumeFromHold(clientId, session.user.id);
   revalidateClient(clientId);
 });
 
 export const markNotProceedingAction = withUserErrors(async function markNotProceedingAction(clientId: string, input: { reason: string; notes?: string }) {
-  const session = await requireUser();
+  const session = await requireCrmUser();
   await requireClientAccess(session.user, clientId);
   await markNotProceeding(clientId, input, session.user.id);
   revalidateClient(clientId);
 });
 
 export const reopenClientAction = withUserErrors(async function reopenClientAction(clientId: string, input: { reason: string }) {
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireCrmRole(["ADMIN", "MANAGER"]);
   await requireClientAccess(session.user, clientId);
   await reopenClient(clientId, input, session.user.id);
   revalidateClient(clientId);
@@ -312,7 +312,7 @@ export const reopenClientAction = withUserErrors(async function reopenClientActi
 // --- Merge -------------------------------------------------------------------------
 
 export const mergeClientsAction = withUserErrors(async function mergeClientsAction(primaryId: string, duplicateId: string) {
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireCrmRole(["ADMIN", "MANAGER"]);
   if (primaryId === duplicateId) throw new UserError("Cannot merge a client into itself");
   await requireClientAccess(session.user, primaryId);
   await requireClientAccess(session.user, duplicateId);

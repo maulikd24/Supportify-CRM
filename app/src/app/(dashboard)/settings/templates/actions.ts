@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireCrmRole } from "@/lib/auth/require-role";
 import { withUserErrors } from "@/lib/actions/user-error";
 
 const templateSchema = z.object({
@@ -15,7 +15,7 @@ const templateSchema = z.object({
 });
 
 export const createTemplateAction = withUserErrors(async function createTemplateAction(formData: FormData) {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requireCrmRole(["ADMIN"]);
 
   const parsed = templateSchema.parse({
     channel: formData.get("channel"),
@@ -43,7 +43,7 @@ export const createTemplateAction = withUserErrors(async function createTemplate
 });
 
 export const setTemplateApprovedAction = withUserErrors(async function setTemplateApprovedAction(templateId: string, approved: boolean) {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requireCrmRole(["ADMIN"]);
 
   await prisma.messageTemplate.update({
     where: { id: templateId, organizationId: session.user.organizationId },
@@ -54,7 +54,7 @@ export const setTemplateApprovedAction = withUserErrors(async function setTempla
 });
 
 export const deleteTemplateAction = withUserErrors(async function deleteTemplateAction(templateId: string) {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requireCrmRole(["ADMIN"]);
 
   await prisma.messageTemplate.delete({ where: { id: templateId, organizationId: session.user.organizationId } });
 

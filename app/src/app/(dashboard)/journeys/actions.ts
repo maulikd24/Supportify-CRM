@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole, requireUser } from "@/lib/auth/require-role";
+import { requireCrmRole, requireCrmUser } from "@/lib/auth/require-role";
 import { validateJourneyGraph } from "@/lib/journeys/schema";
 import { enrollClientManually } from "@/lib/journeys/dispatch";
 import type { JourneyGraph } from "@/lib/journeys/types";
@@ -24,7 +24,7 @@ const EMPTY_GRAPH: JourneyGraph = {
 };
 
 export const createJourneyAction = withUserErrors(async function createJourneyAction(name: string) {
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireCrmRole(["ADMIN", "MANAGER"]);
 
   const journey = await prisma.journey.create({
     data: {
@@ -40,7 +40,7 @@ export const createJourneyAction = withUserErrors(async function createJourneyAc
 });
 
 export const saveJourneyGraphAction = withUserErrors(async function saveJourneyGraphAction(journeyId: string, graph: JourneyGraph) {
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireCrmRole(["ADMIN", "MANAGER"]);
 
   const validated = validateJourneyGraph(graph);
 
@@ -62,7 +62,7 @@ export const saveJourneyGraphAction = withUserErrors(async function saveJourneyG
 });
 
 export const setJourneyActiveAction = withUserErrors(async function setJourneyActiveAction(journeyId: string, isActive: boolean) {
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireCrmRole(["ADMIN", "MANAGER"]);
 
   await prisma.journey.update({
     where: { id: journeyId, organizationId: session.user.organizationId },
@@ -74,7 +74,7 @@ export const setJourneyActiveAction = withUserErrors(async function setJourneyAc
 });
 
 export const deleteJourneyAction = withUserErrors(async function deleteJourneyAction(journeyId: string) {
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireCrmRole(["ADMIN", "MANAGER"]);
 
   const journey = await prisma.journey.findUnique({
     where: { id: journeyId, organizationId: session.user.organizationId },
@@ -98,7 +98,7 @@ export const deleteJourneyAction = withUserErrors(async function deleteJourneyAc
 });
 
 export const enrollClientInJourneyAction = withUserErrors(async function enrollClientInJourneyAction(journeyId: string, clientId: string) {
-  const session = await requireUser();
+  const session = await requireCrmUser();
 
   const journey = await prisma.journey.findUnique({ where: { id: journeyId, organizationId: session.user.organizationId }, select: { id: true } });
   if (!journey) throw new UserError("Journey or client not found");

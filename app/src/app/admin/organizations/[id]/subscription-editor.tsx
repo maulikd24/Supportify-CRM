@@ -110,10 +110,9 @@ export function SubscriptionEditor({
                 <Input
                   id={`${product}-seats`}
                   name="seats"
-                  type="number"
-                  min={1}
-                  defaultValue={subscription?.seats ?? undefined}
-                  placeholder="Unlimited"
+                  inputMode="numeric"
+                  defaultValue={subscription ? (subscription.seats ?? "unlimited") : undefined}
+                  placeholder="Plan default"
                 />
               </Field>
             ) : (
@@ -122,10 +121,9 @@ export function SubscriptionEditor({
                 <Input
                   id={`${product}-reviewQuota`}
                   name="reviewQuota"
-                  type="number"
-                  min={1}
-                  defaultValue={subscription?.reviewQuota ?? undefined}
-                  placeholder="Unlimited"
+                  inputMode="numeric"
+                  defaultValue={subscription ? (subscription.reviewQuota ?? "unlimited") : undefined}
+                  placeholder="Plan default"
                 />
               </Field>
             )}
