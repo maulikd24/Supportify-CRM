@@ -17,7 +17,7 @@ export const deleteOrganizationAction = withUserErrors(async function deleteOrga
     throw new UserError("Organization name doesn't match — deletion cancelled.");
   }
 
-  // Cascades to every tenant-scoped table via onDelete: Cascade in schema.prisma.
+  // Cascades to every tenant-scoped table (see the org-deletion note on StageHistory in schema.prisma).
   await prisma.organization.delete({ where: { id: session.user.organizationId } });
 
   await signOut({ redirectTo: "/login" });
