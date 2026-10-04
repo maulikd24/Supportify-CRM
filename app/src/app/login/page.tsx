@@ -52,7 +52,7 @@ export default function LoginPage() {
               {stage === "2fa" ? (
                 <>
                   <input type="hidden" name="email" value={state.email ?? ""} />
-                  <input type="hidden" name="password" value={state.password ?? ""} />
+                  <input type="hidden" name="challenge" value={state.challenge ?? ""} />
                   <Field>
                     <FieldLabel htmlFor="code">Authentication code</FieldLabel>
                     <Input

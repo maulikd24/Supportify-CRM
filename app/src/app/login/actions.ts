@@ -9,17 +9,20 @@ import { isLockedOut, registerLoginFailure, resetLoginFailures } from "@/lib/aut
 import { clientIp, hashIdentifier, rateLimit, retryMessage } from "@/lib/security/rate-limit";
 import { recordAudit } from "@/lib/audit/record";
 import { ssoRequiredFor } from "@/lib/security/policy";
+import { issueLoginChallenge } from "@/lib/auth/login-challenge";
 
 export type LoginState = {
   error?: string;
   stage?: "credentials" | "2fa";
   email?: string;
-  password?: string;
+  /** Signed proof the password step passed — the password itself never goes back to the browser. */
+  challenge?: string;
 };
 
 export async function loginAction(prevState: LoginState, formData: FormData): Promise<LoginState> {
   const email = String(formData.get("email") ?? prevState.email ?? "");
-  const password = String(formData.get("password") ?? prevState.password ?? "");
+  const password = String(formData.get("password") ?? "");
+  const challenge = String(formData.get("challenge") ?? prevState.challenge ?? "");
   const code = formData.get("code");
 
   // Per-IP and per-account throttles on top of the per-account lockout.
@@ -34,7 +37,7 @@ export async function loginAction(prevState: LoginState, formData: FormData): Pr
 
   if (typeof code === "string" && code.length > 0) {
     try {
-      await signIn("credentials", { email, password, code, redirectTo: "/dashboard" });
+      await signIn("credentials", { email, challenge, code, redirectTo: "/dashboard" });
       return {};
     } catch (error) {
       if (error instanceof AuthError) {
@@ -44,7 +47,7 @@ export async function loginAction(prevState: LoginState, formData: FormData): Pr
         if (user) {
           await recordAudit({ organizationId: user.organizationId, userId: user.id, entity: "User", entityId: user.id, action: "auth.login_failed", reason: "Wrong 2FA code" });
         }
-        return { stage: "2fa", email, password, error: "Invalid code. Try again or use a recovery code." };
+        return { stage: "2fa", email, challenge, error: "Invalid code. Try again or use a recovery code." };
       }
       throw error;
     }
@@ -71,7 +74,7 @@ export async function loginAction(prevState: LoginState, formData: FormData): Pr
   await resetLoginFailures(user);
 
   if (user.twoFactorEnabled) {
-    return { stage: "2fa", email, password };
+    return { stage: "2fa", email, challenge: issueLoginChallenge(user) };
   }
 
   try {
