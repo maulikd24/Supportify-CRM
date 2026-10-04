@@ -46,11 +46,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
   // Read the raw body once: Meta's signature is over these exact bytes.
   const rawBody = await request.text();
 
-  // Live WhatsApp: when the org has saved its Meta App Secret, only accept payloads
-  // Meta actually signed. (Without it the URL token is the only check — see PR notes.)
-  if (channel === "whatsapp" && config.mode === "live" && config.credentials) {
-    const { appSecret } = decryptJson<{ appSecret?: string }>(config.credentials as string);
-    if (appSecret && !verifyMetaSignature(rawBody, request.headers.get("x-hub-signature-256"), appSecret)) {
+  // Live WhatsApp: only accept payloads Meta actually signed with the org's App Secret.
+  // Without a saved App Secret nothing can be verified, so nothing is accepted.
+  if (channel === "whatsapp" && config.mode === "live") {
+    const { appSecret } = config.credentials ? decryptJson<{ appSecret?: string }>(config.credentials as string) : {};
+    if (!appSecret) {
+      return NextResponse.json({ error: "WhatsApp App Secret is not configured" }, { status: 401 });
+    }
+    if (!verifyMetaSignature(rawBody, request.headers.get("x-hub-signature-256"), appSecret)) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
   }

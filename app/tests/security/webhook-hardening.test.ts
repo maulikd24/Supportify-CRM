@@ -3,7 +3,7 @@ import { createHmac } from "crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createWebhookAction } from "@/app/(dashboard)/settings/developers/actions";
-import { rotateWebhookTokenAction } from "@/app/(dashboard)/settings/integrations/actions";
+import { rotateWebhookTokenAction, saveIntegrationCredentialsAction } from "@/app/(dashboard)/settings/integrations/actions";
 import * as messagingWebhook from "@/app/api/webhooks/messaging/[channel]/[token]/route";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
 import { encryptJson } from "@/lib/security/crypto";
@@ -154,5 +154,39 @@ describe("inbound webhook URL tokens", () => {
       params: Promise.resolve({ channel: "sms", token: config.webhookToken }),
     });
     expect(old.status).toBe(404);
+  });
+});
+
+describe("the WhatsApp App Secret is mandatory for live mode", () => {
+  it("a live integration without an App Secret accepts no inbound messages", async () => {
+    const { org, stage } = await createOrg({ products: [{ product: "CRM", planId: "scale", seats: 50 }] });
+    const client = await createClient(org.id, stage.id);
+    await prisma.client.update({ where: { id: client.id }, data: { mobile: "15559990000" } });
+    const config = await prisma.integrationConfig.create({
+      data: {
+        organizationId: org.id,
+        provider: "whatsapp_meta",
+        mode: "live",
+        webhookToken: newWebhookToken(),
+        credentials: encryptJson({ phoneNumberId: "p", accessToken: "a" }),
+      },
+    });
+    const raw = JSON.stringify({ entry: [{ changes: [{ value: { messages: [{ id: "wamid.nosecret", from: "15559990000", text: { body: "hi" }, timestamp: "1" }] } }] }] });
+    try {
+      const res = await messagingWebhook.POST(
+        new Request("https://app.test/x", { method: "POST", headers: { "content-type": "application/json" }, body: raw }),
+        { params: Promise.resolve({ channel: "whatsapp", token: config.webhookToken }) },
+      );
+      expect(res.status).toBe(401);
+      expect(await prisma.message.count({ where: { organizationId: org.id } })).toBe(0);
+    } finally {
+      await deleteOrgs(org.id);
+    }
+  });
+
+  it("saving WhatsApp credentials requires the App Secret", async () => {
+    asUser(admin);
+    await expect(saveIntegrationCredentialsAction("whatsapp_meta", { phoneNumberId: "p", accessToken: "a", appSecret: " " })).rejects.toThrow(/App Secret is required/);
+    await expect(saveIntegrationCredentialsAction("whatsapp_meta", { phoneNumberId: "p", accessToken: "a", appSecret: "s" })).resolves.toBeUndefined();
   });
 });

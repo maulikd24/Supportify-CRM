@@ -25,6 +25,11 @@ export async function setIntegrationModeAction(provider: string, mode: "mock" | 
 export async function saveIntegrationCredentialsAction(provider: string, credentials: Record<string, string>) {
   const session = await requireRole(["ADMIN"]);
 
+  // Inbound WhatsApp webhooks are rejected without it (see the messaging webhook route).
+  if (provider === "whatsapp_meta" && !credentials.appSecret?.trim()) {
+    throw new Error("WhatsApp App Secret is required — copy it from Meta App Dashboard > App settings > Basic.");
+  }
+
   const encrypted = encryptJson(credentials);
 
   await prisma.integrationConfig.upsert({
