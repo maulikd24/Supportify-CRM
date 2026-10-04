@@ -7,6 +7,8 @@ import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { logActivity } from "@/lib/activities/log-activity";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
+import { requireClientAccess } from "@/lib/auth/client-access";
+import { getVisibleUserIds } from "@/lib/auth/visibility";
 
 const taskSchema = z.object({
   clientId: z.string().min(1),
@@ -27,11 +29,8 @@ export const createTaskAction = withUserErrors(async function createTaskAction(f
     source: formData.get("source") || undefined,
   });
 
-  const [client, assignee] = await Promise.all([
-    prisma.client.findFirst({ where: { id: parsed.clientId, organizationId: session.user.organizationId }, select: { id: true } }),
-    prisma.user.findFirst({ where: { id: parsed.assignedToId, organizationId: session.user.organizationId }, select: { id: true } }),
-  ]);
-  if (!client) throw new UserError("Client not found");
+  await requireClientAccess(session.user, parsed.clientId);
+  const assignee = await prisma.user.findFirst({ where: { id: parsed.assignedToId, organizationId: session.user.organizationId }, select: { id: true } });
   if (!assignee) throw new UserError("Assignee not found");
 
   const task = await prisma.task.create({
@@ -53,6 +52,14 @@ export const createTaskAction = withUserErrors(async function createTaskAction(f
 
 export const completeTaskAction = withUserErrors(async function completeTaskAction(taskId: string) {
   const session = await requireUser();
+
+  // Same rule as the tasks page: you can complete the tasks you can see (yours, or your team's as a manager).
+  const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role, session.user.organizationId);
+  const visible = await prisma.task.findFirst({
+    where: { id: taskId, organizationId: session.user.organizationId, ...(visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {}) },
+    select: { id: true },
+  });
+  if (!visible) throw new UserError("Task not found");
 
   const task = await prisma.task.update({
     where: { id: taskId, organizationId: session.user.organizationId },

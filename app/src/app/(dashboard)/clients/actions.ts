@@ -26,22 +26,15 @@ import {
 } from "@/lib/stage-engine/transitions";
 import type { DocumentStatus, Prisma } from "@/generated/prisma/client";
 import { UserError, isActionFailure, withUserErrors } from "@/lib/actions/user-error";
+import { requireClientAccess, requireDocumentAccess, visibleClientsWhere } from "@/lib/auth/client-access";
 
-/**
+/*
  * Every action below takes a raw clientId/documentId from the client — this is
- * the actual tenant boundary (stage-engine/transitions.ts trusts its inputs),
- * so every wrapper here must verify the target belongs to the caller's org
- * before doing anything with it.
+ * the actual access boundary (stage-engine/transitions.ts trusts its inputs),
+ * so every wrapper here must check, via requireClientAccess/requireDocumentAccess,
+ * that the caller may act on that client: same org AND visible to their role
+ * (an RM only their own clients, a manager their team's — see client-access.ts).
  */
-async function requireClientInOrg(clientId: string, organizationId: string): Promise<void> {
-  const client = await prisma.client.findFirst({ where: { id: clientId, organizationId }, select: { id: true } });
-  if (!client) throw new UserError("Client not found");
-}
-
-async function requireDocumentInOrg(documentId: string, organizationId: string): Promise<void> {
-  const doc = await prisma.document.findFirst({ where: { id: documentId, organizationId }, select: { id: true } });
-  if (!doc) throw new UserError("Document not found");
-}
 
 const createClientSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -77,7 +70,7 @@ export const searchClientsForMergeAction = withUserErrors(async function searchC
 
   return prisma.client.findMany({
     where: {
-      organizationId: session.user.organizationId,
+      ...(await visibleClientsWhere(session.user)),
       id: { not: excludeId },
       mergedIntoId: null,
       OR: [
@@ -168,7 +161,7 @@ export const createClientAction = withUserErrors(async function createClientActi
 
 export const reassignClientAction = withUserErrors(async function reassignClientAction(clientId: string, assignedToId: string) {
   const session = await requireUser();
-  await requireClientInOrg(clientId, session.user.organizationId);
+  await requireClientAccess(session.user, clientId);
 
   const newOwner = await prisma.user.findFirst({
     where: { id: assignedToId, organizationId: session.user.organizationId },
@@ -190,7 +183,7 @@ export const reassignClientAction = withUserErrors(async function reassignClient
 
 export const addClientNoteAction = withUserErrors(async function addClientNoteAction(clientId: string, note: string) {
   const session = await requireUser();
-  await requireClientInOrg(clientId, session.user.organizationId);
+  await requireClientAccess(session.user, clientId);
 
   await logActivity({ clientId, userId: session.user.id, type: "NOTE", payload: { message: note } });
 
@@ -204,7 +197,7 @@ export const sendClientMessageAction = withUserErrors(async function sendClientM
   variables: Record<string, string>,
 ) {
   const session = await requireUser();
-  await requireClientInOrg(clientId, session.user.organizationId);
+  await requireClientAccess(session.user, clientId);
 
   const message = await sendMessage({ clientId, channel, templateId, variables });
 
@@ -231,7 +224,7 @@ export const recordRmContactAction = withUserErrors(async function recordRmConta
   },
 ) {
   const session = await requireUser();
-  await requireClientInOrg(clientId, session.user.organizationId);
+  await requireClientAccess(session.user, clientId);
   await recordRmContact(
     clientId,
     { ...input, nextActionDate: input.nextActionDate ? new Date(input.nextActionDate) : undefined },
@@ -242,7 +235,7 @@ export const recordRmContactAction = withUserErrors(async function recordRmConta
 
 export const addDocumentAction = withUserErrors(async function addDocumentAction(clientId: string, documentType: string, mandatory: boolean) {
   const session = await requireUser();
-  await requireClientInOrg(clientId, session.user.organizationId);
+  await requireClientAccess(session.user, clientId);
   await addDocument(clientId, { documentType, mandatory }, session.user.id);
   revalidateClient(clientId);
 });
@@ -252,7 +245,7 @@ export const updateDocumentStatusAction = withUserErrors(async function updateDo
   input: { status: DocumentStatus; rejectionReason?: string; remarks?: string },
 ) {
   const session = await requireUser();
-  await requireDocumentInOrg(documentId, session.user.organizationId);
+  await requireDocumentAccess(session.user, documentId);
   const doc = await updateDocumentStatus(documentId, input, session.user.id);
   revalidateClient(doc.clientId);
 });
@@ -262,21 +255,21 @@ export const updateClientDetailsAction = withUserErrors(async function updateCli
   input: { dealValue?: number | null; customFields?: Record<string, unknown> },
 ) {
   const session = await requireUser();
-  await requireClientInOrg(clientId, session.user.organizationId);
+  await requireClientAccess(session.user, clientId);
   await updateClientDetails(clientId, input, session.user.id);
   revalidateClient(clientId);
 });
 
 export const moveToStageAction = withUserErrors(async function moveToStageAction(clientId: string, toStageId: string) {
   const session = await requireUser();
-  await requireClientInOrg(clientId, session.user.organizationId);
+  await requireClientAccess(session.user, clientId);
   await moveToStage(clientId, toStageId, session.user.id);
   revalidateClient(clientId);
 });
 
 export const correctStageAction = withUserErrors(async function correctStageAction(clientId: string, toStageId: string, reason: string) {
   const session = await requireRole(["ADMIN", "MANAGER"]);
-  await requireClientInOrg(clientId, session.user.organizationId);
+  await requireClientAccess(session.user, clientId);
   await correctStage(clientId, toStageId, reason, session.user.id);
   revalidateClient(clientId);
 });
@@ -286,7 +279,7 @@ export const putOnHoldAction = withUserErrors(async function putOnHoldAction(
   input: { reason: string; expectedResumeDate?: string; notes?: string },
 ) {
   const session = await requireUser();
-  await requireClientInOrg(clientId, session.user.organizationId);
+  await requireClientAccess(session.user, clientId);
   await putOnHold(
     clientId,
     { ...input, expectedResumeDate: input.expectedResumeDate ? new Date(input.expectedResumeDate) : undefined },
@@ -297,21 +290,21 @@ export const putOnHoldAction = withUserErrors(async function putOnHoldAction(
 
 export const resumeFromHoldAction = withUserErrors(async function resumeFromHoldAction(clientId: string) {
   const session = await requireUser();
-  await requireClientInOrg(clientId, session.user.organizationId);
+  await requireClientAccess(session.user, clientId);
   await resumeFromHold(clientId, session.user.id);
   revalidateClient(clientId);
 });
 
 export const markNotProceedingAction = withUserErrors(async function markNotProceedingAction(clientId: string, input: { reason: string; notes?: string }) {
   const session = await requireUser();
-  await requireClientInOrg(clientId, session.user.organizationId);
+  await requireClientAccess(session.user, clientId);
   await markNotProceeding(clientId, input, session.user.id);
   revalidateClient(clientId);
 });
 
 export const reopenClientAction = withUserErrors(async function reopenClientAction(clientId: string, input: { reason: string }) {
   const session = await requireRole(["ADMIN", "MANAGER"]);
-  await requireClientInOrg(clientId, session.user.organizationId);
+  await requireClientAccess(session.user, clientId);
   await reopenClient(clientId, input, session.user.id);
   revalidateClient(clientId);
 });
@@ -321,8 +314,8 @@ export const reopenClientAction = withUserErrors(async function reopenClientActi
 export const mergeClientsAction = withUserErrors(async function mergeClientsAction(primaryId: string, duplicateId: string) {
   const session = await requireRole(["ADMIN", "MANAGER"]);
   if (primaryId === duplicateId) throw new UserError("Cannot merge a client into itself");
-  await requireClientInOrg(primaryId, session.user.organizationId);
-  await requireClientInOrg(duplicateId, session.user.organizationId);
+  await requireClientAccess(session.user, primaryId);
+  await requireClientAccess(session.user, duplicateId);
 
   await prisma.$transaction([
     prisma.document.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
