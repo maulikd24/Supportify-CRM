@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireCrmRole } from "@/lib/auth/require-role";
 import { withUserErrors } from "@/lib/actions/user-error";
 
 const updateStageSchema = z.object({
@@ -18,7 +18,7 @@ export const updateStageAction = withUserErrors(async function updateStageAction
   stageId: string,
   input: { name: string; slaHours: number; isActive: boolean; isTerminal: boolean },
 ) {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requireCrmRole(["ADMIN"]);
 
   const parsed = updateStageSchema.parse(input);
 
@@ -36,7 +36,7 @@ const createStageSchema = z.object({
 });
 
 export const createStageAction = withUserErrors(async function createStageAction(formData: FormData) {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requireCrmRole(["ADMIN"]);
 
   const parsed = createStageSchema.parse({
     name: formData.get("name"),

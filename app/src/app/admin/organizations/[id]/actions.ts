@@ -6,17 +6,42 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { requirePlatformAdmin } from "@/lib/auth/require-role";
 import type { Product } from "@/generated/prisma/client";
-import { withUserErrors } from "@/lib/actions/user-error";
+import { UserError, withUserErrors } from "@/lib/actions/user-error";
+import { limitsForPlan, planById, trialLimitsFor } from "@/lib/billing/plans";
 
 const adjustSubscriptionSchema = z.object({
   organizationId: z.string().min(1),
   product: z.enum(["QA_SENTINEL", "CRM"]),
   planId: z.string().optional().or(z.literal("")),
   status: z.enum(["TRIALING", "ACTIVE", "PAST_DUE", "CANCELED"]),
-  seats: z.coerce.number().int().positive().optional().or(z.literal("")),
-  reviewQuota: z.coerce.number().int().positive().optional().or(z.literal("")),
+  seats: z.literal("unlimited").or(z.coerce.number().int().positive()).optional().or(z.literal("")),
+  reviewQuota: z.literal("unlimited").or(z.coerce.number().int().positive()).optional().or(z.literal("")),
   trialEndsAt: z.string().optional().or(z.literal("")),
 });
+
+/**
+ * A limit field's value: a number, "unlimited" (deliberately none), or blank. Blank used
+ * to save null — which means unlimited — so clearing the field could hand a paying or
+ * trial org unlimited seats or AI reviews by accident. Blank now means the plan's own
+ * limit (or the trial limit); only plans with no fixed limit (contact-sales tiers) stay
+ * unlimited when left blank.
+ */
+function resolveLimit(
+  value: number | "unlimited" | "" | undefined,
+  key: "seats" | "reviewQuota",
+  product: Product,
+  planId: string | null,
+  status: string,
+): number | null {
+  if (value === "unlimited") return null;
+  if (typeof value === "number") return value;
+  const plan = planId ? planById(product, planId) : undefined;
+  if (plan?.contactSales) return null;
+  const fromPlan = limitsForPlan(product, planId)[key];
+  if (fromPlan !== undefined) return fromPlan;
+  if (status === "TRIALING") return trialLimitsFor(product)[key] ?? null;
+  throw new UserError(`Enter a ${key === "seats" ? "seat limit" : "review quota"}, or "unlimited" — this plan has no default.`);
+}
 
 /**
  * Platform-admin-only manual override of a customer's subscription (comp,
@@ -38,11 +63,15 @@ export const adjustSubscriptionAction = withUserErrors(async function adjustSubs
   });
 
   const product = parsed.product as Product;
+  const planId = parsed.planId || null;
+  // Each product has one limit column; the other stays null.
+  const limitKey = product === "CRM" ? "seats" : "reviewQuota";
   const data = {
-    planId: parsed.planId || null,
+    planId,
     status: parsed.status,
-    seats: parsed.seats === "" || parsed.seats === undefined ? null : parsed.seats,
-    reviewQuota: parsed.reviewQuota === "" || parsed.reviewQuota === undefined ? null : parsed.reviewQuota,
+    seats: null as number | null,
+    reviewQuota: null as number | null,
+    [limitKey]: resolveLimit(parsed[limitKey], limitKey, product, planId, parsed.status),
     trialEndsAt: parsed.trialEndsAt ? new Date(parsed.trialEndsAt) : null,
   };
 

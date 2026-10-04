@@ -71,6 +71,26 @@ export async function requireProductAccess(product: Product, allowedOrgRoles?: O
 }
 
 /**
+ * CRM data actions (clients, tasks, journeys, pipeline settings): a signed-in user
+ * whose org has active CRM access, matching the (dashboard) layout's gate. Layouts
+ * only gate page renders, so these actions must check the subscription themselves.
+ */
+export async function requireCrmUser() {
+  const session = await requireUser();
+  const access = await getProductAccess(session.user.organizationId, "CRM");
+  if (!access.allowed) redirect("/billing/CRM");
+  return session;
+}
+
+/** requireRole + the CRM subscription check of requireCrmUser. */
+export async function requireCrmRole(allowedRoles: Role[]) {
+  const session = await requireRole(allowedRoles);
+  const access = await getProductAccess(session.user.organizationId, "CRM");
+  if (!access.allowed) redirect("/billing/CRM");
+  return session;
+}
+
+/**
  * Supportify staff only. This is the one guard in the app that intentionally
  * sits outside the organizationId tenant boundary — everything reachable
  * behind it must stay aggregate/metadata-only (org names, plan/usage stats),

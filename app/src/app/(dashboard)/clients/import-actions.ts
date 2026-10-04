@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireCrmRole } from "@/lib/auth/require-role";
 import { generateClientCode } from "@/lib/stage-engine/client-code";
 import { getFirstStage } from "@/lib/stage-engine/stages";
 import { initializeClient } from "@/lib/stage-engine/transitions";
@@ -34,7 +34,7 @@ const BASE_COLUMNS = new Set([
 ]);
 
 export const importClientsAction = withUserErrors(async function importClientsAction(csvText: string): Promise<ImportSummary> {
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireCrmRole(["ADMIN", "MANAGER"]);
   const organizationId = session.user.organizationId;
 
   const rows = parseCsv(csvText);

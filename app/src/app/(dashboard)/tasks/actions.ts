@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireCrmUser } from "@/lib/auth/require-role";
 import { logActivity } from "@/lib/activities/log-activity";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
 import { requireClientAccess } from "@/lib/auth/client-access";
@@ -19,7 +19,7 @@ const taskSchema = z.object({
 });
 
 export const createTaskAction = withUserErrors(async function createTaskAction(formData: FormData) {
-  const session = await requireUser();
+  const session = await requireCrmUser();
 
   const parsed = taskSchema.parse({
     clientId: formData.get("clientId"),
@@ -51,7 +51,7 @@ export const createTaskAction = withUserErrors(async function createTaskAction(f
 });
 
 export const completeTaskAction = withUserErrors(async function completeTaskAction(taskId: string) {
-  const session = await requireUser();
+  const session = await requireCrmUser();
 
   // Same rule as the tasks page: you can complete the tasks you can see (yours, or your team's as a manager).
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role, session.user.organizationId);
