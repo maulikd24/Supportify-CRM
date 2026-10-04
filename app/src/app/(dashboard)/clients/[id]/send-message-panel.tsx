@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
@@ -19,30 +19,35 @@ import type { MessageTemplate } from "@/generated/prisma/client";
 import { sendClientMessageAction } from "../actions";
 import { callAction } from "@/lib/actions/call-action";
 
+/** A Copilot "send this message" link pre-fills the panel via ?suggestChannel=&suggestTemplateId=&suggestVars=. */
+function readSuggestion(
+  searchParams: URLSearchParams,
+  templates: MessageTemplate[],
+): { channel: "whatsapp" | "sms" | null; templateId: string; variables: Record<string, string> } | null {
+  const suggestTemplateId = searchParams.get("suggestTemplateId");
+  if (!suggestTemplateId || !templates.some((t) => t.id === suggestTemplateId)) return null;
+  const suggestChannel = searchParams.get("suggestChannel");
+  let variables: Record<string, string> = {};
+  try {
+    variables = JSON.parse(searchParams.get("suggestVars") ?? "{}");
+  } catch {
+    // ignore malformed vars, template still gets selected
+  }
+  return {
+    channel: suggestChannel === "whatsapp" || suggestChannel === "sms" ? suggestChannel : null,
+    templateId: suggestTemplateId,
+    variables,
+  };
+}
+
 export function SendMessagePanel({ clientId, templates }: { clientId: string; templates: MessageTemplate[] }) {
-  const [channel, setChannel] = useState<"whatsapp" | "sms">("whatsapp");
-  const [templateId, setTemplateId] = useState("");
-  const [variables, setVariables] = useState<Record<string, string>>({});
-  const [pending, setPending] = useState(false);
   const searchParams = useSearchParams();
-
-  useEffect(() => {
-    const suggestChannel = searchParams.get("suggestChannel");
-    const suggestTemplateId = searchParams.get("suggestTemplateId");
-    const suggestVars = searchParams.get("suggestVars");
-    if (!suggestTemplateId || !templates.some((t) => t.id === suggestTemplateId)) return;
-
-    if (suggestChannel === "whatsapp" || suggestChannel === "sms") setChannel(suggestChannel);
-    setTemplateId(suggestTemplateId);
-    if (suggestVars) {
-      try {
-        setVariables(JSON.parse(suggestVars));
-      } catch {
-        // ignore malformed vars, template still gets selected
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Read the suggestion once, when the panel mounts (initial state), rather than syncing it in an effect.
+  const [suggestion] = useState(() => readSuggestion(new URLSearchParams(searchParams.toString()), templates));
+  const [channel, setChannel] = useState<"whatsapp" | "sms">(suggestion?.channel ?? "whatsapp");
+  const [templateId, setTemplateId] = useState(suggestion?.templateId ?? "");
+  const [variables, setVariables] = useState<Record<string, string>>(suggestion?.variables ?? {});
+  const [pending, setPending] = useState(false);
 
   const channelTemplates = useMemo(
     () => templates.filter((t) => t.channel === channel && t.approved),
