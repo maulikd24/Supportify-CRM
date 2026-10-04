@@ -118,7 +118,7 @@ export const createClientAction = withUserErrors(async function createClientActi
   }
 
   const [clientCode, stage1, customFieldDefs] = await Promise.all([
-    generateClientCode(),
+    generateClientCode(session.user.organizationId),
     getFirstStage(session.user.organizationId),
     prisma.customFieldDefinition.findMany({ where: { organizationId: session.user.organizationId } }),
   ]);
