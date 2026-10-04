@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getMessagingAdapter, messagingProviderKeyFor } from "@/lib/messaging/registry";
 import { logActivity } from "@/lib/activities/log-activity";
+import { decryptJson } from "@/lib/security/crypto";
+import { verifyMetaSignature } from "@/lib/integrations/webhook-security";
 
 type Channel = "whatsapp" | "sms";
 
@@ -41,11 +43,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
   }
   const { organizationId } = config;
 
+  // Read the raw body once: Meta's signature is over these exact bytes.
+  const rawBody = await request.text();
+
+  // Live WhatsApp: when the org has saved its Meta App Secret, only accept payloads
+  // Meta actually signed. (Without it the URL token is the only check — see PR notes.)
+  if (channel === "whatsapp" && config.mode === "live" && config.credentials) {
+    const { appSecret } = decryptJson<{ appSecret?: string }>(config.credentials as string);
+    if (appSecret && !verifyMetaSignature(rawBody, request.headers.get("x-hub-signature-256"), appSecret)) {
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    }
+  }
+
   const adapter = await getMessagingAdapter(channel, organizationId);
   const contentType = request.headers.get("content-type") ?? "";
-  const payload = contentType.includes("application/json")
-    ? await request.json()
-    : Object.fromEntries(new URLSearchParams(await request.text()));
+  let payload: unknown;
+  try {
+    payload = contentType.includes("application/json") ? JSON.parse(rawBody) : Object.fromEntries(new URLSearchParams(rawBody));
+  } catch {
+    return NextResponse.json({ error: "Invalid body" }, { status: 400 });
+  }
 
   const [inbound, statuses] = await Promise.all([
     adapter.handleInboundWebhook(payload),

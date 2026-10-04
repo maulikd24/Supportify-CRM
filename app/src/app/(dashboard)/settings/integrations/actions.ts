@@ -7,6 +7,7 @@ import { requireRole } from "@/lib/auth/require-role";
 import { encryptJson } from "@/lib/security/crypto";
 import { getAdapter } from "@/lib/integrations/registry";
 import { recordAudit } from "@/lib/audit/record";
+import { newWebhookToken } from "@/lib/integrations/webhook-security";
 
 export async function setIntegrationModeAction(provider: string, mode: "mock" | "live") {
   const session = await requireRole(["ADMIN"]);
@@ -14,7 +15,7 @@ export async function setIntegrationModeAction(provider: string, mode: "mock" | 
   await prisma.integrationConfig.upsert({
     where: { organizationId_provider: { organizationId: session.user.organizationId, provider } },
     update: { mode },
-    create: { organizationId: session.user.organizationId, provider, mode },
+    create: { organizationId: session.user.organizationId, provider, mode, webhookToken: newWebhookToken() },
   });
   await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "IntegrationConfig", entityId: provider, action: "integration.updated", newValue: { mode } });
 
@@ -29,7 +30,7 @@ export async function saveIntegrationCredentialsAction(provider: string, credent
   await prisma.integrationConfig.upsert({
     where: { organizationId_provider: { organizationId: session.user.organizationId, provider } },
     update: { credentials: encrypted, isEnabled: true },
-    create: { organizationId: session.user.organizationId, provider, credentials: encrypted, isEnabled: true },
+    create: { organizationId: session.user.organizationId, provider, credentials: encrypted, isEnabled: true, webhookToken: newWebhookToken() },
   });
   // Never log the credentials themselves — only that they changed.
   await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "IntegrationConfig", entityId: provider, action: "integration.updated", newValue: { credentialsUpdated: true } });
@@ -42,4 +43,20 @@ export async function testIntegrationConnectionAction(provider: string) {
 
   const adapter = await getAdapter(provider, session.user.organizationId);
   return adapter.testConnection();
+}
+
+/**
+ * Replaces an integration's inbound webhook URL token, e.g. after the URL leaked.
+ * The old URL stops working immediately, so the admin must update it at the provider.
+ */
+export async function rotateWebhookTokenAction(provider: string) {
+  const session = await requireRole(["ADMIN"]);
+
+  await prisma.integrationConfig.update({
+    where: { organizationId_provider: { organizationId: session.user.organizationId, provider } },
+    data: { webhookToken: newWebhookToken() },
+  });
+  await recordAudit({ organizationId: session.user.organizationId, userId: session.user.id, entity: "IntegrationConfig", entityId: provider, action: "integration.webhook_url_rotated" });
+
+  revalidatePath("/settings/integrations");
 }

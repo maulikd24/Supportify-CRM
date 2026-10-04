@@ -9,8 +9,9 @@ import { requireRole } from "@/lib/auth/require-role";
 import { generateApiKey } from "@/lib/security/api-keys";
 import { encryptJson } from "@/lib/security/crypto";
 import { WEBHOOK_EVENTS } from "@/lib/webhooks/events";
-import { withUserErrors } from "@/lib/actions/user-error";
+import { UserError, withUserErrors } from "@/lib/actions/user-error";
 import { recordAudit } from "@/lib/audit/record";
+import { assertPublicHttpsUrl, UnsafeUrlError } from "@/lib/security/outbound";
 
 const createKeySchema = z.object({ name: z.string().min(1, "Name is required") });
 
@@ -59,6 +60,14 @@ export const createWebhookAction = withUserErrors(async function createWebhookAc
     url: formData.get("url"),
     events: formData.getAll("events"),
   });
+
+  // Only https URLs that resolve to public addresses (deliveries re-check at connect time).
+  try {
+    await assertPublicHttpsUrl(parsed.url);
+  } catch (error) {
+    if (error instanceof UnsafeUrlError) throw new UserError(error.message);
+    throw error;
+  }
 
   const secret = `whsec_${randomBytes(24).toString("hex")}`;
 
