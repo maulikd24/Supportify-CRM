@@ -117,7 +117,7 @@ model ApiKey {
   // every key with a slow per-row bcrypt.compare.
   hashedKey      String       @unique
   createdById    String
-  createdBy      User         @relation(fields: [createdById], references: [id])
+  createdBy      User         @relation(fields: [createdById], references: [id], onDelete: NoAction)
   lastUsedAt     DateTime?
   revokedAt      DateTime?
   createdAt      DateTime     @default(now())
@@ -327,7 +327,7 @@ model Client {
   priority       Priority     @default(MEDIUM)
   status         ClientStatus @default(ACTIVE)
   currentStageId String
-  currentStage   Stage        @relation(fields: [currentStageId], references: [id])
+  currentStage   Stage        @relation(fields: [currentStageId], references: [id], onDelete: NoAction)
   stageEnteredAt DateTime     @default(now())
   assignedToId   String?
   assignedTo     User?        @relation("AssignedRM", fields: [assignedToId], references: [id])
@@ -403,16 +403,21 @@ model CustomFieldDefinition {
   @@index([organizationId, sortOrder])
 }
 
+// Org deletion: relations marked onDelete: NoAction are also DEFERRABLE
+// INITIALLY DEFERRED in the database (set in migration
+// 20261021000000_fix_organization_deletion_cascades — Prisma can't express it).
+// Re-apply it if a migration ever recreates one of those foreign keys;
+// tests/security/delete-organization.test.ts catches it if you don't.
 model StageHistory {
   id          String   @id @default(cuid())
   clientId    String
-  client      Client   @relation(fields: [clientId], references: [id])
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   fromStageId String?
   fromStage   Stage?   @relation("FromStage", fields: [fromStageId], references: [id])
   toStageId   String
-  toStage     Stage    @relation("ToStage", fields: [toStageId], references: [id])
+  toStage     Stage    @relation("ToStage", fields: [toStageId], references: [id], onDelete: NoAction)
   changedById String
-  changedBy   User     @relation(fields: [changedById], references: [id])
+  changedBy   User     @relation(fields: [changedById], references: [id], onDelete: NoAction)
   changedAt   DateTime @default(now())
   reason      String?
 }
@@ -430,7 +435,7 @@ model Document {
   organizationId  String
   organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   clientId        String
-  client          Client         @relation(fields: [clientId], references: [id])
+  client          Client         @relation(fields: [clientId], references: [id], onDelete: NoAction)
   documentType    String
   mandatory       Boolean        @default(true)
   status          DocumentStatus @default(PENDING)
@@ -454,9 +459,9 @@ model Exception {
   organizationId     String
   organization       Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   clientId           String
-  client             Client          @relation(fields: [clientId], references: [id])
+  client             Client          @relation(fields: [clientId], references: [id], onDelete: NoAction)
   stageId            String
-  stage              Stage           @relation(fields: [stageId], references: [id])
+  stage              Stage           @relation(fields: [stageId], references: [id], onDelete: NoAction)
   reason             String
   notes              String?
   expectedResumeDate DateTime?
@@ -506,10 +511,10 @@ model Task {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   clientId       String
-  client         Client       @relation(fields: [clientId], references: [id])
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: NoAction)
 
   assignedToId String
-  assignedTo   User   @relation(fields: [assignedToId], references: [id])
+  assignedTo   User   @relation(fields: [assignedToId], references: [id], onDelete: NoAction)
 
   title      String
   dueAt      DateTime
@@ -540,7 +545,7 @@ model Activity {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   clientId       String
-  client         Client       @relation(fields: [clientId], references: [id])
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: NoAction)
 
   userId String?
   user   User?   @relation(fields: [userId], references: [id])
@@ -570,7 +575,7 @@ model Journey {
   updatedAt      DateTime     @updatedAt
 
   createdById String
-  createdBy   User   @relation(fields: [createdById], references: [id])
+  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: NoAction)
 
   runs JourneyRun[]
 
@@ -590,9 +595,9 @@ model JourneyRun {
   organizationId String
   organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   journeyId      String
-  journey        Journey          @relation(fields: [journeyId], references: [id])
+  journey        Journey          @relation(fields: [journeyId], references: [id], onDelete: NoAction)
   clientId       String
-  client         Client           @relation(fields: [clientId], references: [id])
+  client         Client           @relation(fields: [clientId], references: [id], onDelete: NoAction)
   currentNodeId  String?
   status         JourneyRunStatus @default(RUNNING)
   context        Json             @default("{}")
@@ -609,7 +614,7 @@ model JourneyRun {
 model JourneyRunStep {
   id           String     @id @default(cuid())
   runId        String
-  run          JourneyRun @relation(fields: [runId], references: [id])
+  run          JourneyRun @relation(fields: [runId], references: [id], onDelete: Cascade)
   nodeId       String
   nodeType     String // "trigger" | "action" | "condition" | "wait"
   status       String // "pending" | "success" | "failed" | "skipped"
@@ -685,7 +690,7 @@ model Message {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   clientId       String
-  client         Client       @relation(fields: [clientId], references: [id])
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: NoAction)
 
   channel    String
   provider   String
@@ -711,7 +716,7 @@ model Notification {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userId         String
-  user           User         @relation(fields: [userId], references: [id])
+  user           User         @relation(fields: [userId], references: [id], onDelete: NoAction)
   type           String // "stage_sla_breach" | "document_rejected" | "kyc_update" | "funding_pending" | "dealer_intro_pending" | "new_assignment" | "hold_started" | "client_reopened" | "task_overdue" | "task_overdue_escalation" | "inbound_message" | ...
   payload        Json
   readAt         DateTime?
@@ -838,7 +843,7 @@ model CalibrationSession {
   reviewId       String
   review         TicketReview      @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   createdById    String
-  createdBy      User              @relation(fields: [createdById], references: [id])
+  createdBy      User              @relation(fields: [createdById], references: [id], onDelete: NoAction)
   status         CalibrationStatus @default(OPEN)
   createdAt      DateTime          @default(now())
   closedAt       DateTime?
@@ -853,7 +858,7 @@ model CalibrationEntry {
   sessionId      String
   session        CalibrationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   reviewerId     String
-  reviewer       User               @relation(fields: [reviewerId], references: [id])
+  reviewer       User               @relation(fields: [reviewerId], references: [id], onDelete: NoAction)
   overallScore   Int?
   criteriaScores Json?
   notes          String?
