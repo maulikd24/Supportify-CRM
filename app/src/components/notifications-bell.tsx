@@ -52,6 +52,8 @@ export function describeNotification(notification: Notification): string {
       return `${payload.raisedByName} disputed the score on ticket #${payload.ticketId}`;
     case "qa_dispute_resolved":
       return `Your dispute on ticket #${payload.ticketId} was ${payload.outcome === "adjusted" ? "accepted: the score was adjusted" : "reviewed: the score stands"}`;
+    case "alert_channel_disabled":
+      return `Alerts to ${payload.channelName} were switched off after repeated delivery failures. Check it in Settings → Team alerts.`;
     default:
       return notification.type.replace(/_/g, " ");
   }

@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db/prisma";
 import { helpdeskClient } from "@/lib/qa/helpdesks";
 import { assessTicket } from "@/lib/qa/assessor";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
+import { routeAlerts } from "@/lib/alerts/route";
+import { LOW_SCORE } from "@/lib/qa/score";
 import { computeScore, DEFAULT_SCORECARD, type ResolvedScorecard } from "@/lib/qa/scorecard";
 import type { HelpdeskConnection, Prisma, SopDocument } from "@/generated/prisma/client";
 
@@ -76,6 +78,12 @@ export async function runReview(
     overallScore: review.overallScore,
     sentiment: review.sentiment,
   });
+
+  if (review.overallScore != null && review.overallScore < LOW_SCORE) {
+    await routeAlerts([
+      { organizationId, type: "qa_low_score", reviewId: review.id, ticketId: review.ticketId, agentName: review.agentName, score: review.overallScore },
+    ]);
+  }
 
   return review;
 }
