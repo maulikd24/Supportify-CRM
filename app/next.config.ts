@@ -2,11 +2,9 @@ import type { NextConfig } from "next";
 import withBundleAnalyzer from "@next/bundle-analyzer";
 import { withSentryConfig } from "@sentry/nextjs/config";
 
-// Only a baseline Content-Security-Policy so far (see below). A full policy with
-// script-src/style-src needs per-request nonces (set in proxy.ts) plus allowlist
-// testing against Stripe Checkout, Google OAuth, WorkOS and Next's own inline
-// scripts/styles — a misconfiguration silently breaks those flows. Everything
-// below is safe to ship with zero risk of breaking the app.
+// The full, nonce-based Content-Security-Policy is set per request in src/proxy.ts
+// (src/lib/security/csp.ts). The baseline CSP header below stays as an always-on
+// floor — it applies even to routes the proxy skips — and browsers enforce both.
 const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -16,7 +14,6 @@ const securityHeaders = [
   // A baseline CSP limited to directives that can't affect scripts, styles, or the
   // Stripe/Google/WorkOS redirects: no plugins/<object>, no <base> hijacking, and no
   // framing (clickjacking — same as X-Frame-Options, for browsers that prefer CSP).
-  // A full script-src policy needs per-request nonces; see the note above.
   { key: "Content-Security-Policy", value: "object-src 'none'; base-uri 'self'; frame-ancestors 'none'" },
 ];
 
