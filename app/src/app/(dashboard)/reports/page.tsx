@@ -10,6 +10,8 @@ import { getStageDurations } from "@/lib/reports/stage-durations";
 import type { Prisma } from "@/generated/prisma/client";
 import { Panel } from "@/components/dashboard/panel";
 import { TableEmpty } from "@/components/page/table-empty";
+import { firstResponseByRm } from "@/lib/inbox/inbox";
+import { formatDuration } from "@/lib/utils/format";
 
 export default async function ReportsPage() {
   const session = await requireRole(["ADMIN", "MANAGER"]);
@@ -139,6 +141,16 @@ export default async function ReportsPage() {
       completed: completedBySource.get(r.leadSource) ?? 0,
     }))
     .sort((a, b) => b.total - a.total);
+
+  const responseStats = await firstResponseByRm(session.user, new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
+  const responders = await prisma.user.findMany({
+    where: { organizationId, id: { in: responseStats.flatMap((r) => (r.userId ? [r.userId] : [])) } },
+    select: { id: true, name: true },
+  });
+  const responderName = new Map(responders.map((u) => [u.id, u.name]));
+  const responseRows = responseStats
+    .map((r) => ({ ...r, name: r.userId ? (responderName.get(r.userId) ?? "Former user") : "Unassigned" }))
+    .sort((a, b) => b.waitingNow - a.waitingNow || (b.medianMs ?? 0) - (a.medianMs ?? 0));
 
   const rmPerformance = rms.map((rm) => {
     const rmActiveRows = activeClientRows.filter((c) => c.assignedToId === rm.id);
@@ -296,6 +308,36 @@ export default async function ReportsPage() {
 
         </Panel>
       </div>
+
+      <Panel
+        eyebrow="Inbox"
+        title="First response time"
+        description="Last 30 days: how long clients waited for a reply after writing in, by assigned RM."
+      >
+        <div className="overflow-x-auto border-t border-border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Assigned to</TableHead>
+                <TableHead>Median first response</TableHead>
+                <TableHead>Replies</TableHead>
+                <TableHead>Waiting now</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {responseRows.map((r) => (
+                <TableRow key={r.userId ?? "unassigned"}>
+                  <TableCell className="font-medium">{r.name}</TableCell>
+                  <TableCell>{r.medianMs === null ? "—" : formatDuration(r.medianMs)}</TableCell>
+                  <TableCell>{r.answered}</TableCell>
+                  <TableCell className={r.waitingNow > 0 ? "text-destructive" : ""}>{r.waitingNow}</TableCell>
+                </TableRow>
+              ))}
+              {responseRows.length === 0 && <TableEmpty colSpan={4}>No client messages in the last 30 days.</TableEmpty>}
+            </TableBody>
+          </Table>
+        </div>
+      </Panel>
 
       <Panel eyebrow="Team" title="RM Performance">
 

@@ -713,10 +713,13 @@ model Message {
   status     MessageStatus    @default(QUEUED)
   externalId String?
   metadata   Json?
+  // Inbound only: when someone opened the conversation in the Inbox (null = unread).
+  readAt     DateTime?
   createdAt  DateTime         @default(now())
 
   @@index([organizationId])
   @@index([clientId, createdAt])
+  @@index([organizationId, direction, readAt])
 }
 
 // ---------------------------------------------------------------------------

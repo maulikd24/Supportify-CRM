@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Inbox,
   LogOut,
   LayoutDashboard,
   Sparkles,
@@ -60,6 +61,7 @@ import type { OrgRole } from "@/generated/prisma/client";
 const ICON_MAP = {
   dashboard: LayoutDashboard,
   copilot: Sparkles,
+  inbox: Inbox,
   users: Users,
   tasks: CheckSquare,
   journeys: Workflow,
