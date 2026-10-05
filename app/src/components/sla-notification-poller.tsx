@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 
 import type { Role } from "@/generated/prisma/client";
 import { describeNotification } from "@/components/notifications-bell";
@@ -31,6 +32,7 @@ export function SlaNotificationPoller({ role }: { role: Role }) {
   const lastCheckedRef = useRef<string>(new Date().toISOString());
   const notifiedIdsRef = useRef<Set<string>>(new Set());
   const promptedRef = useRef(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (role !== "RM" && role !== "MANAGER") return;
@@ -72,7 +74,7 @@ export function SlaNotificationPoller({ role }: { role: Role }) {
         popup.onclick = () => {
           window.focus();
           if (typeof payload.clientId === "string") {
-            window.location.href = `/clients/${payload.clientId}`;
+            router.push(`/clients/${payload.clientId}`);
           }
           popup.close();
         };
@@ -83,7 +85,7 @@ export function SlaNotificationPoller({ role }: { role: Role }) {
 
     const interval = setInterval(poll, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [role]);
+  }, [role, router]);
 
   return null;
 }

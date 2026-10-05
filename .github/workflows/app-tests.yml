@@ -54,5 +54,8 @@ jobs:
       - name: Type check
         run: npx next typegen && npx tsc --noEmit
 
+      - name: Lint
+        run: npm run lint
+
       - name: Tests (billing, tenant isolation, permissions, security, auto-review)
         run: npm test
