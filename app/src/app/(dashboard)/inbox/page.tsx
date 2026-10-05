@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireCrmUser } from "@/lib/auth/require-role";
 import { getThread, listConversations, type Thread } from "@/lib/inbox/inbox";
 import { formatDateTime } from "@/lib/utils/format";
+import { draftingConfigured } from "@/lib/drafting/claude";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Panel, PanelEmpty } from "@/components/dashboard/panel";
@@ -29,6 +30,10 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
         select: { id: true, name: true, variables: true },
       })
     : [];
+  const draftingAvailable =
+    thread !== null &&
+    draftingConfigured() &&
+    (await prisma.organization.findUniqueOrThrow({ where: { id: session.user.organizationId }, select: { aiDraftingEnabled: true } })).aiDraftingEnabled;
   const openUnread = conversations.find((c) => c.clientId === thread?.client.id)?.unread ?? 0;
 
   return (
@@ -109,6 +114,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
             channel={thread.replyChannel}
             freeTextAllowed={thread.replyChannel === "sms" || thread.whatsappWindowEndsAt !== null}
             templates={templates.map((t) => ({ id: t.id, name: t.name, variables: (t.variables as string[] | null) ?? [] }))}
+            draftingAvailable={draftingAvailable}
           />
         </Panel>
       ) : (

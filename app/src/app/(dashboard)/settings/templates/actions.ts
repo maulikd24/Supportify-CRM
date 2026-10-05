@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { requireCrmRole } from "@/lib/auth/require-role";
 import { withUserErrors } from "@/lib/actions/user-error";
+import { recordAudit } from "@/lib/audit/record";
 
 const templateSchema = z.object({
   channel: z.enum(["whatsapp", "sms"]),
@@ -58,5 +59,35 @@ export const deleteTemplateAction = withUserErrors(async function deleteTemplate
 
   await prisma.messageTemplate.delete({ where: { id: templateId, organizationId: session.user.organizationId } });
 
+  revalidatePath("/settings/templates");
+});
+
+const aiDraftingSchema = z.object({
+  enabled: z.boolean(),
+  tone: z.string().trim().max(300),
+  avoid: z.string().trim().max(1000),
+});
+
+/** Admin controls for AI reply drafting: on/off, house tone and things drafts must avoid. */
+export const updateAiDraftingAction = withUserErrors(async function updateAiDraftingAction(input: z.input<typeof aiDraftingSchema>) {
+  const session = await requireCrmRole(["ADMIN"]);
+  const parsed = aiDraftingSchema.parse(input);
+  const organizationId = session.user.organizationId;
+
+  const before = await prisma.organization.findUniqueOrThrow({
+    where: { id: organizationId },
+    select: { aiDraftingEnabled: true, aiDraftTone: true, aiDraftAvoid: true },
+  });
+  const after = { aiDraftingEnabled: parsed.enabled, aiDraftTone: parsed.tone || null, aiDraftAvoid: parsed.avoid || null };
+  await prisma.organization.update({ where: { id: organizationId }, data: after });
+  await recordAudit({
+    organizationId,
+    userId: session.user.id,
+    entity: "Organization",
+    entityId: organizationId,
+    action: "settings.ai_drafting_updated",
+    oldValue: before,
+    newValue: after,
+  });
   revalidatePath("/settings/templates");
 });

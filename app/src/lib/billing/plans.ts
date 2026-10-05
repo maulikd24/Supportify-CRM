@@ -20,6 +20,8 @@ export type PlanTier = {
   reviewQuota?: number | null;
   /** CRM plans: maximum seats. null = unlimited (enterprise). */
   seats?: number | null;
+  /** CRM plans: AI reply drafts per seat per month. null/absent = unlimited (enterprise). */
+  aiDraftsPerSeat?: number | null;
   stripePriceEnvVar?: string;
   /** Stripe Price for annual billing; the annual option only appears once it's set. */
   stripeAnnualPriceEnvVar?: string;
@@ -78,6 +80,7 @@ export const CRM_PLANS: PlanTier[] = [
     priceLabel: "$29/seat/mo",
     annualPriceLabel: "$290/seat/yr",
     seats: 5,
+    aiDraftsPerSeat: 100,
     stripePriceEnvVar: "STRIPE_PRICE_CRM_STARTER",
     stripeAnnualPriceEnvVar: "STRIPE_PRICE_CRM_STARTER_ANNUAL",
     features: ["Up to 5 team members", "Client pipeline & journeys", "Task management"],
@@ -88,6 +91,7 @@ export const CRM_PLANS: PlanTier[] = [
     priceLabel: "$49/seat/mo",
     annualPriceLabel: "$490/seat/yr",
     seats: 20,
+    aiDraftsPerSeat: 200,
     stripePriceEnvVar: "STRIPE_PRICE_CRM_GROWTH",
     stripeAnnualPriceEnvVar: "STRIPE_PRICE_CRM_GROWTH_ANNUAL",
     featured: true,
@@ -99,6 +103,7 @@ export const CRM_PLANS: PlanTier[] = [
     priceLabel: "$69/seat/mo",
     annualPriceLabel: "$690/seat/yr",
     seats: 50,
+    aiDraftsPerSeat: 300,
     stripePriceEnvVar: "STRIPE_PRICE_CRM_SCALE",
     stripeAnnualPriceEnvVar: "STRIPE_PRICE_CRM_SCALE_ANNUAL",
     features: ["Up to 50 team members", "Everything in Growth", "Priority support"],
@@ -161,7 +166,7 @@ export function qaOverageConfig(): { meterEventName: string; priceId: string } |
 export const PAST_DUE_GRACE_DAYS = 7;
 
 /** Limits applied to free trials, so a trial can't run unlimited AI reviews or seats. */
-export const TRIAL_LIMITS = { reviewQuota: 50, seats: 3 } as const;
+export const TRIAL_LIMITS = { reviewQuota: 50, seats: 3, aiDrafts: 50 } as const;
 
 export type PlanLimits = { seats?: number | null; reviewQuota?: number | null };
 
@@ -178,4 +183,15 @@ export function limitsForPlan(product: Product, planId: string | null | undefine
   const plan = planId ? planById(product, planId) : undefined;
   if (!plan || plan.contactSales) return {};
   return product === "CRM" ? { seats: plan.seats ?? null } : { reviewQuota: plan.reviewQuota ?? null };
+}
+
+/**
+ * AI reply drafts a CRM subscription may use per period: per-seat allowance × seats on
+ * self-serve plans, a fixed allowance on trials, unlimited (null) on enterprise/staff-set plans.
+ */
+export function aiDraftQuota(sub: { status: string; planId: string | null; seats: number | null }): number | null {
+  if (sub.status === "TRIALING") return TRIAL_LIMITS.aiDrafts;
+  const plan = sub.planId ? planById("CRM", sub.planId) : undefined;
+  if (!plan?.aiDraftsPerSeat) return null;
+  return plan.aiDraftsPerSeat * (sub.seats ?? plan.seats ?? 1);
 }
