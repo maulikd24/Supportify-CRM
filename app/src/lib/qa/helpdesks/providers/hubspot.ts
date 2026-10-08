@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import type { ConversationTurn } from "@/lib/qa/assessor";
-import { htmlToText, personName, requestJson, requiredString } from "../http";
-import type { HelpdeskClient, HelpdeskProvider, HelpdeskTicket, SolvedTicket } from "../types";
+import { htmlToText, personName, requester, requestJson, requiredString } from "../http";
+import type { HelpdeskClient, HelpdeskProvider, HelpdeskTicket, SolvedTicket, TicketRequester } from "../types";
 
 const NAME = "HubSpot";
 const BASE = "https://api.hubapi.com";
@@ -19,7 +19,7 @@ class HubSpotClient implements HelpdeskClient {
   private req<T>(path: string, init: RequestInit = {}, notFound?: string) {
     return requestJson<T>(NAME, `${BASE}${path}`, { ...init, headers: this.headers }, notFound);
   }
-  private async batchRead(objectType: "emails" | "notes", ids: string[], properties: string[]): Promise<HsObject[]> {
+  private async batchRead(objectType: "emails" | "notes" | "contacts", ids: string[], properties: string[]): Promise<HsObject[]> {
     if (ids.length === 0) return [];
     const { results } = await this.req<{ results: HsObject[] }>(`/crm/v3/objects/${objectType}/batch/read`, {
       method: "POST",
@@ -34,7 +34,7 @@ class HubSpotClient implements HelpdeskClient {
 
   async getTicket(ticketId: string): Promise<HelpdeskTicket> {
     const ticket = await this.req<HsObject>(
-      `/crm/v3/objects/tickets/${encodeURIComponent(ticketId)}?properties=subject,content,hs_ticket_priority,hubspot_owner_id,closed_date,createdate&associations=emails,notes`,
+      `/crm/v3/objects/tickets/${encodeURIComponent(ticketId)}?properties=subject,content,hs_ticket_priority,hubspot_owner_id,closed_date,createdate&associations=emails,notes,contacts`,
       {},
       `Ticket ${ticketId} wasn't found in HubSpot.`,
     );
@@ -77,7 +77,18 @@ class HubSpotClient implements HelpdeskClient {
         // best-effort
       }
     }
-    return { id: ticket.id, subject: p.subject ?? "", status: p.closed_date ? "closed" : "open", priority: p.hs_ticket_priority?.toLowerCase(), agentName, agentEmail, conversation };
+    let customer: TicketRequester | undefined;
+    const contactId = ticket.associations?.contacts?.results?.[0]?.id;
+    if (contactId) {
+      try {
+        const [contact] = await this.batchRead("contacts", [contactId], ["email", "phone", "mobilephone", "firstname", "lastname"]);
+        const cp = contact?.properties ?? {};
+        customer = requester({ name: personName(cp.firstname ?? undefined, cp.lastname ?? undefined, ""), email: cp.email, phone: cp.mobilephone || cp.phone });
+      } catch {
+        // best-effort
+      }
+    }
+    return { id: ticket.id, subject: p.subject ?? "", status: p.closed_date ? "closed" : "open", priority: p.hs_ticket_priority?.toLowerCase(), agentName, agentEmail, conversation, requester: customer };
   }
 
   async listSolvedSince(since: Date, limit: number): Promise<SolvedTicket[]> {

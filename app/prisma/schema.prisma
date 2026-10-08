@@ -105,6 +105,8 @@ model Organization {
   aiDrafts            AiDraft[]
   apiKeys             ApiKey[]
   webhookEndpoints    WebhookEndpoint[]
+  alertChannels       AlertChannel[]
+  requesterLinks      RequesterLink[]
   calibrationSessions CalibrationSession[]
 }
 
@@ -184,6 +186,45 @@ model AiDraft {
   createdAt      DateTime     @default(now())
 
   @@index([organizationId, createdAt])
+}
+
+// A Slack or Microsoft Teams channel that team alerts (SLA breaches, overdue tasks, …) are
+// posted to — see src/lib/alerts. Slack channels come from the "Add to Slack" OAuth flow
+// (incoming-webhook scope only); Teams channels from a workflow webhook URL an admin pastes.
+model AlertChannel {
+  id                  String       @id @default(cuid())
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kind                String // "slack" | "teams"
+  name                String // shown in settings, e.g. "#sla-alerts · Acme" or the admin's label
+  // AES-256-GCM encrypted (see src/lib/security/crypto.ts): the webhook URL is itself the credential.
+  encryptedUrl        String
+  alertTypes          Json // string[] of ALERT_TYPES routed here (src/lib/alerts/types.ts)
+  isActive            Boolean      @default(true)
+  // Deliveries that failed in a row; at 3 the channel is switched off and admins are told in-app.
+  consecutiveFailures Int          @default(0)
+  lastError           String?
+  createdById         String?
+  createdAt           DateTime     @default(now())
+
+  deliveries AlertDelivery[]
+
+  @@index([organizationId])
+}
+
+model AlertDelivery {
+  id             String       @id @default(cuid())
+  alertChannelId String
+  alertChannel   AlertChannel @relation(fields: [alertChannelId], references: [id], onDelete: Cascade)
+  alertType      String
+  alertCount     Int          @default(1) // >1 when several alerts went out as one digest message
+  success        Boolean
+  attempts       Int
+  statusCode     Int?
+  error          String?
+  createdAt      DateTime     @default(now())
+
+  @@index([alertChannelId, createdAt])
 }
 
 model ProductSubscription {
@@ -367,6 +408,9 @@ model Client {
   // When the disengagement sweep last alerted. Any Activity/Message after it
   // re-arms the alert — see src/lib/copilot/check-disengagement.ts.
   disengagedNotifiedAt DateTime?
+  // Set when a support-quality drop was alerted; cleared when quality recovers, which
+  // re-arms the alert — see src/lib/support-health/health.ts.
+  supportRiskNotifiedAt DateTime?
   assignedToId   String?
   assignedTo     User?        @relation("AssignedRM", fields: [assignedToId], references: [id])
   mergedIntoId   String?
@@ -378,6 +422,7 @@ model Client {
   tasks        Task[]
   journeyRuns  JourneyRun[]
   messages     Message[]
+  ticketReviews TicketReview[]
   documents    Document[]
   stageHistory StageHistory[]
   exceptions   Exception[]
@@ -856,6 +901,15 @@ model TicketReview {
   helpdesk  String  @default("zendesk") // provider the ticket came from (ticket ids are only unique per helpdesk)
   isOverage Boolean @default(false) // billed as a usage-based overage review
 
+  // The customer who raised the ticket (when the helpdesk exposes them) and the CRM client
+  // they were matched to — see src/lib/support-health/link.ts. Email lowercased, phone digits only.
+  requesterName  String?
+  requesterEmail String?
+  requesterPhone String?
+  clientId       String?
+  client         Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientLinkedBy String? // "auto" (exact email/phone match) | "manual" (an admin linked it)
+
   createdAt DateTime @default(now())
 
   calibrationSessions CalibrationSession[]
@@ -865,6 +919,25 @@ model TicketReview {
   @@index([organizationId, createdAt])
   @@index([organizationId, ticketId])
   @@index([organizationId, agentEmail])
+  @@index([organizationId, clientId, createdAt])
+  @@index([organizationId, requesterEmail])
+  @@index([organizationId, requesterPhone])
+}
+
+// An admin's decision about one helpdesk requester (by email or phone): their tickets belong to
+// this client, or (clientId null) to no client, overriding automatic matching.
+model RequesterLink {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kind           String // "email" | "phone"
+  value          String // normalised: lowercased email, or phone digits
+  clientId       String?
+  createdById    String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, kind, value])
 }
 
 // ---------------------------------------------------------------------------

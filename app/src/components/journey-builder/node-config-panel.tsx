@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Node } from "@xyflow/react";
 
 import { Button } from "@/components/ui/button";
@@ -153,11 +153,9 @@ export function NodeConfigPanel({
   onClose: () => void;
 }) {
   const data = node.data as Record<string, unknown>;
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-
-  useEffect(() => {
-    setConfirmingDelete(false);
-  }, [node.id]);
+  // Which node the delete confirmation is for — selecting another node cancels it, with no effect needed.
+  const [confirmingDeleteFor, setConfirmingDeleteFor] = useState<string | null>(null);
+  const confirmingDelete = confirmingDeleteFor === node.id;
 
   function update(patch: Record<string, unknown>) {
     onChange({ ...data, ...patch });
@@ -303,7 +301,7 @@ export function NodeConfigPanel({
       )}
 
       {node.type !== "trigger" && !confirmingDelete && (
-        <Button variant="destructive" size="sm" onClick={() => setConfirmingDelete(true)} className="mt-auto">
+        <Button variant="destructive" size="sm" onClick={() => setConfirmingDeleteFor(node.id)} className="mt-auto">
           Delete Node
         </Button>
       )}
@@ -311,7 +309,7 @@ export function NodeConfigPanel({
         <div className="mt-auto flex flex-col gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2">
           <p className="text-xs">Delete this node?</p>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="flex-1" onClick={() => setConfirmingDelete(false)}>
+            <Button variant="outline" size="sm" className="flex-1" onClick={() => setConfirmingDeleteFor(null)}>
               Cancel
             </Button>
             <Button variant="destructive" size="sm" className="flex-1" onClick={onDelete}>

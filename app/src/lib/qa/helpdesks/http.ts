@@ -1,3 +1,4 @@
+import type { TicketRequester } from "@/lib/qa/helpdesks/types";
 import { z } from "zod";
 
 import { HelpdeskAuthError, TicketNotFoundError } from "./types";
@@ -45,6 +46,14 @@ export function htmlToText(html: string | null | undefined): string {
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+/** A requester with blank fields dropped; undefined when nothing identifies them. */
+export function requester(r: { name?: string | null; email?: string | null; phone?: string | null }): TicketRequester | undefined {
+  const name = r.name?.trim() || undefined;
+  const email = r.email?.trim() || undefined;
+  const phone = r.phone?.trim() || undefined;
+  return email || phone ? { name, email, phone } : undefined;
 }
 
 export function personName(first?: string | null, last?: string | null, fallback = "Unknown"): string {

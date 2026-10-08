@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { ConversationTurn } from "@/lib/qa/assessor";
-import { htmlToText, personName, requestJson, requiredString, unix } from "../http";
+import { htmlToText, personName, requester, requestJson, requiredString, unix } from "../http";
 import type { HelpdeskClient, HelpdeskProvider, HelpdeskTicket, SolvedTicket } from "../types";
 
 const NAME = "Front";
@@ -10,7 +10,7 @@ const schema = z.object({ apiToken: requiredString("Enter a Front API token") })
 type Credentials = z.infer<typeof schema>;
 
 type FTeammate = { first_name?: string; last_name?: string; email?: string } | null;
-type FConversation = { id: string; subject?: string; status?: string; assignee?: FTeammate; tags?: { name: string }[] };
+type FConversation = { id: string; subject?: string; status?: string; assignee?: FTeammate; tags?: { name: string }[]; recipient?: { handle?: string; name?: string | null } | null };
 type FMessage = { is_inbound?: boolean; text?: string | null; body?: string | null; author?: FTeammate; created_at?: number; recipients?: { handle?: string; role?: string }[] };
 type FComment = { body?: string; author?: FTeammate; posted_at?: number };
 
@@ -58,6 +58,10 @@ class FrontClient implements HelpdeskClient {
       agentName: personName(c.assignee?.first_name, c.assignee?.last_name),
       agentEmail: c.assignee?.email ?? "",
       conversation,
+      // Front's recipient handle is an email address or a phone number, depending on the channel.
+      requester: c.recipient?.handle
+        ? requester({ name: c.recipient.name, ...(c.recipient.handle.includes("@") ? { email: c.recipient.handle } : /^\+?[\d\s()-]{7,}$/.test(c.recipient.handle) ? { phone: c.recipient.handle } : {}) })
+        : undefined,
     };
   }
 

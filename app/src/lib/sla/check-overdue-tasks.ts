@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
+import { routeAlerts } from "@/lib/alerts/route";
+import type { Alert } from "@/lib/alerts/types";
 
 const EXCESSIVE_OVERDUE_THRESHOLD = 5;
 
@@ -8,17 +10,27 @@ export async function checkOverdueTasks() {
 
   const overdueTasks = await prisma.task.findMany({
     where: { status: "PENDING", dueAt: { lt: now } },
-    include: { assignedTo: true, client: true },
+    include: { assignedTo: true, client: { include: { currentStage: { select: { name: true } } } } },
     orderBy: { dueAt: "asc" },
     take: 200,
   });
 
   let flagged = 0;
+  const alerts: Alert[] = [];
   for (const task of overdueTasks) {
     // Conditional claim: if an overlapping run already flipped this task, it also sent the alert.
     const { count } = await prisma.task.updateMany({ where: { id: task.id, status: "PENDING" }, data: { status: "OVERDUE" } });
     if (count === 0) continue;
     flagged += 1;
+    alerts.push({
+      organizationId: task.organizationId,
+      type: "task_overdue",
+      clientId: task.clientId,
+      clientName: task.client.name,
+      stage: task.client.currentStage.name,
+      taskTitle: task.title,
+      assignedToName: task.assignedTo.name,
+    });
 
     await prisma.notification.create({
       data: {
@@ -48,6 +60,7 @@ export async function checkOverdueTasks() {
     }
   }
 
+  await routeAlerts(alerts);
   await checkExcessiveRmWorkload(now);
 
   return { flagged };

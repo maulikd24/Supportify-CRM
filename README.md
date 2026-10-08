@@ -45,6 +45,14 @@ Required environment variables (Vercel → Settings → Environment Variables):
 | `STRIPE_PRICE_QA_OVERAGE` | Metered Stripe Price ($0.25/review) attached to that meter. |
 | `AUTO_REVIEW_CONCURRENCY` | Optional. Reviews run in parallel per batch (default 4). |
 | `ANTHROPIC_API_KEY` | Claude API key, used by QA Sentinel reviews and by "Draft with AI" in the Inbox (hidden when unset). |
+| `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` | Optional. Supportify's Slack app, for "Add to Slack" in Settings → Team alerts. Without them only Teams channels can be added. |
+
+### Slack app for team alerts
+
+Create one app at <https://api.slack.com/apps> (From scratch). Under **OAuth & Permissions** add the
+redirect URL `<APP_URL>/api/integrations/slack/callback` and the bot scope `incoming-webhook` (nothing
+else). Under **Manage Distribution**, turn on public distribution so other workspaces can install it.
+Copy the Client ID and Client Secret from **Basic Information** into the two variables above.
 
 ## Plans and Stripe prices
 

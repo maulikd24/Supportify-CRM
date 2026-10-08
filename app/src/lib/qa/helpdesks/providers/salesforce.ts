@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { ConversationTurn } from "@/lib/qa/assessor";
-import { htmlToText, isoSeconds, requestJson, requiredString } from "../http";
+import { htmlToText, isoSeconds, requester, requestJson, requiredString } from "../http";
 import { HelpdeskAuthError, TicketNotFoundError, type HelpdeskClient, type HelpdeskProvider, type HelpdeskTicket, type SolvedTicket } from "../types";
 
 const NAME = "Salesforce";
@@ -18,7 +18,23 @@ const schema = z.object({
 });
 type Credentials = z.infer<typeof schema>;
 
-type Case = { Id: string; CaseNumber: string; Subject?: string; Description?: string; Status?: string; Priority?: string; CreatedDate?: string; Owner?: { Name?: string; Email?: string } | null };
+type Case = {
+  Id: string;
+  CaseNumber: string;
+  Subject?: string;
+  Description?: string;
+  Status?: string;
+  Priority?: string;
+  CreatedDate?: string;
+  Owner?: { Name?: string; Email?: string } | null;
+  Contact?: { Name?: string } | null;
+  ContactEmail?: string | null;
+  ContactMobile?: string | null;
+  ContactPhone?: string | null;
+  SuppliedName?: string | null;
+  SuppliedEmail?: string | null;
+  SuppliedPhone?: string | null;
+};
 type Email = { TextBody?: string; HtmlBody?: string; Incoming?: boolean; FromAddress?: string; MessageDate?: string };
 type Comment = { CommentBody?: string; IsPublished?: boolean; CreatedDate?: string; CreatedBy?: { Name?: string } };
 
@@ -62,7 +78,7 @@ class SalesforceClient implements HelpdeskClient {
 
   async getTicket(ticketId: string): Promise<HelpdeskTicket> {
     const input = ticketId.trim();
-    const fields = "Id, CaseNumber, Subject, Description, Status, Priority, CreatedDate, Owner.Name, Owner.Email";
+    const fields = "Id, CaseNumber, Subject, Description, Status, Priority, CreatedDate, Owner.Name, Owner.Email, Contact.Name, ContactEmail, ContactMobile, ContactPhone, SuppliedName, SuppliedEmail, SuppliedPhone";
     const where = /^500[A-Za-z0-9]{12}([A-Za-z0-9]{3})?$/.test(input)
       ? `Id = ${soqlString(input)}`
       : `CaseNumber IN (${soqlString(input)}, ${soqlString(input.replace(/^0+/, "").padStart(8, "0"))})`;
@@ -87,6 +103,12 @@ class SalesforceClient implements HelpdeskClient {
       agentName: kase.Owner?.Name ?? "Unknown",
       agentEmail: kase.Owner?.Email ?? "",
       conversation,
+      // The linked Contact when there is one, else what a web-to-case/email-to-case sender supplied.
+      requester: requester({
+        name: kase.Contact?.Name ?? kase.SuppliedName,
+        email: kase.ContactEmail || kase.SuppliedEmail,
+        phone: kase.ContactMobile || kase.ContactPhone || kase.SuppliedPhone,
+      }),
     };
   }
 

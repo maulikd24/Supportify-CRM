@@ -30,6 +30,7 @@ const CRM_NAV_ITEMS: (NavItem & { roles: Role[] })[] = [
   { href: "/settings/templates", label: "Templates", group: "Admin", icon: "templates", roles: ["ADMIN"] },
   { href: "/settings/users", label: "Users", group: "Admin", icon: "user-cog", roles: ["ADMIN"] },
   { href: "/settings/integrations", label: "Settings", group: "Admin", icon: "settings", roles: ["ADMIN"] },
+  { href: "/settings/alerts", label: "Team alerts", group: "Admin", icon: "alerts", roles: ["ADMIN"] },
   { href: "/settings/developers", label: "Developers", group: "Admin", icon: "developers", roles: ["ADMIN"] },
   { href: "/billing/CRM", label: "Billing", group: "Admin", icon: "billing", roles: ["ADMIN"] },
   { href: "/org/security", label: "Security & audit", group: "Organization", icon: "sso", roles: ["ADMIN"] },

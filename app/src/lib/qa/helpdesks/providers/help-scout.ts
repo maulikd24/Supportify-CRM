@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { ConversationTurn } from "@/lib/qa/assessor";
-import { htmlToText, isoSeconds, personName, requestJson, requiredString } from "../http";
+import { htmlToText, isoSeconds, personName, requester, requestJson, requiredString } from "../http";
 import { HelpdeskAuthError, TicketNotFoundError, type HelpdeskClient, type HelpdeskProvider, type HelpdeskTicket, type SolvedTicket } from "../types";
 
 const NAME = "Help Scout";
@@ -20,6 +20,7 @@ type HsConversation = {
   subject?: string;
   status?: string;
   assignee?: HsPerson | null;
+  primaryCustomer?: HsPerson | null;
   tags?: { tag: string }[];
   _embedded?: { threads?: HsThread[] };
 };
@@ -86,6 +87,7 @@ class HelpScoutClient implements HelpdeskClient {
       agentName: personName(c.assignee?.first, c.assignee?.last),
       agentEmail: c.assignee?.email ?? "",
       conversation,
+      requester: c.primaryCustomer ? requester({ name: personName(c.primaryCustomer.first, c.primaryCustomer.last, ""), email: c.primaryCustomer.email }) : undefined,
     };
   }
 

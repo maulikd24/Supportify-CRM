@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { Manrope, Geist_Mono, Sora, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
@@ -30,7 +31,10 @@ export const metadata: Metadata = {
   description: "Client onboarding & journey management for Supportify",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Every page renders per request: the CSP nonce (src/proxy.ts) can only be applied to
+  // Next's scripts at request time — a statically prerendered page would carry none.
+  await connection();
   return (
     <html
       lang="en"

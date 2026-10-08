@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
+import { routeAlerts } from "@/lib/alerts/route";
+import type { Alert } from "@/lib/alerts/types";
 
 const DISENGAGEMENT_THRESHOLD_DAYS = 5;
 const CANDIDATE_LIMIT = 200;
@@ -38,7 +40,15 @@ export async function checkDisengagement(): Promise<{ flagged: number }> {
 
   const clients = await prisma.client.findMany({
     where: { id: { in: claimed.map((c) => c.id) } },
-    select: { id: true, organizationId: true, name: true, assignedToId: true, createdAt: true },
+    select: {
+      id: true,
+      organizationId: true,
+      name: true,
+      assignedToId: true,
+      createdAt: true,
+      currentStage: { select: { name: true } },
+      assignedTo: { select: { name: true } },
+    },
   });
 
   const clientIds = clients.map((c) => c.id);
@@ -62,6 +72,7 @@ export async function checkDisengagement(): Promise<{ flagged: number }> {
   const lastMessageByClient = new Map(lastMessages.map((m) => [m.clientId, m.createdAt]));
 
   let flagged = 0;
+  const alerts: Alert[] = [];
 
   for (const client of clients) {
     if (!client.assignedToId) continue;
@@ -82,7 +93,17 @@ export async function checkDisengagement(): Promise<{ flagged: number }> {
       },
     });
     flagged += 1;
+    alerts.push({
+      organizationId: client.organizationId,
+      type: "client_disengaged",
+      clientId: client.id,
+      clientName: client.name,
+      stage: client.currentStage.name,
+      daysQuiet: daysSinceLastActivity,
+      assignedToName: client.assignedTo?.name ?? null,
+    });
   }
 
+  await routeAlerts(alerts);
   return { flagged };
 }
