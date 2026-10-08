@@ -50,6 +50,11 @@ model Organization {
   // Last client number handed out in this org (client codes CL-00001, CL-00002, …).
   // Incremented atomically by generateClientCode, so concurrent creates never collide.
   clientCodeSeq        Int      @default(0)
+  // AI message drafting in the Inbox (src/lib/drafting). Admins can switch it off and steer
+  // the tone; drafts are only ever suggestions an RM edits and sends.
+  aiDraftingEnabled    Boolean @default(true)
+  aiDraftTone          String? // e.g. "Warm and concise, use the client's first name"
+  aiDraftAvoid         String? // phrases or topics drafts must avoid, one per line
   stripeCustomerId     String? @unique // one Stripe Customer per org; subscriptions live per-product below
   // Set once an admin starts SSO setup (see src/lib/sso/workos.ts). The actual
   // SAML/OIDC connection + domain(s) are configured by the customer's own IT
@@ -97,6 +102,7 @@ model Organization {
   coachingSessions   CoachingSession[]
   reviewDisputes     ReviewDispute[]
 
+  aiDrafts            AiDraft[]
   apiKeys             ApiKey[]
   webhookEndpoints    WebhookEndpoint[]
   alertChannels       AlertChannel[]
@@ -161,6 +167,27 @@ model WebhookDelivery {
   @@index([webhookEndpointId, createdAt])
 }
 
+// One AI-drafted reply (src/lib/drafting): what the model produced and what it cost, kept for
+// quality review and per-org cost tracking. The RM always edits and sends it themselves.
+model AiDraft {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  clientId       String
+  mode           String // "text" (free reply) | "template" (approved template + variables)
+  channel        String // "whatsapp" | "sms"
+  model          String
+  promptVersion  String
+  draft          Json // { text } or { templateId, variables }
+  inputTokens    Int
+  outputTokens   Int
+  costUsd        Float
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
+}
+
 // A Slack or Microsoft Teams channel that team alerts (SLA breaches, overdue tasks, …) are
 // posted to — see src/lib/alerts. Slack channels come from the "Add to Slack" OAuth flow
 // (incoming-webhook scope only); Teams channels from a workflow webhook URL an admin pastes.
@@ -214,6 +241,7 @@ model ProductSubscription {
   seats                 Int? // CRM plans: purchased seat count
   reviewQuota           Int? // QA Sentinel plans: reviews allowed per billing period
   reviewsUsedThisPeriod Int  @default(0)
+  aiDraftsUsedThisPeriod Int @default(0) // CRM: AI reply drafts used this period (quota: billing/plans.ts)
 
   currentPeriodEnd DateTime?
   trialEndsAt      DateTime?

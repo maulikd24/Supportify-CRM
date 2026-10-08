@@ -69,7 +69,7 @@ async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription) {
     where: { organizationId_product: { organizationId, product } },
     update: {
       ...data,
-      ...(newPeriod ? { reviewsUsedThisPeriod: 0, overageReviewsThisPeriod: 0, usagePeriodStart: new Date() } : {}),
+      ...(newPeriod ? { reviewsUsedThisPeriod: 0, overageReviewsThisPeriod: 0, aiDraftsUsedThisPeriod: 0, usagePeriodStart: new Date() } : {}),
     },
     create: { organizationId, product, ...data, planId, usagePeriodStart: new Date() },
   });

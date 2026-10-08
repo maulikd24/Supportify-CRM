@@ -13,6 +13,7 @@ export const RATE_LIMITS = {
   ssoByIp: [20, 15 * 60],
   verificationEmailByUser: [3, 60 * 60],
   apiByKey: [120, 60],
+  aiDraftByUser: [20, 60],
 } as const satisfies Record<string, readonly [number, number]>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

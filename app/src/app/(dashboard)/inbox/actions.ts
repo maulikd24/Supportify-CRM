@@ -7,6 +7,8 @@ import { prisma } from "@/lib/db/prisma";
 import { requireCrmUser } from "@/lib/auth/require-role";
 import { sendMessage } from "@/lib/messaging/send";
 import { getThread, markConversationRead } from "@/lib/inbox/inbox";
+import { draftReply } from "@/lib/drafting/draft";
+import { rateLimit } from "@/lib/security/rate-limit";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
 
 const replySchema = z.discriminatedUnion("kind", [
@@ -53,4 +55,12 @@ export const markConversationReadAction = withUserErrors(async function markConv
   const session = await requireCrmUser();
   const marked = await markConversationRead(session.user, clientId);
   if (marked > 0) revalidatePath("/inbox");
+});
+
+/** An AI-drafted reply for the RM to review and edit. Never sends anything itself. */
+export const draftInboxReplyAction = withUserErrors(async function draftInboxReplyAction(clientId: string) {
+  const session = await requireCrmUser();
+  const limited = await rateLimit("aiDraftByUser", session.user.id);
+  if (!limited.allowed) throw new UserError("Too many drafts in a row. Wait a minute and try again.");
+  return draftReply(session.user, clientId);
 });

@@ -3,7 +3,7 @@ import type { Prisma } from "@/generated/prisma/client";
 export const AUDIT_CATEGORIES = {
   signin: { label: "Sign-in", prefixes: ["auth."] },
   team: { label: "Team", prefixes: ["user."] },
-  settings: { label: "Settings", prefixes: ["security.", "sso.", "api_key.", "webhook.", "alerts.", "integration.", "zendesk.", "helpdesk.", "qa."] },
+  settings: { label: "Settings", prefixes: ["security.", "settings.", "sso.", "api_key.", "webhook.", "alerts.", "integration.", "zendesk.", "helpdesk.", "qa."] },
   data: { label: "Data", prefixes: ["data."] },
   billing: { label: "Billing", prefixes: ["billing.", "platform_admin_"] },
 } as const;
