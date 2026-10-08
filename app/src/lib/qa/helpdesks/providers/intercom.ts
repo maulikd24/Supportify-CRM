@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import type { ConversationTurn } from "@/lib/qa/assessor";
-import { htmlToText, requestJson, requiredString, unix } from "../http";
-import type { HelpdeskClient, HelpdeskProvider, HelpdeskTicket, SolvedTicket } from "../types";
+import { htmlToText, requester, requestJson, requiredString, unix } from "../http";
+import type { HelpdeskClient, HelpdeskProvider, HelpdeskTicket, SolvedTicket, TicketRequester } from "../types";
 
 const NAME = "Intercom";
 const schema = z.object({
@@ -18,6 +18,7 @@ type IcAuthor = { type?: string; id?: string; name?: string | null; email?: stri
 type IcPart = { part_type?: string; body?: string | null; author?: IcAuthor; created_at?: number };
 type IcConversation = {
   id: string;
+  contacts?: { contacts?: { id: string }[] };
   title?: string | null;
   state?: string;
   priority?: string;
@@ -73,7 +74,18 @@ class IntercomClient implements HelpdeskClient {
         agentEmail = last.author.email ?? "";
       }
     }
-    return { id: c.id, subject: c.title || htmlToText(c.source?.subject) || "", status: c.state ?? "", priority: c.priority, agentName, agentEmail, conversation };
+    let customer: TicketRequester | undefined;
+    const contactId = c.contacts?.contacts?.[0]?.id;
+    if (contactId) {
+      try {
+        const contact = await this.req<{ name?: string | null; email?: string | null; phone?: string | null }>(`/contacts/${encodeURIComponent(contactId)}`);
+        customer = requester(contact);
+      } catch {
+        // best-effort
+      }
+    }
+    customer ??= c.source?.author?.type && CUSTOMER_AUTHORS.has(c.source.author.type) ? requester(c.source.author) : undefined;
+    return { id: c.id, subject: c.title || htmlToText(c.source?.subject) || "", status: c.state ?? "", priority: c.priority, agentName, agentEmail, conversation, requester: customer };
   }
 
   async listSolvedSince(since: Date, limit: number): Promise<SolvedTicket[]> {

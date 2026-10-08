@@ -40,6 +40,13 @@ export function describeAlert(alert: Alert): { headline: string; detail: string;
         url: `${appUrl()}/qa/reviews/${alert.reviewId}`,
         linkText: `Ticket ${alert.ticketId}`,
       };
+    case "client_support_risk":
+      return {
+        headline: `Support quality dropped: ${alert.clientName}`,
+        detail: `Recent tickets average ${Math.round(alert.averageScore)} · Stage: ${alert.stage} · ${owner(alert.assignedToName)}`,
+        url: `${appUrl()}/clients/${alert.clientId}`,
+        linkText: alert.clientName,
+      };
   }
 }
 

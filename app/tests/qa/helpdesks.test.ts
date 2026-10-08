@@ -256,3 +256,80 @@ describe("Jira Service Management", () => {
     expect(JSON.parse(String(calls[0].init.body)).jql).toBe('project = "SUP" AND statusCategory = Done AND updated > "2026/10/01 00:00" ORDER BY updated ASC');
   });
 });
+
+describe("ticket requester (for matching tickets to CRM clients)", () => {
+  it("Zendesk and Freshdesk look the requester up; a failed lookup still returns the ticket", async () => {
+    route(
+      [/\/tickets\/7\.json/, () => ({ ticket: { id: 7, requester_id: 1, assignee_id: 9 } })],
+      [/\/tickets\/7\/comments\.json/, () => ({ comments: [{ author_id: 1, plain_body: "Hi" }] })],
+      [/\/users\/1\.json/, () => ({ user: { name: "Meera", email: "meera@example.com", phone: "+91 98000 11111" } })],
+      [/\/users\/9\.json/, () => ({ user: { name: "Sam", email: "sam@acme.com" } })],
+    );
+    expect((await client("zendesk", { subdomain: "acme", email: "qa@acme.com", apiToken: "tok" }).getTicket("7")).requester).toEqual({ name: "Meera", email: "meera@example.com", phone: "+91 98000 11111" });
+
+    route(
+      [/\/tickets\/5\/conversations/, () => []],
+      [/\/tickets\/5$/, () => ({ id: 5, requester_id: 8, description_text: "x" })],
+      [/\/contacts\/8/, () => ({ name: "Raj", email: null, phone: "022 1234", mobile: "+91 98000 22222" })],
+    );
+    expect((await client("freshdesk", { domain: "acme", apiKey: "k" }).getTicket("5")).requester).toEqual({ name: "Raj", email: undefined, phone: "+91 98000 22222" });
+
+    route([/\/tickets\/6\/conversations/, () => []], [/\/tickets\/6$/, () => ({ id: 6, requester_id: 8 })], [/\/contacts\/8/, () => 500]);
+    const t = await client("freshdesk", { domain: "acme", apiKey: "k" }).getTicket("6");
+    expect([t.id, t.requester]).toEqual(["6", undefined]);
+  });
+
+  it("Intercom and HubSpot read the conversation's contact", async () => {
+    route(
+      [/\/conversations\/123/, () => ({ id: "123", source: { body: "Hi", author: { type: "user", email: "lead@example.com" } }, contacts: { contacts: [{ id: "c1" }] } })],
+      [/\/contacts\/c1/, () => ({ name: "Asha", email: "asha@example.com", phone: "+919800033333" })],
+    );
+    expect((await client("intercom", { accessToken: "t", region: "us" }).getTicket("123")).requester).toEqual({ name: "Asha", email: "asha@example.com", phone: "+919800033333" });
+
+    route(
+      [/objects\/tickets\/77/, () => ({ id: "77", properties: { content: "x" }, associations: { contacts: { results: [{ id: "k1" }] } } })],
+      [/contacts\/batch\/read/, () => ({ results: [{ id: "k1", properties: { email: "kim@example.com", phone: null, mobilephone: "98000 44444", firstname: "Kim", lastname: "Ray" } }] })],
+    );
+    expect((await client("hubspot", { accessToken: "pat" }).getTicket("77")).requester).toEqual({ name: "Kim Ray", email: "kim@example.com", phone: "98000 44444" });
+  });
+
+  it("Salesforce prefers the case contact and falls back to web-to-case details", async () => {
+    route(
+      [/oauth2\/token/, () => ({ access_token: "at" })],
+      [/FROM(\+|%20)Case(\+|%20)WHERE/i, () => ({ records: [{ Id: "500000000000001AAA", CaseNumber: "00001026", SuppliedName: "Web Visitor", SuppliedEmail: "web@example.com", SuppliedPhone: "98000 55555" }] })],
+      [/EmailMessage|CaseComment/, () => ({ records: [] })],
+    );
+    const t = await client("salesforce", { instanceUrl: "https://acme.my.salesforce.com", clientId: "id", clientSecret: "s" }).getTicket("1026");
+    expect(t.requester).toEqual({ name: "Web Visitor", email: "web@example.com", phone: "98000 55555" });
+    expect(decodeURIComponent(calls[1].url)).toContain("ContactEmail, ContactMobile, ContactPhone, SuppliedName, SuppliedEmail, SuppliedPhone");
+  });
+
+  it("Zoho Desk, Help Scout, Gorgias, Front, ServiceNow and Jira read it from the ticket", async () => {
+    route(
+      [/accounts\.zoho\.in\/oauth/, () => ({ access_token: "zt" })],
+      [/tickets\/search\?ticketNumber=900/, () => ({ data: [{ id: "900" }] })],
+      [/tickets\/900\/threads\?/, () => ({ data: [] })],
+      [/tickets\/900\/comments/, () => 204],
+      [/tickets\/900\?/, () => ({ id: "900", email: "zo@example.com", phone: "98000 66666", contact: { firstName: "Zo", lastName: "Ha" } })],
+    );
+    expect((await client("zoho_desk", { dataCenter: "in", orgId: "1", clientId: "c", clientSecret: "s", refreshToken: "r" }).getTicket("900")).requester).toEqual({ name: "Zo Ha", email: "zo@example.com", phone: "98000 66666" });
+
+    route([/oauth2\/token/, () => ({ access_token: "hs" })], [/conversations\/555\?embed/, () => ({ id: 555, primaryCustomer: { first: "Mo", email: "mo@example.com" }, _embedded: { threads: [] } })]);
+    expect((await client("help_scout", { appId: "a", appSecret: "b" }).getTicket("555")).requester).toEqual({ name: "Mo", email: "mo@example.com", phone: undefined });
+
+    route([/tickets\/9\/messages/, () => ({ data: [] })], [/tickets\/9$/, () => ({ id: 9, customer: { name: "Tia", email: "tia@example.com", channels: [{ type: "email", address: "tia@example.com" }, { type: "phone", address: "+91 98000 77777" }] } })]);
+    expect((await client("gorgias", { domain: "acme", email: "a@acme.com", apiKey: "k" }).getTicket("9")).requester).toEqual({ name: "Tia", email: "tia@example.com", phone: "+91 98000 77777" });
+
+    route([/cnv_2\/messages/, () => ({ _results: [] })], [/cnv_2\/comments/, () => ({ _results: [] })], [/conversations\/cnv_2$/, () => ({ id: "cnv_2", recipient: { handle: "+91 98000 88888", name: "Jo" } })]);
+    expect((await client("front", { apiToken: "t" }).getTicket("cnv_2")).requester).toEqual({ name: "Jo", email: undefined, phone: "+91 98000 88888" });
+
+    route(
+      [/table\/incident\?/, () => ({ result: [{ sys_id: "abc", number: "INC1", "caller_id.name": "Jane", "caller_id.email": "jane@example.com", "caller_id.mobile_phone": "", "caller_id.phone": "98000 99999" }] })],
+      [/sys_journal_field/, () => ({ result: [] })],
+    );
+    expect((await client("servicenow", { instance: "acme", username: "u", password: "p" }).getTicket("INC1")).requester).toEqual({ name: "Jane", email: "jane@example.com", phone: "98000 99999" });
+
+    route([/issue\/SUP-12\/comment/, () => ({ comments: [] })], [/issue\/SUP-12\?/, () => ({ key: "SUP-12", fields: { reporter: { accountId: "c", displayName: "Eve", emailAddress: "eve@example.com" } } })]);
+    expect((await client("jira_service_management", { site: "acme", email: "a@acme.com", apiToken: "t", projectKey: "sup" }).getTicket("SUP-12")).requester).toEqual({ name: "Eve", email: "eve@example.com", phone: undefined });
+  });
+});

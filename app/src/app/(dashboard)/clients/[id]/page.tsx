@@ -13,6 +13,8 @@ import { ClientTasksPanel } from "./client-tasks-panel";
 import { SendMessagePanel } from "./send-message-panel";
 import { StageActionCard } from "./stage-action-card";
 import { ClientCopilotPanel } from "./client-copilot-panel";
+import { SupportExperiencePanel } from "./support-experience-panel";
+import { getSupportHealth, supportHealthAvailable } from "@/lib/support-health/health";
 import { AddDocumentForm } from "./add-document-form";
 import { DocumentRowActions } from "./document-row-actions";
 import { formatDateTime } from "@/lib/utils/format";
@@ -64,6 +66,11 @@ export default async function ClientDetailPage({
   if (visibleUserIds && (!client.assignedToId || !visibleUserIds.includes(client.assignedToId))) {
     notFound();
   }
+
+  // QA Sentinel's view of this client, only for orgs on both products (access checked above).
+  const supportHealth = (await supportHealthAvailable(session.user.organizationId))
+    ? await getSupportHealth(session.user.organizationId, client.id)
+    : null;
 
   const now = new Date();
   const heldMs = exceptions
@@ -169,6 +176,9 @@ export default async function ClientDetailPage({
             suggestedFollowUp={suggestedFollowUp}
             users={users}
           />
+          {supportHealth && (
+            <SupportExperiencePanel clientId={client.id} health={supportHealth} isAdmin={session.user.role === "ADMIN"} />
+          )}
           <SendMessagePanel clientId={client.id} templates={templates} />
           <ClientTasksPanel client={serializedClient} tasks={client.tasks} users={users} />
           <p className="px-1 text-[11px] text-muted-foreground">

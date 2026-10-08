@@ -5,7 +5,7 @@
  * names, stage and a link back into Supportify.
  */
 
-export const ALERT_TYPES = ["stage_sla_breach", "task_overdue", "client_disengaged", "qa_low_score"] as const;
+export const ALERT_TYPES = ["stage_sla_breach", "task_overdue", "client_disengaged", "qa_low_score", "client_support_risk"] as const;
 export type AlertType = (typeof ALERT_TYPES)[number];
 
 export const ALERT_TYPE_META: Record<AlertType, { label: string; description: string }> = {
@@ -13,6 +13,10 @@ export const ALERT_TYPE_META: Record<AlertType, { label: string; description: st
   task_overdue: { label: "Overdue tasks", description: "A task passed its due date without being completed." },
   client_disengaged: { label: "Disengaged clients", description: "No activity or messages with a client for 5 days." },
   qa_low_score: { label: "Low QA scores", description: "A QA Sentinel review scored below 70." },
+  client_support_risk: {
+    label: "Support quality drops",
+    description: "A high-priority client's recent support tickets average below 70 (needs QA Sentinel).",
+  },
 };
 
 export type Alert = { organizationId: string } & (
@@ -20,6 +24,7 @@ export type Alert = { organizationId: string } & (
   | { type: "task_overdue"; clientId: string; clientName: string; stage: string; taskTitle: string; assignedToName: string | null }
   | { type: "client_disengaged"; clientId: string; clientName: string; stage: string; daysQuiet: number; assignedToName: string | null }
   | { type: "qa_low_score"; reviewId: string; ticketId: string; agentName: string | null; score: number }
+  | { type: "client_support_risk"; clientId: string; clientName: string; stage: string; averageScore: number; assignedToName: string | null }
 );
 
 export const ALERT_CHANNEL_KINDS = ["slack", "teams"] as const;

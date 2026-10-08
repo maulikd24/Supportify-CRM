@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { ConversationTurn } from "@/lib/qa/assessor";
-import { basicAuth, requestJson, requiredString, subdomainField } from "../http";
+import { basicAuth, requester, requestJson, requiredString, subdomainField } from "../http";
 import { TicketNotFoundError, type HelpdeskClient, type HelpdeskProvider, type HelpdeskTicket, type SolvedTicket } from "../types";
 
 const NAME = "ServiceNow";
@@ -14,7 +14,7 @@ type Credentials = z.infer<typeof schema>;
 
 type Incident = Record<string, string | undefined>;
 type Journal = { value?: string; element?: string; sys_created_by?: string; sys_created_on?: string };
-const INCIDENT_FIELDS = "sys_id,number,short_description,description,state,priority,sys_created_on,assigned_to.name,assigned_to.email,caller_id.user_name";
+const INCIDENT_FIELDS = "sys_id,number,short_description,description,state,priority,sys_created_on,assigned_to.name,assigned_to.email,caller_id.user_name,caller_id.name,caller_id.email,caller_id.mobile_phone,caller_id.phone";
 
 class ServiceNowClient implements HelpdeskClient {
   private base: string;
@@ -66,6 +66,11 @@ class ServiceNowClient implements HelpdeskClient {
       agentName: incident["assigned_to.name"] || "Unknown",
       agentEmail: incident["assigned_to.email"] ?? "",
       conversation,
+      requester: requester({
+        name: incident["caller_id.name"],
+        email: incident["caller_id.email"],
+        phone: incident["caller_id.mobile_phone"] || incident["caller_id.phone"],
+      }),
     };
   }
 

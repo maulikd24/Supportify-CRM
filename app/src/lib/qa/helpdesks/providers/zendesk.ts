@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import type { ConversationTurn } from "@/lib/qa/assessor";
-import { basicAuth, requestJson, requiredString, subdomainField } from "../http";
-import type { HelpdeskClient, HelpdeskProvider, HelpdeskTicket, SolvedTicket } from "../types";
+import { basicAuth, requester, requestJson, requiredString, subdomainField } from "../http";
+import type { HelpdeskClient, HelpdeskProvider, HelpdeskTicket, SolvedTicket, TicketRequester } from "../types";
 
 const NAME = "Zendesk";
 const schema = z.object({
@@ -55,7 +55,16 @@ class ZendeskClient implements HelpdeskClient {
         // Agent lookup is best-effort.
       }
     }
-    return { id: String(ticket.id), subject: ticket.subject ?? "", status: ticket.status ?? "", priority: ticket.priority, agentName, agentEmail, conversation };
+    let customer: TicketRequester | undefined;
+    if (ticket.requester_id) {
+      try {
+        const { user } = await this.get<{ user: { name?: string; email?: string | null; phone?: string | null } }>(`/users/${ticket.requester_id}.json`);
+        customer = requester(user);
+      } catch {
+        // Requester lookup is best-effort too.
+      }
+    }
+    return { id: String(ticket.id), subject: ticket.subject ?? "", status: ticket.status ?? "", priority: ticket.priority, agentName, agentEmail, conversation, requester: customer };
   }
 
   async listSolvedSince(since: Date, limit: number): Promise<SolvedTicket[]> {

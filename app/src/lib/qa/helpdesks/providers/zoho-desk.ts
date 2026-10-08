@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { ConversationTurn } from "@/lib/qa/assessor";
-import { htmlToText, personName, requestJson, requiredString } from "../http";
+import { htmlToText, personName, requester, requestJson, requiredString } from "../http";
 import { HelpdeskAuthError, TicketNotFoundError, type HelpdeskClient, type HelpdeskProvider, type HelpdeskTicket, type SolvedTicket } from "../types";
 
 const NAME = "Zoho Desk";
@@ -15,7 +15,7 @@ const schema = z.object({
 });
 type Credentials = z.infer<typeof schema>;
 
-type ZTicket = { id: string; ticketNumber?: string; subject?: string; status?: string; priority?: string | null; description?: string; createdTime?: string; assignee?: { firstName?: string; lastName?: string; email?: string } | null };
+type ZTicket = { id: string; ticketNumber?: string; email?: string | null; phone?: string | null; contact?: { firstName?: string; lastName?: string } | null; subject?: string; status?: string; priority?: string | null; description?: string; createdTime?: string; assignee?: { firstName?: string; lastName?: string; email?: string } | null };
 type ZThread = { id: string; direction?: "in" | "out"; createdTime?: string; author?: { name?: string; email?: string }; content?: string; summary?: string };
 type ZComment = { content?: string; isPublic?: boolean; commentedTime?: string; commenter?: { name?: string } };
 
@@ -77,6 +77,7 @@ class ZohoDeskClient implements HelpdeskClient {
       agentName: personName(ticket.assignee?.firstName, ticket.assignee?.lastName),
       agentEmail: ticket.assignee?.email ?? "",
       conversation,
+      requester: requester({ name: personName(ticket.contact?.firstName, ticket.contact?.lastName, ""), email: ticket.email, phone: ticket.phone }),
     };
   }
 
