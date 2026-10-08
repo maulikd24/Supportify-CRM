@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import type { ConversationTurn } from "@/lib/qa/assessor";
-import { basicAuth, requestJson, requiredString, subdomainField } from "../http";
-import type { HelpdeskClient, HelpdeskProvider, HelpdeskTicket, SolvedTicket } from "../types";
+import { basicAuth, requester, requestJson, requiredString, subdomainField } from "../http";
+import type { HelpdeskClient, HelpdeskProvider, HelpdeskTicket, SolvedTicket, TicketRequester } from "../types";
 
 const NAME = "Freshdesk";
 const schema = z.object({
@@ -14,7 +14,7 @@ type Credentials = z.infer<typeof schema>;
 const STATUS: Record<number, string> = { 2: "open", 3: "pending", 4: "resolved", 5: "closed" };
 const PRIORITY: Record<number, string> = { 1: "low", 2: "medium", 3: "high", 4: "urgent" };
 
-type FdTicket = { id: number; subject?: string; status?: number; priority?: number; responder_id?: number | null; tags?: string[]; description_text?: string; created_at?: string; updated_at?: string };
+type FdTicket = { id: number; subject?: string; status?: number; priority?: number; responder_id?: number | null; requester_id?: number | null; tags?: string[]; description_text?: string; created_at?: string; updated_at?: string };
 type FdConversation = { body_text?: string; incoming?: boolean; private?: boolean; user_id?: number; created_at?: string };
 
 class FreshdeskClient implements HelpdeskClient {
@@ -59,7 +59,17 @@ class FreshdeskClient implements HelpdeskClient {
         // best-effort
       }
     }
+    let customer: TicketRequester | undefined;
+    if (ticket.requester_id) {
+      try {
+        const contact = await this.get<{ name?: string; email?: string | null; phone?: string | null; mobile?: string | null }>(`/contacts/${ticket.requester_id}`);
+        customer = requester({ name: contact.name, email: contact.email, phone: contact.mobile || contact.phone });
+      } catch {
+        // best-effort
+      }
+    }
     return {
+      requester: customer,
       id: String(ticket.id),
       subject: ticket.subject ?? "",
       status: STATUS[ticket.status ?? 0] ?? String(ticket.status ?? ""),

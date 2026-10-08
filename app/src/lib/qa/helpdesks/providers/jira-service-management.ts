@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { ConversationTurn } from "@/lib/qa/assessor";
-import { basicAuth, htmlToText, requestJson, requiredString, subdomainField } from "../http";
+import { basicAuth, htmlToText, requester, requestJson, requiredString, subdomainField } from "../http";
 import { TicketNotFoundError, type HelpdeskClient, type HelpdeskProvider, type HelpdeskTicket, type SolvedTicket } from "../types";
 
 const NAME = "Jira Service Management";
@@ -69,6 +69,8 @@ class JiraServiceManagementClient implements HelpdeskClient {
       // Atlassian hides emails unless the user allows it; the portal can map agents by name later.
       agentEmail: issue.fields.assignee?.emailAddress ?? "",
       conversation,
+      // Jira only exposes the reporter's email when their privacy settings allow it.
+      requester: issue.fields.reporter ? requester({ name: issue.fields.reporter.displayName, email: issue.fields.reporter.emailAddress }) : undefined,
     };
   }
 

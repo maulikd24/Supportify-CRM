@@ -2,6 +2,10 @@ import { prisma } from "@/lib/db/prisma";
 import { helpdeskClient } from "@/lib/qa/helpdesks";
 import { assessTicket } from "@/lib/qa/assessor";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
+import { routeAlerts } from "@/lib/alerts/route";
+import { LOW_SCORE } from "@/lib/qa/score";
+import { linkNewReview } from "@/lib/support-health/link";
+import { evaluateSupportRisk } from "@/lib/support-health/health";
 import { computeScore, DEFAULT_SCORECARD, type ResolvedScorecard } from "@/lib/qa/scorecard";
 import type { HelpdeskConnection, Prisma, SopDocument } from "@/generated/prisma/client";
 
@@ -69,6 +73,15 @@ export async function runReview(
     },
   });
 
+  // Match the ticket's customer to a CRM client and re-check that client's support health.
+  // Best-effort: a matching problem must never fail a review that's already stored and billed.
+  try {
+    const clientId = await linkNewReview(review, ticketData.requester);
+    if (clientId) await evaluateSupportRisk(organizationId, clientId);
+  } catch (error) {
+    console.error("Linking review to a CRM client failed", { reviewId: review.id, error });
+  }
+
   void dispatchWebhookEvent(organizationId, "review.completed", {
     id: review.id,
     ticketId: review.ticketId,
@@ -76,6 +89,12 @@ export async function runReview(
     overallScore: review.overallScore,
     sentiment: review.sentiment,
   });
+
+  if (review.overallScore != null && review.overallScore < LOW_SCORE) {
+    await routeAlerts([
+      { organizationId, type: "qa_low_score", reviewId: review.id, ticketId: review.ticketId, agentName: review.agentName, score: review.overallScore },
+    ]);
+  }
 
   return review;
 }

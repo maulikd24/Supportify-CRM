@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { sendSlaBreachEmail } from "@/lib/notifications/send-sla-breach-email";
+import { routeAlerts } from "@/lib/alerts/route";
 
 const BATCH_SIZE = 200;
 
@@ -67,6 +68,18 @@ export async function checkStageSla() {
       await sendSlaBreachEmail(client);
     }
   }
+
+  // Team channels get every breach, assigned or not (an unassigned breach is the one nobody owns).
+  await routeAlerts(
+    clients.map((client) => ({
+      organizationId: client.organizationId,
+      type: "stage_sla_breach" as const,
+      clientId: client.id,
+      clientName: client.name,
+      stage: client.currentStage.name,
+      assignedToName: client.assignedTo?.name ?? null,
+    })),
+  );
 
   return { breached: clients.length };
 }

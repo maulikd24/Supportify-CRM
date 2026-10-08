@@ -4,6 +4,7 @@ import { CreditCard, Sparkles, Users } from "lucide-react";
 import { requireOrg } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
 import { PRODUCT_LABELS, planById } from "@/lib/billing/plans";
+import { getProductAccess } from "@/lib/billing/access";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,12 @@ export default async function BillingOverviewPage() {
     prisma.user.count({ where: { orgRole: { not: "AGENT" }, organizationId: session.user.organizationId, isActive: true } }),
   ]);
   const byProduct = new Map(subscriptions.map((s) => [s.product, s]));
+  const [crm, qa] = await Promise.all([
+    getProductAccess(session.user.organizationId, "CRM"),
+    getProductAccess(session.user.organizationId, "QA_SENTINEL"),
+  ]);
+  // On one product only: show what the pair adds (support quality on every client record).
+  const missing: Product | null = crm.allowed && !qa.allowed ? "QA_SENTINEL" : qa.allowed && !crm.allowed ? "CRM" : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -70,6 +77,23 @@ export default async function BillingOverviewPage() {
         </div>
         <ManageBillingButton />
       </div>
+
+      {missing && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-4">
+            <div>
+              <CardTitle>Better together: add {PRODUCT_LABELS[missing]}</CardTitle>
+              <CardDescription>
+                With both products, each client record shows their support experience: recent QA scores, dissatisfaction
+                findings, and an alert when a high-priority client&apos;s support quality drops.
+              </CardDescription>
+            </div>
+            <Button size="sm" render={<Link href={`/billing/${missing}`} />}>
+              See {PRODUCT_LABELS[missing]} plans
+            </Button>
+          </CardHeader>
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         {PRODUCTS.map((product) => {

@@ -35,7 +35,11 @@ export type HelpdeskTicket = {
   agentName: string;
   agentEmail: string;
   conversation: ConversationTurn[];
+  /** The customer who raised it, when the helpdesk exposes them (matched to CRM clients). */
+  requester?: TicketRequester;
 };
+
+export type TicketRequester = { name?: string; email?: string; phone?: string };
 
 /** A solved/closed ticket found while polling for auto-review. */
 export type SolvedTicket = {

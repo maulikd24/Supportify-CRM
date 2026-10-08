@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { ConversationTurn } from "@/lib/qa/assessor";
-import { basicAuth, htmlToText, requestJson, requiredString, subdomainField } from "../http";
+import { basicAuth, htmlToText, requester, requestJson, requiredString, subdomainField } from "../http";
 import type { HelpdeskClient, HelpdeskProvider, HelpdeskTicket, SolvedTicket } from "../types";
 
 const NAME = "Gorgias";
@@ -19,6 +19,7 @@ type GTicket = {
   priority?: string;
   updated_datetime?: string;
   assignee_user?: { name?: string; email?: string } | null;
+  customer?: { name?: string | null; email?: string | null; channels?: { type?: string; address?: string }[] } | null;
   tags?: { name: string }[];
   satisfaction_survey?: { score?: number | null } | null;
 };
@@ -61,6 +62,9 @@ class GorgiasClient implements HelpdeskClient {
       agentName: ticket.assignee_user?.name ?? "Unknown",
       agentEmail: ticket.assignee_user?.email ?? "",
       conversation,
+      requester: ticket.customer
+        ? requester({ name: ticket.customer.name, email: ticket.customer.email, phone: ticket.customer.channels?.find((ch) => ch.type === "phone")?.address })
+        : undefined,
     };
   }
 
