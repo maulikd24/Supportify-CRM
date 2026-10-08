@@ -14,11 +14,13 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import type { Role } from "@/generated/prisma/client";
 import { enforceTwoFactorPolicy } from "@/lib/security/enforce";
+import { countUnreadConversations } from "@/lib/inbox/inbox";
 
 const CRM_NAV_ITEMS: (NavItem & { roles: Role[] })[] = [
   { href: "/dashboard", label: "Command center", icon: "dashboard", roles: ["ADMIN", "MANAGER", "RM"] },
   { href: "/copilot", label: "Co-pilot", icon: "copilot", roles: ["ADMIN", "MANAGER", "RM"] },
   { href: "/clients", label: "Clients", icon: "users", roles: ["ADMIN", "MANAGER", "RM"] },
+  { href: "/inbox", label: "Inbox", icon: "inbox", roles: ["ADMIN", "MANAGER", "RM"] },
   { href: "/tasks", label: "Tasks", icon: "tasks", roles: ["ADMIN", "MANAGER", "RM"] },
   { href: "/journeys", label: "Journeys", icon: "journeys", roles: ["ADMIN", "MANAGER"] },
   { href: "/reports", label: "Reports", icon: "reports", roles: ["ADMIN", "MANAGER"] },
@@ -44,14 +46,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const visibleUserIds = await getVisibleUserIds(userId, role, organizationId);
   const scope = visibleUserIds ? { organizationId, assignedToId: { in: visibleUserIds } } : { organizationId };
 
-  const [unreadCount, user, activeClients, myOpenTasks] = await Promise.all([
+  const [unreadCount, user, activeClients, myOpenTasks, unreadConversations] = await Promise.all([
     prisma.notification.count({ where: { userId, readAt: null } }),
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { emailVerifiedAt: true } }),
     prisma.client.count({ where: { ...scope, status: "ACTIVE", mergedIntoId: null } }),
     prisma.task.count({ where: { organizationId, assignedToId: userId, status: { in: ["PENDING", "OVERDUE"] } } }),
+    countUnreadConversations(session.user),
   ]);
 
-  const badges: Record<string, number> = { "/clients": activeClients, "/tasks": myOpenTasks };
+  const badges: Record<string, number> = { "/clients": activeClients, "/inbox": unreadConversations, "/tasks": myOpenTasks };
   const navItems = CRM_NAV_ITEMS.filter((item) => item.roles.includes(role)).map((item) => ({
     ...item,
     badge: badges[item.href],
