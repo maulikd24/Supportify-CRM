@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
-import { Sparkles, Users } from "lucide-react";
+import { Radar, Sparkles, Users } from "lucide-react";
 
 import { requireOrg } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
-import { annualBillingAvailable, plansForProduct, PRODUCT_LABELS, TRIAL_DAYS } from "@/lib/billing/plans";
+import { annualBillingAvailable, launchedProducts, plansForProduct, PRODUCT_LABELS, TRIAL_DAYS } from "@/lib/billing/plans";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Product } from "@/generated/prisma/client";
 import { PlanPicker } from "./plan-picker";
@@ -12,10 +12,11 @@ import { StartTrialButton } from "./start-trial-button";
 const PRODUCT_ICON = {
   QA_SENTINEL: Sparkles,
   CRM: Users,
-} as const;
+  CX_INTELLIGENCE: Radar,
+} as const satisfies Record<Product, unknown>;
 
 function parseProduct(value: string): Product | null {
-  return value === "QA_SENTINEL" || value === "CRM" ? value : null;
+  return (launchedProducts() as string[]).includes(value) ? (value as Product) : null;
 }
 
 export default async function ProductBillingPage({ params }: { params: Promise<{ product: string }> }) {

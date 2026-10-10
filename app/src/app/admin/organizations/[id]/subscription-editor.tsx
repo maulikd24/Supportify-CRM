@@ -10,11 +10,17 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { adjustSubscriptionAction } from "./actions";
-import { plansForProduct } from "@/lib/billing/plans";
+import { plansForProduct, PRODUCT_LIMIT } from "@/lib/billing/plans";
 import type { Product, ProductSubscription, SubscriptionStatus } from "@/generated/prisma/client";
 import { callAction } from "@/lib/actions/call-action";
 
 const STATUSES: SubscriptionStatus[] = ["TRIALING", "ACTIVE", "PAST_DUE", "CANCELED"];
+
+const USAGE_LINE: Record<Product, (s: ProductSubscription) => string> = {
+  QA_SENTINEL: (s) => `${s.reviewsUsedThisPeriod} reviews used this period`,
+  CRM: (s) => `${s.aiDraftsUsedThisPeriod} AI drafts used this period`,
+  CX_INTELLIGENCE: (s) => `${s.analysesUsedThisPeriod} conversations analysed this period`,
+};
 
 function toDateInputValue(date: Date | null | undefined): string {
   if (!date) return "";
@@ -36,7 +42,7 @@ export function SubscriptionEditor({
   const [planId, setPlanId] = useState(subscription?.planId ?? "");
   const [status, setStatus] = useState<SubscriptionStatus>(subscription?.status ?? "TRIALING");
   const plans = plansForProduct(product);
-  const usesSeats = product === "CRM";
+  const limit = PRODUCT_LIMIT[product];
 
   async function handleSubmit(formData: FormData) {
     setPending(true);
@@ -59,7 +65,7 @@ export function SubscriptionEditor({
         </CardTitle>
         <CardDescription>
           {subscription
-            ? `${subscription.reviewsUsedThisPeriod} reviews used this period`
+            ? USAGE_LINE[product](subscription)
             : "This organization has never subscribed to this product."}
         </CardDescription>
       </CardHeader>
@@ -104,29 +110,16 @@ export function SubscriptionEditor({
                 </SelectContent>
               </Select>
             </Field>
-            {usesSeats ? (
-              <Field>
-                <FieldLabel htmlFor={`${product}-seats`}>Seats</FieldLabel>
-                <Input
-                  id={`${product}-seats`}
-                  name="seats"
-                  inputMode="numeric"
-                  defaultValue={subscription ? (subscription.seats ?? "unlimited") : undefined}
-                  placeholder="Plan default"
-                />
-              </Field>
-            ) : (
-              <Field>
-                <FieldLabel htmlFor={`${product}-reviewQuota`}>Review quota / period</FieldLabel>
-                <Input
-                  id={`${product}-reviewQuota`}
-                  name="reviewQuota"
-                  inputMode="numeric"
-                  defaultValue={subscription ? (subscription.reviewQuota ?? "unlimited") : undefined}
-                  placeholder="Plan default"
-                />
-              </Field>
-            )}
+            <Field>
+              <FieldLabel htmlFor={`${product}-${limit.key}`}>{limit.label}</FieldLabel>
+              <Input
+                id={`${product}-${limit.key}`}
+                name={limit.key}
+                inputMode="numeric"
+                defaultValue={subscription ? (subscription[limit.key] ?? "unlimited") : undefined}
+                placeholder="Plan default"
+              />
+            </Field>
             <Field>
               <FieldLabel htmlFor={`${product}-trialEndsAt`}>Trial ends</FieldLabel>
               <Input

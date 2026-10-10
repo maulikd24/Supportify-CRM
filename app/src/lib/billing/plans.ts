@@ -22,6 +22,8 @@ export type PlanTier = {
   seats?: number | null;
   /** CRM plans: AI reply drafts per seat per month. null/absent = unlimited (enterprise). */
   aiDraftsPerSeat?: number | null;
+  /** CX_INTELLIGENCE plans: conversations analysed per month. null = unlimited (enterprise). */
+  analysisQuota?: number | null;
   stripePriceEnvVar?: string;
   /** Stripe Price for annual billing; the annual option only appears once it's set. */
   stripeAnnualPriceEnvVar?: string;
@@ -118,13 +120,83 @@ export const CRM_PLANS: PlanTier[] = [
   },
 ];
 
+// Prices are placeholders until pricing is decided; each must stay above the AI cost of
+// analysing its quota (about $7.60 per 1,000 conversations on claude-opus-5-5 via batches).
+export const CX_PLANS: PlanTier[] = [
+  {
+    id: "starter",
+    name: "Starter",
+    priceLabel: "$299/mo",
+    annualPriceLabel: "$2,990/yr",
+    analysisQuota: 5_000,
+    stripePriceEnvVar: "STRIPE_PRICE_CX_STARTER",
+    stripeAnnualPriceEnvVar: "STRIPE_PRICE_CX_STARTER_ANNUAL",
+    features: ["5,000 conversations analysed/month", "Automatic topics & root causes", "Early-warning alerts"],
+  },
+  {
+    id: "growth",
+    name: "Growth",
+    priceLabel: "$899/mo",
+    annualPriceLabel: "$8,990/yr",
+    analysisQuota: 25_000,
+    stripePriceEnvVar: "STRIPE_PRICE_CX_GROWTH",
+    stripeAnnualPriceEnvVar: "STRIPE_PRICE_CX_GROWTH_ANNUAL",
+    featured: true,
+    features: ["25,000 conversations analysed/month", "Everything in Starter", "$ impact audit", "Ask anything + MCP"],
+  },
+  {
+    id: "scale",
+    name: "Scale",
+    priceLabel: "$2,499/mo",
+    annualPriceLabel: "$24,990/yr",
+    analysisQuota: 100_000,
+    stripePriceEnvVar: "STRIPE_PRICE_CX_SCALE",
+    stripeAnnualPriceEnvVar: "STRIPE_PRICE_CX_SCALE_ANNUAL",
+    features: ["100,000 conversations analysed/month", "Everything in Growth", "Real-time analysis", "BPO benchmarking"],
+  },
+  {
+    id: "enterprise",
+    name: "Enterprise",
+    priceLabel: "Contact us",
+    analysisQuota: null,
+    contactSales: true,
+    features: ["Unlimited conversations", "Real-time analysis", "SSO (SAML)", "Custom terms & invoicing"],
+  },
+];
+
+/** Every product, in the order the app lists them. */
+export const PRODUCTS = ["QA_SENTINEL", "CRM", "CX_INTELLIGENCE"] as const satisfies readonly Product[];
+
+/** Products customers can see and buy (CX Intelligence is hidden until launch, see lib/cx/flags.ts). */
+export function launchedProducts(): Product[] {
+  return PRODUCTS.filter((p) => p !== "CX_INTELLIGENCE" || process.env.NEXT_PUBLIC_CX_INTELLIGENCE_ENABLED === "true");
+}
+
+export function isProduct(value: unknown): value is Product {
+  return typeof value === "string" && (PRODUCTS as readonly string[]).includes(value);
+}
+
 export const PRODUCT_LABELS: Record<Product, string> = {
   QA_SENTINEL: "QA Sentinel",
   CRM: "CRM",
+  CX_INTELLIGENCE: "CX Intelligence",
+};
+
+/** Where each product lives in the app. */
+export const PRODUCT_HOME: Record<Product, string> = {
+  QA_SENTINEL: "/qa",
+  CRM: "/dashboard",
+  CX_INTELLIGENCE: "/cx",
+};
+
+const PLANS_BY_PRODUCT: Record<Product, PlanTier[]> = {
+  QA_SENTINEL: QA_SENTINEL_PLANS,
+  CRM: CRM_PLANS,
+  CX_INTELLIGENCE: CX_PLANS,
 };
 
 export function plansForProduct(product: Product): PlanTier[] {
-  return product === "QA_SENTINEL" ? QA_SENTINEL_PLANS : CRM_PLANS;
+  return PLANS_BY_PRODUCT[product];
 }
 
 export function planById(product: Product, planId: string): PlanTier | undefined {
@@ -166,13 +238,32 @@ export function qaOverageConfig(): { meterEventName: string; priceId: string } |
 export const PAST_DUE_GRACE_DAYS = 7;
 
 /** Limits applied to free trials, so a trial can't run unlimited AI reviews or seats. */
-export const TRIAL_LIMITS = { reviewQuota: 50, seats: 3, aiDrafts: 50 } as const;
+export const TRIAL_LIMITS = { reviewQuota: 50, seats: 3, aiDrafts: 50, analyses: 1_000 } as const;
 
-export type PlanLimits = { seats?: number | null; reviewQuota?: number | null };
+/** The one limit column each product's subscription carries, as staff edit it in /admin. */
+export const PRODUCT_LIMIT = {
+  QA_SENTINEL: { key: "reviewQuota", label: "Review quota / period", noun: "review quota" },
+  CRM: { key: "seats", label: "Seats", noun: "seat limit" },
+  CX_INTELLIGENCE: { key: "analysisQuota", label: "Analysis quota / period", noun: "analysis quota" },
+} as const satisfies Record<Product, { key: keyof PlanLimits; label: string; noun: string }>;
+
+export type LimitKey = (typeof PRODUCT_LIMIT)[Product]["key"];
+
+/** CX Intelligence trials import this many days of history from each source. */
+export const CX_TRIAL_BACKFILL_DAYS = 30;
+
+export type PlanLimits = { seats?: number | null; reviewQuota?: number | null; analysisQuota?: number | null };
 
 /** The limit columns a ProductSubscription should carry for a trial of `product`. */
 export function trialLimitsFor(product: Product): PlanLimits {
-  return product === "CRM" ? { seats: TRIAL_LIMITS.seats } : { reviewQuota: TRIAL_LIMITS.reviewQuota };
+  switch (product) {
+    case "CRM":
+      return { seats: TRIAL_LIMITS.seats };
+    case "QA_SENTINEL":
+      return { reviewQuota: TRIAL_LIMITS.reviewQuota };
+    case "CX_INTELLIGENCE":
+      return { analysisQuota: TRIAL_LIMITS.analyses };
+  }
 }
 
 /**
@@ -182,7 +273,14 @@ export function trialLimitsFor(product: Product): PlanLimits {
 export function limitsForPlan(product: Product, planId: string | null | undefined): PlanLimits {
   const plan = planId ? planById(product, planId) : undefined;
   if (!plan || plan.contactSales) return {};
-  return product === "CRM" ? { seats: plan.seats ?? null } : { reviewQuota: plan.reviewQuota ?? null };
+  switch (product) {
+    case "CRM":
+      return { seats: plan.seats ?? null };
+    case "QA_SENTINEL":
+      return { reviewQuota: plan.reviewQuota ?? null };
+    case "CX_INTELLIGENCE":
+      return { analysisQuota: plan.analysisQuota ?? null };
+  }
 }
 
 /**

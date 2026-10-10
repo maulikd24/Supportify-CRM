@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { cxEnabled } from "@/lib/cx/flags";
 import { logoutAction } from "@/app/(dashboard)/actions";
 import type { OrgRole } from "@/generated/prisma/client";
 
@@ -102,10 +103,21 @@ export type NavItem = {
   badge?: number;
 };
 
+// Short labels so three fit side by side (full names when only two show); the full name is
+// always the link's accessible name.
 const PRODUCTS = [
-  { label: "CRM", href: "/dashboard" },
-  { label: "QA Sentinel", href: "/qa" },
+  { label: "CRM", name: "CRM", href: "/dashboard", prefix: null },
+  { label: "QA", name: "QA Sentinel", href: "/qa", prefix: "/qa" },
+  { label: "CX", name: "CX Intelligence", href: "/cx", prefix: "/cx" },
 ] as const;
+
+const visibleProducts = () => PRODUCTS.filter((p) => p.href !== "/cx" || cxEnabled());
+
+/** The product whose section the path is in: QA and CX by prefix, CRM everywhere else. */
+function activeProductHref(pathname: string): string {
+  const match = PRODUCTS.find((p) => p.prefix && (pathname === p.prefix || pathname.startsWith(`${p.prefix}/`)));
+  return (match ?? PRODUCTS[0]).href;
+}
 
 function initials(name: string): string {
   return name
@@ -169,24 +181,27 @@ export function AppSidebar({
         {user.orgRole !== "AGENT" && (
           <nav
             aria-label="Products"
-            className="mx-2 grid grid-cols-2 gap-0.5 rounded-md bg-sidebar-accent p-0.5 group-data-[collapsible=icon]:hidden"
+            className={cn(
+              "mx-2 grid gap-0.5",
+              visibleProducts().length === 3 ? "grid-cols-3" : "grid-cols-2",
+              "rounded-md bg-sidebar-accent p-0.5 group-data-[collapsible=icon]:hidden",
+            )}
           >
-            {PRODUCTS.map((product) => {
-              const active =
-                product.href === "/qa"
-                  ? pathname.startsWith("/qa")
-                  : !pathname.startsWith("/qa");
+            {visibleProducts().map((product) => {
+              const active = activeProductHref(pathname) === product.href;
               return (
                 <Link
                   key={product.href}
                   href={product.href}
+                  aria-label={product.name}
+                  title={product.name}
                   aria-current={active ? "page" : undefined}
                   className={cn(
                     "rounded-[5px] px-2 py-1.5 text-center text-xs font-medium text-sidebar-muted transition-colors hover:text-sidebar-foreground",
                     active && "bg-sidebar-badge text-sidebar-foreground",
                   )}
                 >
-                  {product.label}
+                  {visibleProducts().length === 3 ? product.label : product.name}
                 </Link>
               );
             })}

@@ -41,6 +41,8 @@ enum SubscriptionStatus {
 enum Product {
   QA_SENTINEL
   CRM
+  // AI analysis of every customer conversation across sources (src/lib/cx).
+  CX_INTELLIGENCE
 }
 
 model Organization {
@@ -107,6 +109,14 @@ model Organization {
   webhookEndpoints    WebhookEndpoint[]
   alertChannels       AlertChannel[]
   requesterLinks      RequesterLink[]
+
+  cxSources        CxSource[]
+  cxConversations  Conversation[]
+  cxTopics         Topic[]
+  cxTaxonomies     TaxonomyVersion[]
+  cxTeams          Team[]
+  cxAgentMappings  AgentTeamMapping[]
+  cxCostSettings   CxCostSettings?
   calibrationSessions CalibrationSession[]
 }
 
@@ -251,6 +261,11 @@ model ProductSubscription {
   allowOverage             Boolean @default(false)
   overageCap               Int? // max overage reviews per billing period; null = no cap
   overageReviewsThisPeriod Int     @default(0)
+
+  // CX Intelligence: conversations analysed per period (quota from billing/plans.ts CX_PLANS).
+  analysisQuota             Int? // null = unlimited (enterprise)
+  analysesUsedThisPeriod    Int  @default(0)
+  overageAnalysesThisPeriod Int  @default(0)
 
   // Annual plans bill yearly but quotas are monthly: usage resets every month
   // from usagePeriodStart (see resetMonthlyUsageForAnnualPlans).
@@ -423,6 +438,7 @@ model Client {
   journeyRuns  JourneyRun[]
   messages     Message[]
   ticketReviews TicketReview[]
+  cxConversations Conversation[]
   documents    Document[]
   stageHistory StageHistory[]
   exceptions   Exception[]
@@ -1156,4 +1172,246 @@ model ReviewDispute {
 
   @@index([organizationId, status])
   @@index([reviewId])
+}
+
+// ---------------------------------------------------------------------------
+// CX Intelligence (Product.CX_INTELLIGENCE): every customer conversation from every
+// source in one table, PII-redacted before it is stored (src/lib/cx/redact.ts), then
+// analysed by Claude into topics, sentiment, root cause and risk. Retention is per org
+// (CxCostSettings.retentionMonths, default 13).
+// ---------------------------------------------------------------------------
+
+enum CxSourceType {
+  HELPDESK
+  SURVEY
+  REVIEW
+  CALL
+  BOT
+}
+
+enum CxAnalysisStatus {
+  PENDING // stored, not yet sent for analysis
+  QUEUED // in a classification batch
+  DONE
+  FAILED
+  SKIPPED_QUOTA // over the plan's analysis quota this period: stored and counted, not analysed
+}
+
+enum TopicStatus {
+  PROPOSED // suggested by the model, not yet used for classification
+  ACTIVE
+  MERGED
+  ARCHIVED
+}
+
+enum TeamKind {
+  OWNER // the team that fixes a topic's root cause (product, logistics, billing…)
+  SUPPORT // an in-house support team
+  BPO // an outsourced support partner
+}
+
+// One connected data source per org and provider. Helpdesk sources reuse the org's
+// HelpdeskConnection credentials and only keep their own polling cursor here.
+model CxSource {
+  id                   String       @id @default(cuid())
+  organizationId       String
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type                 CxSourceType
+  provider             String // "zendesk" | "surveymonkey" | "app_store" | "exotel" | "csv" | ...
+  label                String
+  encryptedCredentials String? // AES-256-GCM (src/lib/security/crypto.ts); null for helpdesk sources
+  webhookToken         String       @unique @default(cuid()) // identifies the org on inbound webhooks
+  cursor               String? // provider-specific "seen up to" marker for incremental polling
+  backfillFrom         DateTime? // how far back the first import reaches
+  status               String       @default("active") // "active" | "paused" | "error"
+  lastError            String?
+  lastSyncedAt         DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  conversations Conversation[]
+
+  @@unique([organizationId, provider])
+}
+
+model Conversation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sourceId       String?
+  source         CxSource?    @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  sourceType     CxSourceType
+  provider       String
+  externalId     String // the id in the source system (ticket id, survey response id, review id…)
+  channel        String? // "email" | "chat" | "voice" | "social" | "survey" | "review" | ...
+
+  startedAt     DateTime
+  firstReplyAt  DateTime?
+  solvedAt      DateTime?
+  handleTimeSec Int?
+  replyCount    Int?
+  reopenCount   Int?
+
+  // The customer, as a salted hash of their normalised email/phone so repeat contacts can be
+  // counted without storing contact details; optionally matched to a CRM client.
+  customerKey String?
+  clientId    String?
+  client      Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  agentEmail String?
+  agentName  String?
+  isBot      Boolean @default(false)
+  teamId     String?
+  team       Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  subject          String? // redacted
+  turns            Json // [{ role: "customer"|"agent"|"bot", text, at? }], redacted
+  textHash         String // of the redacted text: unchanged conversations are never re-analysed
+  truncated        Boolean @default(false)
+  redactionVersion Int
+  rating           Float? // CSAT/NPS/star rating as given by the source
+  ratingScale      String? // "csat_5" | "nps_10" | "stars_5" | "good_bad"
+  tags             String[]
+  language         String?
+  metadata         Json?
+
+  analysisStatus CxAnalysisStatus      @default(PENDING)
+  analysis       ConversationAnalysis?
+  topics         ConversationTopic[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, provider, externalId])
+  @@index([organizationId, startedAt])
+  @@index([organizationId, analysisStatus])
+  @@index([organizationId, customerKey])
+}
+
+model ConversationAnalysis {
+  id                String       @id @default(cuid())
+  conversationId    String       @unique
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  taxonomyVersionId String?
+  summary           String?
+  rootCause         String?
+  sentiment         Float? // -1 (very negative) … 1 (very positive), whole conversation
+  sentimentStart    Float?
+  sentimentEnd      Float?
+  churnRisk         Float? // 0 … 1
+  escalationRisk    Float? // 0 … 1
+  predictedCsat     Float? // 1 … 5
+  customerEffort    Float? // 1 … 5
+  deflectable       Boolean      @default(false) // could have been answered by self-service/automation
+  deflectableReason String?
+  qualityScore      Float? // 0 … 100, lightweight
+  qualityFlags      String[]
+  model             String
+  promptVersion     String
+  costUsd           Float
+  createdAt         DateTime     @default(now())
+}
+
+// A two-level taxonomy: themes (parentId null) and the topics under them.
+model Topic {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  key            String // stable slug used in classification output, unique per org
+  name           String
+  description    String?
+  parentId       String?
+  parent         Topic?       @relation("TopicHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children       Topic[]      @relation("TopicHierarchy")
+  status         TopicStatus  @default(ACTIVE)
+  mergedIntoId   String?
+  origin         String       @default("discovered") // "discovered" | "manual" | "proposed"
+  ownerTeamId    String?
+  ownerTeam      Team?        @relation(fields: [ownerTeamId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  conversations ConversationTopic[]
+
+  @@unique([organizationId, key])
+  @@index([organizationId, status])
+}
+
+// Conversation ↔ topic, with copies of org/date/channel so topic aggregates need no join.
+model ConversationTopic {
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  topicId        String
+  topic          Topic        @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  organizationId String
+  startedAt      DateTime
+  channel        String?
+  isPrimary      Boolean      @default(false)
+  confidence     Float?
+  evidence       String? // a short redacted quote supporting the classification
+
+  @@id([conversationId, topicId])
+  @@index([organizationId, topicId, startedAt])
+}
+
+// The topic list as it was when conversations were classified against it.
+model TaxonomyVersion {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  version        Int
+  snapshot       Json // [{ key, name, description, parentKey }]
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, version])
+}
+
+model Team {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name             String
+  kind             TeamKind
+  // BPO teams are benchmarked against this in-house team.
+  benchmarkTeamId  String?
+  benchmarkTeam    Team?        @relation("TeamBenchmark", fields: [benchmarkTeamId], references: [id], onDelete: SetNull)
+  benchmarkedBy    Team[]       @relation("TeamBenchmark")
+  createdAt        DateTime     @default(now())
+
+  agentMappings AgentTeamMapping[]
+  conversations Conversation[]
+  ownedTopics   Topic[]
+
+  @@unique([organizationId, name])
+}
+
+// How support agents map to teams: an exact agent email, a whole email domain (typical
+// for a BPO), or a helpdesk group name.
+model AgentTeamMapping {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teamId         String
+  team           Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  matchType      String // "email" | "domain" | "group"
+  value          String // lowercased
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, matchType, value])
+}
+
+// The money inputs behind CX $ impact, and how long conversation data is kept.
+model CxCostSettings {
+  id                  String       @id @default(cuid())
+  organizationId      String       @unique
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  currency            String       @default("USD")
+  costPerContact      Json         @default("{}") // { email: 4.5, chat: 3, voice: 7, default: 4 }
+  agentHourlyCost     Float?
+  averageOrderValue   Float?
+  customerLifetimeVal Float?
+  churnPropensity     Float? // 0 … 1: share of high-risk customers expected to leave
+  deflectionRate      Float? // 0 … 1: share of deflectable contacts automation could absorb
+  retentionMonths     Int          @default(13)
+  updatedAt           DateTime     @updatedAt
 }

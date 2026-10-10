@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/utils/format";
-import { PRODUCT_LABELS } from "@/lib/billing/plans";
+import { PRODUCT_LABELS, PRODUCTS } from "@/lib/billing/plans";
 import { SubscriptionEditor } from "./subscription-editor";
 
 export default async function AdminOrganizationDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -35,7 +35,7 @@ export default async function AdminOrganizationDetailPage({ params }: { params: 
       </Card>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {(["QA_SENTINEL", "CRM"] as const).map((product) => (
+        {PRODUCTS.map((product) => (
           <SubscriptionEditor
             key={product}
             organizationId={organization.id}
