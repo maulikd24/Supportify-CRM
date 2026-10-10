@@ -119,6 +119,7 @@ model Organization {
   cxCostSettings   CxCostSettings?
   cxClassifyBatches CxClassifyBatch[]
   cxMetricBuckets  CxMetricBucket[]
+  cxTopicIssues    TopicIssue[]
   calibrationSessions CalibrationSession[]
 }
 
@@ -1366,6 +1367,7 @@ model Topic {
   updatedAt      DateTime     @updatedAt
 
   conversations ConversationTopic[]
+  issues        TopicIssue[]
 
   @@unique([organizationId, key])
   @@index([organizationId, status])
@@ -1418,6 +1420,7 @@ model Team {
   agentMappings AgentTeamMapping[]
   conversations Conversation[]
   ownedTopics   Topic[]
+  topicIssues   TopicIssue[]
 
   @@unique([organizationId, name])
 }
@@ -1494,4 +1497,32 @@ model CxMetricBucket {
   handleTimeCount    Int          @default(0)
 
   @@id([organizationId, day, dimension, dimensionId])
+}
+
+enum TopicIssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+// A problem behind a topic, owned by the team that fixes it and tracked until resolved
+// (e.g. "Courier X missing delivery slots" under Late delivery).
+model TopicIssue {
+  id             String           @id @default(cuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  topicId        String
+  topic          Topic            @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  title          String
+  note           String?
+  status         TopicIssueStatus @default(OPEN)
+  ownerTeamId    String?
+  ownerTeam      Team?            @relation(fields: [ownerTeamId], references: [id], onDelete: SetNull)
+  createdById    String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  resolvedAt     DateTime?
+
+  @@index([organizationId, status])
+  @@index([topicId])
 }

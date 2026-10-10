@@ -1,15 +1,19 @@
+import Link from "next/link";
+
 import { requireProductAccess } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
 import { Panel, PanelEmpty } from "@/components/dashboard/panel";
 import { formatDate, formatNumber } from "@/lib/utils/format";
 import { MIN_CONVERSATIONS_FOR_DISCOVERY } from "@/lib/cx/ai/discover";
 import { addDays, startOfDay } from "@/lib/utils/date-buckets";
+import { AcceptProposal, AddTopicForm } from "./topic-admin";
 
 const DAYS = 30;
 
 export default async function CxTopicsPage() {
   const session = await requireProductAccess("CX_INTELLIGENCE");
   const organizationId = session.user.organizationId;
+  const isAdmin = session.user.orgRole === "OWNER" || session.user.orgRole === "ADMIN";
   const since = addDays(startOfDay(), -DAYS);
 
   const [version, topics, counts, proposals, conversations] = await Promise.all([
@@ -25,6 +29,9 @@ export default async function CxTopicsPage() {
     }),
     prisma.conversation.count({ where: { organizationId } }),
   ]);
+  // A suggestion stays on its conversations until they're re-analysed; hide ones already added.
+  const topicNames = new Set(topics.map((t) => t.name.toLowerCase()));
+  const suggestions = proposals.filter((p) => p.proposedTopic && !topicNames.has(p.proposedTopic.toLowerCase()));
   const countBy = new Map(counts.map((c) => [c.topicId, c._count._all]));
   const themes = topics.filter((t) => !t.parentId);
   const childrenOf = (id: string) => topics.filter((t) => t.parentId === id).sort((a, b) => (countBy.get(b.id) ?? 0) - (countBy.get(a.id) ?? 0));
@@ -59,14 +66,18 @@ export default async function CxTopicsPage() {
             .map((theme) => (
               <section key={theme.id} className="rounded-md border p-4">
                 <h3 className="flex items-baseline justify-between gap-2 text-sm font-semibold">
-                  {theme.name}
+                  <Link href={`/cx/topics/${theme.id}`} className="hover:underline">
+                    {theme.name}
+                  </Link>
                   <span className="text-xs font-normal text-muted-foreground">{formatNumber(themeTotal(theme.id))}</span>
                 </h3>
                 {theme.description && <p className="mt-0.5 text-xs text-muted-foreground">{theme.description}</p>}
                 <ul className="mt-3 flex flex-col gap-1.5 text-sm">
                   {childrenOf(theme.id).map((t) => (
                     <li key={t.id} className="flex items-baseline justify-between gap-2" title={t.description ?? undefined}>
-                      <span className="truncate">{t.name}</span>
+                      <Link href={`/cx/topics/${t.id}`} className="truncate hover:underline">
+                        {t.name}
+                      </Link>
                       <span className="shrink-0 text-xs text-muted-foreground">{formatNumber(countBy.get(t.id) ?? 0)}</span>
                     </li>
                   ))}
@@ -74,15 +85,19 @@ export default async function CxTopicsPage() {
               </section>
             ))}
         </div>
+        {isAdmin && <AddTopicForm themes={themes.map((t) => ({ id: t.id, name: t.name }))} />}
       </Panel>
 
-      {proposals.length > 0 && (
-        <Panel eyebrow="Topics" title="Suggested new topics" description="Conversations that didn't fit any topic, by the topic the analysis suggested. Adding topics comes with the topic editor.">
+      {suggestions.length > 0 && (
+        <Panel eyebrow="Topics" title="Suggested new topics" description="Conversations that didn't fit any topic, by the topic the analysis suggested.">
           <ul className="flex flex-col gap-1 border-t border-border p-5 text-sm">
-            {proposals.map((p) => (
-              <li key={p.proposedTopic} className="flex justify-between gap-2">
-                <span>{p.proposedTopic}</span>
-                <span className="text-muted-foreground">{formatNumber(p._count._all)}</span>
+            {suggestions.map((p) => (
+              <li key={p.proposedTopic} className="flex items-center justify-between gap-2">
+                <span className="min-w-0">{p.proposedTopic}</span>
+                <span className="flex shrink-0 items-center gap-3">
+                  <span className="text-muted-foreground">{formatNumber(p._count._all)}</span>
+                  {isAdmin && p.proposedTopic && <AcceptProposal proposed={p.proposedTopic} themes={themes.map((t) => ({ id: t.id, name: t.name }))} />}
+                </span>
               </li>
             ))}
           </ul>

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime, formatNumber } from "@/lib/utils/format";
 import type { CxAnalysisStatus, Prisma } from "@/generated/prisma/client";
+import { HIGH_CHURN_RISK } from "@/lib/cx/impact";
 
 const PAGE = 50;
 const STATUS_LABEL: Record<CxAnalysisStatus, string> = {
@@ -17,15 +18,28 @@ const STATUS_LABEL: Record<CxAnalysisStatus, string> = {
   SKIPPED_QUOTA: "Over this month's limit",
 };
 
-export default async function CxConversationsPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; page?: string }> }) {
+/** Filters the topic and $ impact pages link to. */
+const FLAG_LABEL: Record<string, string> = { deflectable: "Could have been self-served", at_risk: "High churn risk" };
+const FLAG_WHERE: Record<string, Prisma.ConversationWhereInput> = {
+  deflectable: { analysis: { deflectable: true } },
+  at_risk: { analysis: { churnRisk: { gte: HIGH_CHURN_RISK } } },
+};
+
+export default async function CxConversationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; status?: string; page?: string; topic?: string; flag?: string }>;
+}) {
   const session = await requireProductAccess("CX_INTELLIGENCE");
   const organizationId = session.user.organizationId;
-  const { q = "", status = "", page: pageParam = "1" } = await searchParams;
+  const { q = "", status = "", page: pageParam = "1", topic = "", flag = "" } = await searchParams;
   const page = Math.max(1, Number.parseInt(pageParam, 10) || 1);
 
   const where: Prisma.ConversationWhereInput = {
     organizationId,
     ...(status in STATUS_LABEL ? { analysisStatus: status as CxAnalysisStatus } : {}),
+    ...(topic ? { topics: { some: { topicId: topic } } } : {}),
+    ...(FLAG_WHERE[flag] ?? {}),
     ...(q.trim() ? { OR: [{ subject: { contains: q.trim(), mode: "insensitive" } }, { externalId: q.trim().replace(/^#/, "") }] } : {}),
   };
   const [rows, total] = await Promise.all([
@@ -38,7 +52,10 @@ export default async function CxConversationsPage({ searchParams }: { searchPara
     }),
     prisma.conversation.count({ where }),
   ]);
-  const query = (next: Record<string, string>) => `?${new URLSearchParams({ ...(q ? { q } : {}), ...(status ? { status } : {}), ...next })}`;
+  const topicName = topic ? (await prisma.topic.findFirst({ where: { id: topic, organizationId }, select: { name: true } }))?.name : null;
+  const query = (next: Record<string, string>) =>
+    `?${new URLSearchParams({ ...(q ? { q } : {}), ...(status ? { status } : {}), ...(topic ? { topic } : {}), ...(FLAG_WHERE[flag] ? { flag } : {}), ...next })}`;
+  const filters = [topicName && `Topic: ${topicName}`, FLAG_LABEL[flag]].filter(Boolean);
 
   return (
     <Panel eyebrow="CX Intelligence" title="Conversations" description={`${formatNumber(total)} conversations, newest first. Personal details are already removed.`}>
@@ -58,9 +75,23 @@ export default async function CxConversationsPage({ searchParams }: { searchPara
             </option>
           ))}
         </select>
+        {topic && <input type="hidden" name="topic" value={topic} />}
+        {FLAG_WHERE[flag] && <input type="hidden" name="flag" value={flag} />}
         <button type="submit" className="h-9 rounded-md border px-3 text-sm font-medium">
           Filter
         </button>
+        {filters.length > 0 && (
+          <p className="flex w-full flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            {filters.map((f) => (
+              <Badge key={f as string} variant="secondary">
+                {f}
+              </Badge>
+            ))}
+            <Link href="/cx/conversations" className="underline">
+              Clear
+            </Link>
+          </p>
+        )}
       </form>
 
       {rows.length === 0 ? (

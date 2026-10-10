@@ -29,6 +29,7 @@ import {
   Building2,
   ArrowLeftCircle,
   HelpCircle,
+  CircleDollarSign,
   ClipboardCheck,
   GraduationCap,
   Gavel,
@@ -89,6 +90,7 @@ const ICON_MAP = {
   organizations: Building2,
   "exit-app": ArrowLeftCircle,
   help: HelpCircle,
+  impact: CircleDollarSign,
 } as const;
 
 export type IconKey = keyof typeof ICON_MAP;
