@@ -16,8 +16,10 @@ One repository for everything Supportify ships.
 ## Database
 
 The app uses a single Prisma-managed Postgres database (`DATABASE_URL`). Schema lives in
-`app/prisma/schema.prisma`; migrations in `app/prisma/migrations` and are applied on every
-Vercel deploy by `npm run vercel-build` (`prisma migrate deploy`).
+`app/prisma/schema.prisma`; migrations in `app/prisma/migrations` are applied by
+`npm run vercel-build` on **production** deploys only (`scripts/migrate-if-production.mjs`).
+Preview deploys never migrate, so give the Preview environment its own `DATABASE_URL` in
+Vercel; a preview pointed at the production database runs new code against the old schema.
 
 ## Running locally
 
