@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
-    "vercel-build": "prisma generate && prisma migrate deploy && next build",
+    "vercel-build": "prisma generate && node scripts/migrate-if-production.mjs && next build",
     "seed:perf": "tsx prisma/seed-perf.ts",
     "test": "vitest run",
     "test:watch": "vitest"
