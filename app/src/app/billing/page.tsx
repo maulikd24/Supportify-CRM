@@ -5,6 +5,7 @@ import { requireOrg } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
 import { PRODUCT_LABELS, launchedProducts, planById } from "@/lib/billing/plans";
 import { getProductAccess } from "@/lib/billing/access";
+import { subscriptionState } from "@/lib/billing/status";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,15 +17,6 @@ const PRODUCT_ICON = {
   CRM: Users,
   CX_INTELLIGENCE: Radar,
 } as const satisfies Record<Product, unknown>;
-
-function statusLabel(status: string, trialEndsAt: Date | null): string {
-  if (status === "TRIALING") {
-    return trialEndsAt ? `Trial ends ${trialEndsAt.toLocaleDateString()}` : "Trialing";
-  }
-  if (status === "ACTIVE") return "Active";
-  if (status === "PAST_DUE") return "Payment past due";
-  return "Not subscribed";
-}
 
 function UsageMeter({ label, used, total }: { label: string; used: number; total: number | null }) {
   if (total == null) {
@@ -64,6 +56,12 @@ export default async function BillingOverviewPage() {
     getProductAccess(session.user.organizationId, "CRM"),
     getProductAccess(session.user.organizationId, "QA_SENTINEL"),
   ]);
+  const access = new Map(
+    await Promise.all(launchedProducts().map(async (p) => [p, (await getProductAccess(session.user.organizationId, p)).allowed] as const)),
+  );
+  // Nothing usable: say why the app keeps landing here (an ended trial looked like a live one).
+  const lockedOut = [...access.values()].every((allowed) => !allowed);
+  const hadTrial = subscriptions.some((s) => s.status === "TRIALING");
   // On one product only: show what the pair adds (support quality on every client record).
   const missing: Product | null = crm.allowed && !qa.allowed ? "QA_SENTINEL" : qa.allowed && !crm.allowed ? "CRM" : null;
 
@@ -76,6 +74,16 @@ export default async function BillingOverviewPage() {
         </div>
         <ManageBillingButton />
       </div>
+
+      {lockedOut && (
+        <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/8 p-4 text-sm">
+          <p className="font-semibold">{hadTrial ? "Your free trial has ended" : "No active plan"}</p>
+          <p className="mt-1 text-muted-foreground">
+            Choose a plan for a product below to keep using Supportify. Your data is kept, and everything is back as soon as a
+            plan is active.
+          </p>
+        </div>
+      )}
 
       {missing && (
         <Card>
@@ -99,7 +107,7 @@ export default async function BillingOverviewPage() {
           const sub = byProduct.get(product);
           const plan = sub?.planId ? planById(product, sub.planId) : undefined;
           const Icon = PRODUCT_ICON[product];
-          const periodEnd = sub?.currentPeriodEnd ?? sub?.trialEndsAt ?? null;
+          const state = subscriptionState(sub ?? null, access.get(product) ?? false);
 
           return (
             <Card key={product}>
@@ -111,12 +119,11 @@ export default async function BillingOverviewPage() {
                   <div>
                     <CardTitle>{PRODUCT_LABELS[product]}</CardTitle>
                     <CardDescription>
-                      {plan ? `${plan.name} plan` : "No plan yet"} ·{" "}
-                      {statusLabel(sub?.status ?? "NONE", sub?.trialEndsAt ?? null)}
+                      {plan ? `${plan.name} plan` : "No plan yet"} · {state.line}
                     </CardDescription>
                   </div>
                 </div>
-                <Badge variant={sub?.status === "ACTIVE" ? "default" : "secondary"}>{sub?.status ?? "None"}</Badge>
+                <Badge variant={state.tone}>{state.badge}</Badge>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 {plan && plan.features.length > 0 && (
@@ -137,14 +144,8 @@ export default async function BillingOverviewPage() {
                   <UsageMeter label="Conversations analysed this period" used={sub.analysesUsedThisPeriod} total={sub.analysisQuota ?? null} />
                 )}
 
-                {periodEnd && (
-                  <p className="text-xs text-muted-foreground">
-                    {sub?.status === "TRIALING" ? "Trial ends" : "Renews"} {periodEnd.toLocaleDateString()}
-                  </p>
-                )}
-
                 <Button size="sm" render={<Link href={`/billing/${product}`} />}>
-                  {sub ? "Change plan" : "View plans"}
+                  {access.get(product) ? "Change plan" : "Choose a plan"}
                 </Button>
               </CardContent>
             </Card>
