@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { CreditCard, Sparkles, Users } from "lucide-react";
+import { CreditCard, Radar, Sparkles, Users } from "lucide-react";
 
 import { requireOrg } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
-import { PRODUCT_LABELS, planById } from "@/lib/billing/plans";
+import { PRODUCT_LABELS, launchedProducts, planById } from "@/lib/billing/plans";
 import { getProductAccess } from "@/lib/billing/access";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,12 +11,11 @@ import { Button } from "@/components/ui/button";
 import { ManageBillingButton } from "./manage-billing-button";
 import type { Product } from "@/generated/prisma/client";
 
-const PRODUCTS: Product[] = ["QA_SENTINEL", "CRM"];
-
 const PRODUCT_ICON = {
   QA_SENTINEL: Sparkles,
   CRM: Users,
-} as const;
+  CX_INTELLIGENCE: Radar,
+} as const satisfies Record<Product, unknown>;
 
 function statusLabel(status: string, trialEndsAt: Date | null): string {
   if (status === "TRIALING") {
@@ -95,8 +94,8 @@ export default async function BillingOverviewPage() {
         </Card>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {PRODUCTS.map((product) => {
+      <div className={launchedProducts().length > 2 ? "grid gap-4 lg:grid-cols-2 xl:grid-cols-3" : "grid gap-4 lg:grid-cols-2"}>
+        {launchedProducts().map((product) => {
           const sub = byProduct.get(product);
           const plan = sub?.planId ? planById(product, sub.planId) : undefined;
           const Icon = PRODUCT_ICON[product];
@@ -134,6 +133,9 @@ export default async function BillingOverviewPage() {
                 {product === "CRM" && sub && (
                   <UsageMeter label="Team members" used={seatsUsed} total={sub.seats ?? null} />
                 )}
+                {product === "CX_INTELLIGENCE" && sub && (
+                  <UsageMeter label="Conversations analysed this period" used={sub.analysesUsedThisPeriod} total={sub.analysisQuota ?? null} />
+                )}
 
                 {periodEnd && (
                   <p className="text-xs text-muted-foreground">
@@ -153,8 +155,8 @@ export default async function BillingOverviewPage() {
       <div className="flex items-start gap-3 rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
         <CreditCard className="mt-0.5 size-4 shrink-0" />
         <p>
-          QA Sentinel and CRM are billed completely independently — subscribe to one or both, and cancel either
-          any time from the Stripe billing portal without affecting the other.
+          Each product is billed completely independently: subscribe to any of them, and cancel any one from the
+          Stripe billing portal without affecting the others.
         </p>
       </div>
     </div>

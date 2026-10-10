@@ -3,13 +3,9 @@ import type Stripe from "stripe";
 
 import { prisma } from "@/lib/db/prisma";
 import { getStripe } from "@/lib/billing/stripe";
-import { limitsForPlan } from "@/lib/billing/plans";
-import type { Product, SubscriptionStatus } from "@/generated/prisma/client";
+import { isProduct, limitsForPlan } from "@/lib/billing/plans";
+import type { SubscriptionStatus } from "@/generated/prisma/client";
 import { recordAudit } from "@/lib/audit/record";
-
-function isProduct(value: unknown): value is Product {
-  return value === "QA_SENTINEL" || value === "CRM";
-}
 
 async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription) {
   const organizationId = subscription.metadata.organizationId;
@@ -69,7 +65,7 @@ async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription) {
     where: { organizationId_product: { organizationId, product } },
     update: {
       ...data,
-      ...(newPeriod ? { reviewsUsedThisPeriod: 0, overageReviewsThisPeriod: 0, aiDraftsUsedThisPeriod: 0, usagePeriodStart: new Date() } : {}),
+      ...(newPeriod ? { reviewsUsedThisPeriod: 0, overageReviewsThisPeriod: 0, aiDraftsUsedThisPeriod: 0, analysesUsedThisPeriod: 0, overageAnalysesThisPeriod: 0, usagePeriodStart: new Date() } : {}),
     },
     create: { organizationId, product, ...data, planId, usagePeriodStart: new Date() },
   });

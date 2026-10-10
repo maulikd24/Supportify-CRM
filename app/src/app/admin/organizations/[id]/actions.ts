@@ -7,15 +7,16 @@ import { prisma } from "@/lib/db/prisma";
 import { requirePlatformAdmin } from "@/lib/auth/require-role";
 import type { Product } from "@/generated/prisma/client";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
-import { limitsForPlan, planById, trialLimitsFor } from "@/lib/billing/plans";
+import { limitsForPlan, planById, PRODUCT_LIMIT, PRODUCTS, trialLimitsFor, type LimitKey } from "@/lib/billing/plans";
 
 const adjustSubscriptionSchema = z.object({
   organizationId: z.string().min(1),
-  product: z.enum(["QA_SENTINEL", "CRM"]),
+  product: z.enum(PRODUCTS),
   planId: z.string().optional().or(z.literal("")),
   status: z.enum(["TRIALING", "ACTIVE", "PAST_DUE", "CANCELED"]),
   seats: z.literal("unlimited").or(z.coerce.number().int().positive()).optional().or(z.literal("")),
   reviewQuota: z.literal("unlimited").or(z.coerce.number().int().positive()).optional().or(z.literal("")),
+  analysisQuota: z.literal("unlimited").or(z.coerce.number().int().positive()).optional().or(z.literal("")),
   trialEndsAt: z.string().optional().or(z.literal("")),
 });
 
@@ -28,7 +29,7 @@ const adjustSubscriptionSchema = z.object({
  */
 function resolveLimit(
   value: number | "unlimited" | "" | undefined,
-  key: "seats" | "reviewQuota",
+  key: LimitKey,
   product: Product,
   planId: string | null,
   status: string,
@@ -40,7 +41,7 @@ function resolveLimit(
   const fromPlan = limitsForPlan(product, planId)[key];
   if (fromPlan !== undefined) return fromPlan;
   if (status === "TRIALING") return trialLimitsFor(product)[key] ?? null;
-  throw new UserError(`Enter a ${key === "seats" ? "seat limit" : "review quota"}, or "unlimited" — this plan has no default.`);
+  throw new UserError(`Enter a ${PRODUCT_LIMIT[product].noun}, or "unlimited" — this plan has no default.`);
 }
 
 /**
@@ -59,18 +60,20 @@ export const adjustSubscriptionAction = withUserErrors(async function adjustSubs
     status: formData.get("status"),
     seats: formData.get("seats") || undefined,
     reviewQuota: formData.get("reviewQuota") || undefined,
+    analysisQuota: formData.get("analysisQuota") || undefined,
     trialEndsAt: formData.get("trialEndsAt") || undefined,
   });
 
   const product = parsed.product as Product;
   const planId = parsed.planId || null;
   // Each product has one limit column; the other stays null.
-  const limitKey = product === "CRM" ? "seats" : "reviewQuota";
+  const limitKey = PRODUCT_LIMIT[product].key;
   const data = {
     planId,
     status: parsed.status,
     seats: null as number | null,
     reviewQuota: null as number | null,
+    analysisQuota: null as number | null,
     [limitKey]: resolveLimit(parsed[limitKey], limitKey, product, planId, parsed.status),
     trialEndsAt: parsed.trialEndsAt ? new Date(parsed.trialEndsAt) : null,
   };

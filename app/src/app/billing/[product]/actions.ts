@@ -5,14 +5,14 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { requireOrg } from "@/lib/auth/require-role";
 import { getStripe } from "@/lib/billing/stripe";
-import { planById, stripePriceIdFor, PRODUCT_LABELS, TRIAL_DAYS, trialLimitsFor, qaOverageConfig, type BillingInterval } from "@/lib/billing/plans";
+import { launchedProducts, planById, stripePriceIdFor, PRODUCT_HOME, PRODUCT_LABELS, TRIAL_DAYS, trialLimitsFor, qaOverageConfig, type BillingInterval } from "@/lib/billing/plans";
 import { DEFAULT_STAGE_DEFINITIONS } from "@/lib/stage-engine/stages";
 import { countBillableSeats } from "@/lib/billing/seats";
 import type { Product } from "@/generated/prisma/client";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
 
 function parseProduct(value: string): Product {
-  if (value === "QA_SENTINEL" || value === "CRM") return value;
+  if ((launchedProducts() as string[]).includes(value)) return value as Product;
   throw new UserError(`Unknown product: ${value}`);
 }
 
@@ -48,7 +48,7 @@ export const startTrialAction = withUserErrors(async function startTrialAction(p
     });
   }
 
-  redirect(product === "CRM" ? "/dashboard" : "/qa");
+  redirect(PRODUCT_HOME[product]);
 });
 
 export const startCheckoutAction = withUserErrors(async function startCheckoutAction(

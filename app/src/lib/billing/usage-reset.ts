@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 
 /**
- * Annual plans are billed once a year but their review and AI-draft quotas are monthly, and
+ * Annual plans are billed once a year but their review, AI-draft and analysis quotas are monthly, and
  * Stripe only signals a new period yearly. This resets usage a month after each
  * annual subscription's usage period started. Runs from the daily cron.
  */
@@ -14,7 +14,7 @@ export async function resetMonthlyUsageForAnnualPlans(now = new Date()): Promise
       billingInterval: "year",
       OR: [{ usagePeriodStart: null }, { usagePeriodStart: { lte: monthAgo } }],
     },
-    data: { reviewsUsedThisPeriod: 0, overageReviewsThisPeriod: 0, aiDraftsUsedThisPeriod: 0, usagePeriodStart: now },
+    data: { reviewsUsedThisPeriod: 0, overageReviewsThisPeriod: 0, aiDraftsUsedThisPeriod: 0, analysesUsedThisPeriod: 0, overageAnalysesThisPeriod: 0, usagePeriodStart: now },
   });
   return count;
 }
