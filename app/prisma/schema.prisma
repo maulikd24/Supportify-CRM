@@ -1230,8 +1230,37 @@ model CxSource {
   updatedAt            DateTime     @updatedAt
 
   conversations Conversation[]
+  ingestJobs    CxIngestJob[]
 
   @@unique([organizationId, provider])
+}
+
+enum CxIngestJobStatus {
+  QUEUED
+  PROCESSING
+  DONE
+  FAILED
+}
+
+// One ticket (or other item) to fetch, redact and store. A ticket seen again after it changed
+// (reopened and solved again) is re-queued; its conversation is updated in place.
+model CxIngestJob {
+  id              String            @id @default(cuid())
+  organizationId  String
+  sourceId        String
+  source          CxSource          @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  externalId      String
+  status          CxIngestJobStatus @default(QUEUED)
+  attempts        Int               @default(0)
+  lastError       String?
+  listedUpdatedAt String? // the source's "last updated" value when it was listed
+  createdAt       DateTime          @default(now())
+  startedAt       DateTime?
+  processedAt     DateTime?
+
+  @@unique([sourceId, externalId])
+  @@index([status, createdAt])
+  @@index([organizationId, status])
 }
 
 model Conversation {

@@ -113,10 +113,10 @@ class SalesforceClient implements HelpdeskClient {
   }
 
   async listSolvedSince(since: Date, limit: number): Promise<SolvedTicket[]> {
-    const rows = await this.query<{ CaseNumber: string }>(
-      `SELECT CaseNumber FROM Case WHERE IsClosed = true AND LastModifiedDate > ${isoSeconds(since)} ORDER BY LastModifiedDate ASC LIMIT ${Math.min(limit, 2000)}`,
+    const rows = await this.query<{ CaseNumber: string; LastModifiedDate?: string }>(
+      `SELECT CaseNumber, LastModifiedDate FROM Case WHERE IsClosed = true AND LastModifiedDate > ${isoSeconds(since)} ORDER BY LastModifiedDate ASC LIMIT ${Math.min(limit, 2000)}`,
     );
-    return rows.map((r) => ({ id: r.CaseNumber, tags: [], csat: null }));
+    return rows.map((r) => ({ id: r.CaseNumber, tags: [], csat: null, updatedAt: r.LastModifiedDate }));
   }
 }
 
@@ -137,4 +137,5 @@ export const salesforce: HelpdeskProvider<Credentials> = {
   createClient: (c) => new SalesforceClient(c),
   supportsTags: false,
   supportsCsat: false,
+  listsOldestFirst: true,
 };

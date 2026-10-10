@@ -13,6 +13,8 @@ import { enforceTwoFactorPolicy } from "@/lib/security/enforce";
 
 const CX_NAV_ITEMS: NavItem[] = [
   { href: "/cx", label: "Overview", icon: "dashboard" },
+  { href: "/cx/conversations", label: "Conversations", icon: "reviews" },
+  { href: "/cx/sources", label: "Sources", group: "Admin", icon: "developers" },
   { href: "/cx/settings", label: "Settings", group: "Admin", icon: "settings" },
   { href: "/billing/CX_INTELLIGENCE", label: "Billing", group: "Admin", icon: "billing" },
   { href: "/org/security", label: "Security & audit", group: "Organization", icon: "sso" },

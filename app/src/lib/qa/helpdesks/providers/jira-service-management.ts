@@ -22,7 +22,7 @@ type Credentials = z.infer<typeof schema>;
 type JUser = { accountId?: string; displayName?: string; emailAddress?: string } | null;
 type JIssue = {
   key: string;
-  fields: { summary?: string; status?: { name?: string }; priority?: { name?: string } | null; assignee?: JUser; reporter?: JUser; labels?: string[]; created?: string };
+  fields: { summary?: string; status?: { name?: string }; priority?: { name?: string } | null; assignee?: JUser; reporter?: JUser; labels?: string[]; created?: string; updated?: string };
   renderedFields?: { description?: string | null };
 };
 type JComment = { author?: JUser; renderedBody?: string; jsdPublic?: boolean; created?: string };
@@ -83,9 +83,9 @@ class JiraServiceManagementClient implements HelpdeskClient {
     do {
       const page: { issues: JIssue[]; nextPageToken?: string } = await this.req("/search/jql", {
         method: "POST",
-        body: JSON.stringify({ jql, fields: ["labels"], maxResults: 100, ...(nextPageToken ? { nextPageToken } : {}) }),
+        body: JSON.stringify({ jql, fields: ["labels", "updated"], maxResults: 100, ...(nextPageToken ? { nextPageToken } : {}) }),
       });
-      for (const i of page.issues) out.push({ id: i.key, tags: i.fields.labels ?? [], csat: null });
+      for (const i of page.issues) out.push({ id: i.key, tags: i.fields.labels ?? [], csat: null, updatedAt: i.fields.updated });
       nextPageToken = page.nextPageToken;
     } while (nextPageToken && out.length < limit);
     return out.slice(0, limit);
@@ -110,4 +110,5 @@ export const jiraServiceManagement: HelpdeskProvider<Credentials> = {
   createClient: (c) => new JiraServiceManagementClient(c),
   supportsTags: true,
   supportsCsat: false,
+  listsOldestFirst: true,
 };

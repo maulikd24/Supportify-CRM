@@ -25,7 +25,7 @@ export default async function CxOverviewPage() {
   const steps = [
     { done: costsSet, label: "Set what a support contact costs", hint: "So every problem can be priced.", href: "/cx/settings" },
     { done: teamCount > 0, label: "Add your teams and BPO partners", hint: "To compare them and route issues to the team that fixes them.", href: "/cx/settings" },
-    { done: conversationCount > 0, label: "Connect your sources", hint: "Helpdesk tickets, surveys, reviews and calls. Coming in the next release.", href: null },
+    { done: conversationCount > 0, label: "Connect your helpdesk", hint: "Every solved ticket is imported, with personal details removed first.", href: "/cx/sources" },
   ];
 
   return (

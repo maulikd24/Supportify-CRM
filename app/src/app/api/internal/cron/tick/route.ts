@@ -7,6 +7,8 @@ import { processDueJourneySteps } from "@/lib/journeys/poller";
 import { checkDisengagement } from "@/lib/copilot/check-disengagement";
 import { cleanupRateLimits } from "@/lib/security/rate-limit";
 import { resetMonthlyUsageForAnnualPlans } from "@/lib/billing/usage-reset";
+import { purgeExpiredConversations } from "@/lib/cx/ingest/retention";
+import { kickCxWorker } from "@/lib/cx/ingest/trigger";
 
 export const maxDuration = 60;
 
@@ -22,6 +24,9 @@ const JOBS = {
   disengagement: checkDisengagement,
   rateLimitBucketsDeleted: cleanupRateLimits,
   annualUsageResets: resetMonthlyUsageForAnnualPlans,
+  cxRetention: purgeExpiredConversations,
+  // CX imports run in their own self-chaining worker, never inside this tick.
+  cxWorker: kickCxWorker,
 } satisfies Record<string, () => Promise<unknown>>;
 
 async function tick(request: Request) {

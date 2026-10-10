@@ -17,3 +17,6 @@ export type CostSettings = {
   deflectionRate: number | null;
   retentionMonths: number;
 };
+
+/** How far back a source's first import can reach (trials are capped at 30 days). */
+export const BACKFILL_DAYS = [30, 90, 180, 365] as const;
