@@ -1,16 +1,36 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireProductAccess } from "@/lib/auth/require-role";
+import { requireOrg, requireProductAccess } from "@/lib/auth/require-role";
+import { getProductAccess } from "@/lib/billing/access";
 import { encryptJson } from "@/lib/security/crypto";
 import { getHelpdeskProvider, helpdeskClient, HelpdeskAuthError, isHelpdeskProvider } from "@/lib/qa/helpdesks";
 import { UserError, withUserErrors } from "@/lib/actions/user-error";
 import { recordAudit } from "@/lib/audit/record";
 
 const ADMIN_ROLES = ["OWNER", "ADMIN"] as const;
+
+/**
+ * The helpdesk connection is shared by QA Sentinel (reviews) and CX Intelligence (imports), so
+ * an admin of an org with either product can manage it.
+ */
+async function requireHelpdeskAdmin() {
+  const session = await requireOrg([...ADMIN_ROLES]);
+  const organizationId = session.user.organizationId;
+  const [qa, cx] = await Promise.all([getProductAccess(organizationId, "QA_SENTINEL"), getProductAccess(organizationId, "CX_INTELLIGENCE")]);
+  if (!qa.allowed && !cx.allowed) redirect("/billing/QA_SENTINEL");
+  return session;
+}
+
+function revalidateHelpdeskPages() {
+  revalidatePath("/qa/settings");
+  revalidatePath("/qa");
+  revalidatePath("/cx/sources");
+}
 
 function connectionError(error: unknown, providerName: string): string {
   if (error instanceof HelpdeskAuthError) return error.message;
@@ -20,7 +40,7 @@ function connectionError(error: unknown, providerName: string): string {
 
 /** Connects (or replaces) the org's helpdesk. Credentials are tested before they're saved. */
 export const connectHelpdeskAction = withUserErrors(async function connectHelpdeskAction(providerId: string, values: Record<string, string>) {
-  const session = await requireProductAccess("QA_SENTINEL", [...ADMIN_ROLES]);
+  const session = await requireHelpdeskAdmin();
   const organizationId = session.user.organizationId;
   if (!isHelpdeskProvider(providerId)) throw new UserError("Pick a helpdesk to connect");
   const provider = getHelpdeskProvider(providerId);
@@ -46,6 +66,11 @@ export const connectHelpdeskAction = withUserErrors(async function connectHelpde
     // Queued tickets belong to the old helpdesk; start polling the new one from now.
     await prisma.autoReviewJob.updateMany({ where: { organizationId, status: "QUEUED" }, data: { status: "SKIPPED", lastError: "The organization switched helpdesks", processedAt: new Date() } });
     await prisma.autoReviewConfig.updateMany({ where: { organizationId }, data: { lastPolledAt: null } });
+    // CX keeps what it imported, but stops importing from the old helpdesk.
+    await prisma.cxSource.updateMany({
+      where: { organizationId, type: "HELPDESK", provider: previous.provider },
+      data: { status: "paused", lastError: "The organization switched to a different helpdesk" },
+    });
   }
 
   await recordAudit({
@@ -57,25 +82,24 @@ export const connectHelpdeskAction = withUserErrors(async function connectHelpde
     oldValue: previous ? { provider: previous.provider } : null,
     newValue: { provider: provider.id, account: data.accountLabel },
   });
-  revalidatePath("/qa/settings");
-  revalidatePath("/qa");
+  revalidateHelpdeskPages();
   return { accountLabel: data.accountLabel };
 });
 
 export const disconnectHelpdeskAction = withUserErrors(async function disconnectHelpdeskAction() {
-  const session = await requireProductAccess("QA_SENTINEL", [...ADMIN_ROLES]);
+  const session = await requireHelpdeskAdmin();
   const organizationId = session.user.organizationId;
 
   const removed = await prisma.helpdeskConnection.findUnique({ where: { organizationId }, select: { provider: true } });
   await prisma.helpdeskConnection.deleteMany({ where: { organizationId } });
+  await prisma.cxSource.updateMany({ where: { organizationId, type: "HELPDESK" }, data: { status: "paused", lastError: "The helpdesk was disconnected" } });
   await recordAudit({ organizationId, userId: session.user.id, entity: "HelpdeskConnection", entityId: organizationId, action: "helpdesk.disconnected", oldValue: removed ? { provider: removed.provider } : null });
 
-  revalidatePath("/qa/settings");
-  revalidatePath("/qa");
+  revalidateHelpdeskPages();
 });
 
 export const retestHelpdeskConnectionAction = withUserErrors(async function retestHelpdeskConnectionAction() {
-  const session = await requireProductAccess("QA_SENTINEL", [...ADMIN_ROLES]);
+  const session = await requireHelpdeskAdmin();
   const organizationId = session.user.organizationId;
 
   const connection = await prisma.helpdeskConnection.findUnique({ where: { organizationId } });
@@ -90,7 +114,7 @@ export const retestHelpdeskConnectionAction = withUserErrors(async function rete
   }
   await prisma.helpdeskConnection.update({ where: { organizationId }, data: { isValid: error === null, lastCheckedAt: new Date() } });
 
-  revalidatePath("/qa/settings");
+  revalidateHelpdeskPages();
   if (error) throw new UserError(error);
 });
 

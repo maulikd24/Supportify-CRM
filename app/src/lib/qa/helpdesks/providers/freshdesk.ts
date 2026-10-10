@@ -87,7 +87,7 @@ class FreshdeskClient implements HelpdeskClient {
       const batch = await this.get<FdTicket[]>(
         `/tickets?updated_since=${encodeURIComponent(since.toISOString())}&order_by=updated_at&order_type=asc&per_page=100&page=${page}`,
       );
-      for (const t of batch) if (t.status === 4 || t.status === 5) out.push({ id: String(t.id), tags: t.tags ?? [], csat: null });
+      for (const t of batch) if (t.status === 4 || t.status === 5) out.push({ id: String(t.id), tags: t.tags ?? [], csat: null, updatedAt: t.updated_at });
       if (batch.length < 100) break;
     }
     return out.slice(0, limit);
@@ -110,4 +110,5 @@ export const freshdesk: HelpdeskProvider<Credentials> = {
   createClient: (c) => new FreshdeskClient(c),
   supportsTags: true,
   supportsCsat: false,
+  listsOldestFirst: true,
 };

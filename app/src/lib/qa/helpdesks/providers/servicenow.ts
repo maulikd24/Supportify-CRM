@@ -80,8 +80,11 @@ class ServiceNowClient implements HelpdeskClient {
     // 6 = Resolved, 7 = Closed.
     const query = encodeURIComponent(`stateIN6,7^sys_updated_on>${stamp}^ORDERBYsys_updated_on`);
     for (let offset = 0; out.length < limit; offset += 100) {
-      const { result } = await this.get<{ result: { number: string }[] }>(`/table/incident?sysparm_query=${query}&sysparm_fields=number&sysparm_limit=100&sysparm_offset=${offset}`);
-      for (const r of result) out.push({ id: r.number, tags: [], csat: null });
+      const { result } = await this.get<{ result: { number: string; sys_updated_on?: string }[] }>(
+        `/table/incident?sysparm_query=${query}&sysparm_fields=number,sys_updated_on&sysparm_limit=100&sysparm_offset=${offset}`,
+      );
+      // Without display values, sys_updated_on is UTC "YYYY-MM-DD HH:mm:ss".
+      for (const r of result) out.push({ id: r.number, tags: [], csat: null, updatedAt: r.sys_updated_on ? `${r.sys_updated_on.replace(" ", "T")}Z` : undefined });
       if (result.length < 100) break;
     }
     return out.slice(0, limit);
@@ -105,4 +108,5 @@ export const servicenow: HelpdeskProvider<Credentials> = {
   createClient: (c) => new ServiceNowClient(c),
   supportsTags: false,
   supportsCsat: false,
+  listsOldestFirst: true,
 };

@@ -100,12 +100,12 @@ class HubSpotClient implements HelpdeskClient {
         body: JSON.stringify({
           filterGroups: [{ filters: [{ propertyName: "closed_date", operator: "GT", value: String(since.getTime()) }] }],
           sorts: [{ propertyName: "closed_date", direction: "ASCENDING" }],
-          properties: ["subject"],
+          properties: ["subject", "closed_date"],
           limit: 100,
           ...(after ? { after } : {}),
         }),
       });
-      for (const t of page.results) out.push({ id: t.id, tags: [], csat: null });
+      for (const t of page.results) out.push({ id: t.id, tags: [], csat: null, updatedAt: t.properties.closed_date ?? undefined });
       after = page.paging?.next?.after;
     } while (after && out.length < limit);
     return out.slice(0, limit);
@@ -125,4 +125,5 @@ export const hubspot: HelpdeskProvider<Credentials> = {
   createClient: (c) => new HubSpotClient(c),
   supportsTags: false,
   supportsCsat: false,
+  listsOldestFirst: true,
 };

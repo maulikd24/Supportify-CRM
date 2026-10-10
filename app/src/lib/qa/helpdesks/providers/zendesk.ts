@@ -12,7 +12,7 @@ const schema = z.object({
 });
 type Credentials = z.infer<typeof schema>;
 
-type ZdTicket = { id: number; subject?: string; status?: string; priority?: string; requester_id?: number; assignee_id?: number; tags?: string[]; satisfaction_rating?: { score?: string } | null };
+type ZdTicket = { id: number; subject?: string; status?: string; priority?: string; requester_id?: number; assignee_id?: number; updated_at?: string; tags?: string[]; satisfaction_rating?: { score?: string } | null };
 type ZdComment = { author_id?: number; public?: boolean; plain_body?: string; body?: string; created_at?: string };
 
 class ZendeskClient implements HelpdeskClient {
@@ -80,7 +80,7 @@ class ZendeskClient implements HelpdeskClient {
       for (const t of page.results ?? []) {
         if (t.status !== "solved" && t.status !== "closed") continue;
         const score = t.satisfaction_rating?.score;
-        out.push({ id: String(t.id), tags: t.tags ?? [], csat: score === "bad" ? "bad" : score === "good" ? "good" : null });
+        out.push({ id: String(t.id), tags: t.tags ?? [], csat: score === "bad" ? "bad" : score === "good" ? "good" : null, updatedAt: t.updated_at });
       }
       next = page.next_page ?? null;
     }
@@ -105,4 +105,5 @@ export const zendesk: HelpdeskProvider<Credentials> = {
   createClient: (c) => new ZendeskClient(c),
   supportsTags: true,
   supportsCsat: true,
+  listsOldestFirst: true,
 };

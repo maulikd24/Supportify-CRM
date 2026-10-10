@@ -15,7 +15,7 @@ const schema = z.object({
 });
 type Credentials = z.infer<typeof schema>;
 
-type ZTicket = { id: string; ticketNumber?: string; email?: string | null; phone?: string | null; contact?: { firstName?: string; lastName?: string } | null; subject?: string; status?: string; priority?: string | null; description?: string; createdTime?: string; assignee?: { firstName?: string; lastName?: string; email?: string } | null };
+type ZTicket = { id: string; ticketNumber?: string; modifiedTime?: string; email?: string | null; phone?: string | null; contact?: { firstName?: string; lastName?: string } | null; subject?: string; status?: string; priority?: string | null; description?: string; createdTime?: string; assignee?: { firstName?: string; lastName?: string; email?: string } | null };
 type ZThread = { id: string; direction?: "in" | "out"; createdTime?: string; author?: { name?: string; email?: string }; content?: string; summary?: string };
 type ZComment = { content?: string; isPublic?: boolean; commentedTime?: string; commenter?: { name?: string } };
 
@@ -89,7 +89,7 @@ class ZohoDeskClient implements HelpdeskClient {
         `/tickets/search?status=Closed&modifiedTimeRange=${encodeURIComponent(range)}&sortBy=modifiedTime&limit=100&from=${from}`,
       );
       const rows = page?.data ?? [];
-      for (const t of rows) out.push({ id: t.ticketNumber ?? t.id, tags: [], csat: null });
+      for (const t of rows) out.push({ id: t.ticketNumber ?? t.id, tags: [], csat: null, updatedAt: t.modifiedTime });
       if (rows.length < 100) break;
     }
     return out.slice(0, limit);
@@ -129,4 +129,5 @@ export const zohoDesk: HelpdeskProvider<Credentials> = {
   createClient: (c) => new ZohoDeskClient(c),
   supportsTags: false,
   supportsCsat: false,
+  listsOldestFirst: true,
 };

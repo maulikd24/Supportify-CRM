@@ -47,6 +47,11 @@ export type SolvedTicket = {
   tags: string[];
   /** Customer satisfaction, when the helpdesk records it. */
   csat: "good" | "bad" | null;
+  /**
+   * When the ticket was last updated (or closed), ISO 8601, for providers that list oldest
+   * first: a full page can then be continued from the last ticket's time (CX backfill).
+   */
+  updatedAt?: string;
 };
 
 export interface HelpdeskClient {
@@ -86,4 +91,9 @@ export type HelpdeskProvider<C = Record<string, string>> = {
   /** Whether auto-review's tag rules / bad-CSAT rule can apply. */
   supportsTags: boolean;
   supportsCsat: boolean;
+  /**
+   * listSolvedSince() returns tickets oldest-updated first with `updatedAt` set, so a full
+   * page can be continued from its last ticket. Without it, only one (larger) page is read.
+   */
+  listsOldestFirst?: boolean;
 };
