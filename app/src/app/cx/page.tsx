@@ -11,7 +11,7 @@ export default async function CxOverviewPage() {
   const session = await requireProductAccess("CX_INTELLIGENCE");
   const organizationId = session.user.organizationId;
 
-  const [sub, costSettings, teamCount, conversationCount] = await Promise.all([
+  const [sub, costSettings, teamCount, conversationCount, byStatus] = await Promise.all([
     prisma.productSubscription.findUnique({
       where: { organizationId_product: { organizationId, product: "CX_INTELLIGENCE" } },
       select: { analysesUsedThisPeriod: true, analysisQuota: true },
@@ -19,7 +19,10 @@ export default async function CxOverviewPage() {
     prisma.cxCostSettings.findUnique({ where: { organizationId }, select: { costPerContact: true } }),
     prisma.team.count({ where: { organizationId } }),
     prisma.conversation.count({ where: { organizationId } }),
+    prisma.conversation.groupBy({ by: ["analysisStatus"], where: { organizationId }, _count: { _all: true } }),
   ]);
+  const status = Object.fromEntries(byStatus.map((s) => [s.analysisStatus, s._count._all])) as Partial<Record<string, number>>;
+  const waiting = (status.PENDING ?? 0) + (status.QUEUED ?? 0);
   const costsSet = Object.values((costSettings?.costPerContact ?? {}) as Record<string, number | null>).some((v) => v != null);
 
   const steps = [
@@ -45,7 +48,12 @@ export default async function CxOverviewPage() {
           value={formatNumber(sub?.analysesUsedThisPeriod ?? 0)}
           hint={sub?.analysisQuota != null ? `of ${formatNumber(sub.analysisQuota)} included` : "Unlimited"}
         />
-        <StatTile label="Teams" value={formatNumber(teamCount)} />
+        <StatTile
+          label="Waiting for analysis"
+          value={formatNumber(waiting)}
+          hint={status.SKIPPED_QUOTA ? `${formatNumber(status.SKIPPED_QUOTA)} over this month's allowance` : "Analysed in batches within a few hours"}
+          tone={status.SKIPPED_QUOTA ? "warning" : "default"}
+        />
       </div>
 
       <Panel eyebrow="Get started" title="Set up CX Intelligence">

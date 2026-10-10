@@ -22,13 +22,15 @@ export async function triggerCxWorker({ depth = 0, organizationId }: { depth?: n
   }
 }
 
-/** From the cron tick: start the worker only when there is something to import. */
+/** From the cron tick: start the worker only when there is something to import, analyse or collect. */
 export async function kickCxWorker(): Promise<{ kicked: boolean }> {
-  const [sources, queued] = await Promise.all([
+  const [sources, queued, pending, inFlight] = await Promise.all([
     prisma.cxSource.count({ where: { status: { in: ["active", "error"] } } }),
     prisma.cxIngestJob.count({ where: { status: "QUEUED" } }),
+    prisma.conversation.count({ where: { analysisStatus: "PENDING" } }),
+    prisma.cxClassifyBatch.count({ where: { status: "in_progress" } }),
   ]);
-  if (sources === 0 && queued === 0) return { kicked: false };
+  if (sources === 0 && queued === 0 && pending === 0 && inFlight === 0) return { kicked: false };
   await triggerCxWorker();
   return { kicked: true };
 }
