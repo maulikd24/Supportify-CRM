@@ -4,6 +4,8 @@ import { Radar, Sparkles, Users } from "lucide-react";
 import { requireOrg } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
 import { annualBillingAvailable, launchedProducts, plansForProduct, PRODUCT_LABELS, TRIAL_DAYS } from "@/lib/billing/plans";
+import { getProductAccess } from "@/lib/billing/access";
+import { subscriptionState } from "@/lib/billing/status";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Product } from "@/generated/prisma/client";
 import { PlanPicker } from "./plan-picker";
@@ -30,6 +32,8 @@ export default async function ProductBillingPage({ params }: { params: Promise<{
   });
 
   const plans = plansForProduct(product);
+  const allowed = (await getProductAccess(session.user.organizationId, product)).allowed;
+  const trialEnded = subscription?.status === "TRIALING" && !allowed;
   const Icon = PRODUCT_ICON[product];
 
   return (
@@ -40,10 +44,12 @@ export default async function ProductBillingPage({ params }: { params: Promise<{
         </div>
         <div>
           <h2 className="font-heading text-[19px] font-extrabold">{PRODUCT_LABELS[product]} plans</h2>
-          <p className="text-xs text-muted-foreground">
-            {subscription?.status === "TRIALING" && subscription.trialEndsAt
-              ? `Your trial ends ${subscription.trialEndsAt.toLocaleDateString()}.`
-              : "Pick the plan that fits your team — switch or cancel any time."}
+          <p className={trialEnded ? "text-xs font-medium text-destructive" : "text-xs text-muted-foreground"}>
+            {trialEnded
+              ? `${subscriptionState(subscription, false).line}. Pick a plan to keep using ${PRODUCT_LABELS[product]}; your data is kept.`
+              : subscription?.status === "TRIALING" && subscription.trialEndsAt
+                ? `${subscriptionState(subscription, true).line}.`
+                : "Pick the plan that fits your team — switch or cancel any time."}
           </p>
         </div>
       </div>
