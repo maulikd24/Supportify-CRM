@@ -117,6 +117,8 @@ model Organization {
   cxTeams          Team[]
   cxAgentMappings  AgentTeamMapping[]
   cxCostSettings   CxCostSettings?
+  cxClassifyBatches CxClassifyBatch[]
+  cxMetricBuckets  CxMetricBucket[]
   calibrationSessions CalibrationSession[]
 }
 
@@ -1305,6 +1307,7 @@ model Conversation {
   metadata         Json?
 
   analysisStatus CxAnalysisStatus      @default(PENDING)
+  classifyBatchId String? // the Message Batch analysing it, while QUEUED
   analysis       ConversationAnalysis?
   topics         ConversationTopic[]
 
@@ -1315,6 +1318,7 @@ model Conversation {
   @@index([organizationId, startedAt])
   @@index([organizationId, analysisStatus])
   @@index([organizationId, customerKey])
+  @@index([classifyBatchId])
 }
 
 model ConversationAnalysis {
@@ -1335,6 +1339,7 @@ model ConversationAnalysis {
   deflectableReason String?
   qualityScore      Float? // 0 … 100, lightweight
   qualityFlags      String[]
+  proposedTopic     String? // when no existing topic fit: the model's suggestion for a new one
   model             String
   promptVersion     String
   costUsd           Float
@@ -1389,8 +1394,11 @@ model TaxonomyVersion {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   version        Int
-  snapshot       Json // [{ key, name, description, parentKey }]
+  status         String       @default("active") // "discovering" | "merging" | "active" | "failed" (src/lib/cx/ai/discover.ts)
+  snapshot       Json // active: [{ key, name, description, parentKey }]; while discovering: { candidates }
+  costUsd        Float        @default(0)
   createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @default(now()) @updatedAt
 
   @@unique([organizationId, version])
 }
@@ -1443,4 +1451,47 @@ model CxCostSettings {
   deflectionRate      Float? // 0 … 1: share of deflectable contacts automation could absorb
   retentionMonths     Int          @default(13)
   updatedAt           DateTime     @updatedAt
+}
+
+// One Anthropic Message Batch of conversations sent for analysis (half price, results within
+// hours). Collected by the CX worker once Anthropic reports it ended.
+model CxClassifyBatch {
+  id                String       @id @default(cuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  anthropicBatchId  String       @unique
+  taxonomyVersionId String
+  status            String       @default("in_progress") // "in_progress" | "collected"
+  requestCount      Int
+  succeeded         Int          @default(0)
+  failed            Int          @default(0)
+  costUsd           Float        @default(0)
+  createdAt         DateTime     @default(now())
+  collectedAt       DateTime?
+
+  @@index([status, createdAt])
+}
+
+// Daily totals per org and dimension (everything, a topic, channel, source or team), rebuilt
+// for a day whenever analyses for it land. Dashboards and early warnings read these.
+model CxMetricBucket {
+  organizationId     String
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  day                DateTime     @db.Date
+  dimension          String // "all" | "topic" | "channel" | "source" | "team"
+  dimensionId        String       @default("")
+  conversations      Int
+  sentimentSum       Float        @default(0)
+  sentimentCount     Int          @default(0)
+  negativeCount      Int          @default(0)
+  ratingSum          Float        @default(0) // real CSAT where the source has it, on a 1-5 scale
+  ratingCount        Int          @default(0)
+  predictedCsatSum   Float        @default(0)
+  predictedCsatCount Int          @default(0)
+  highRiskCount      Int          @default(0)
+  deflectableCount   Int          @default(0)
+  handleTimeSum      Int          @default(0)
+  handleTimeCount    Int          @default(0)
+
+  @@id([organizationId, day, dimension, dimensionId])
 }
